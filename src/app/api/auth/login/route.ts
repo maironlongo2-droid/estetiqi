@@ -42,6 +42,39 @@ export async function POST(request: Request) {
 
     const user = users[0];
 
+    const memberships = await sql`
+      SELECT
+        m.organization_id,
+        o.name AS organization_name,
+        o.slug AS organization_slug,
+        m.role
+      FROM memberships m
+      JOIN organizations o
+        ON o.id = m.organization_id
+      WHERE m.user_id = ${user.id}
+      ORDER BY m.created_at ASC
+    `;
+
+    if (memberships.length === 0) {
+      return Response.json(
+        {
+          error: "Usuário sem organização vinculada.",
+        },
+        { status: 403 }
+      );
+    }
+
+    if (memberships.length > 1) {
+      return Response.json(
+        {
+          error: "Usuário vinculado a mais de uma organização.",
+        },
+        { status: 409 }
+      );
+    }
+
+    const membership = memberships[0];
+
     const passwordValid = await verifyPassword(
       password,
       user.password_hash
@@ -56,7 +89,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const session = await createSession(user.id);
+    const session = await createSession(
+      user.id,
+      membership.organization_id
+    );
 
     const response = Response.json({
       user: {
@@ -64,6 +100,12 @@ export async function POST(request: Request) {
         name: user.name,
         email: user.email,
       },
+      organization: {
+        id: membership.organization_id,
+        name: membership.organization_name,
+        slug: membership.organization_slug,
+      },
+      role: membership.role,
     });
 
     response.headers.append(

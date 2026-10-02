@@ -43,10 +43,11 @@ export async function getCurrentUser(request: Request) {
     FROM sessions s
     JOIN users u
       ON u.id = s.user_id
-    JOIN memberships m
-      ON m.user_id = u.id
     JOIN organizations o
-      ON o.id = m.organization_id
+      ON o.id = s.organization_id
+    JOIN memberships m
+      ON m.user_id = s.user_id
+     AND m.organization_id = s.organization_id
     WHERE s.token_hash = ${tokenHash}
       AND s.revoked_at IS NULL
       AND s.expires_at > NOW()

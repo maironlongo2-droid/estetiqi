@@ -99,7 +99,10 @@ export async function POST(request: Request) {
       };
     });
 
-    const session = await createSession(account.user.id);
+    const session = await createSession(
+      account.user.id,
+      account.organization.id
+    );
 
     const response = Response.json(
       {

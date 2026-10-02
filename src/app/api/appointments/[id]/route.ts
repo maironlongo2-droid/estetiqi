@@ -1,4 +1,5 @@
 import { requireCurrentUser } from "@/lib/auth/require-current-user";
+import { hasPermission } from "@/lib/auth/authorization";
 import { sql } from "@/lib/db/client";
 import { updateAppointmentSchema } from "@/lib/validation/appointment";
 
@@ -8,6 +9,16 @@ export async function GET(
 ) {
   try {
     const currentUser = await requireCurrentUser(request);
+
+    if (!hasPermission(currentUser.role, "appointments", "read")) {
+      return Response.json(
+        {
+          error: "Você não tem permissão para visualizar agendamentos.",
+        },
+        { status: 403 }
+      );
+    }
+
     const { id } = await context.params;
 
     const result = await sql`
@@ -78,6 +89,16 @@ export async function PATCH(
 ) {
   try {
     const currentUser = await requireCurrentUser(request);
+
+    if (!hasPermission(currentUser.role, "appointments", "update")) {
+      return Response.json(
+        {
+          error: "Você não tem permissão para atualizar agendamentos.",
+        },
+        { status: 403 }
+      );
+    }
+
     const { id } = await context.params;
 
     const body = await request.json();

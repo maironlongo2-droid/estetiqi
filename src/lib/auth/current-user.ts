@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { sql } from "@/lib/db/client";
+import type { Role } from "@/lib/auth/types";
 
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -71,7 +72,7 @@ export async function getCurrentUser(request: Request) {
       name: session.organization_name,
       slug: session.organization_slug,
     },
-    role: session.role,
+    role: session.role as Role,
     expiresAt: session.expires_at,
   };
 }

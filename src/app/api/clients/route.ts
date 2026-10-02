@@ -1,4 +1,5 @@
 import { requireCurrentUser } from "@/lib/auth/require-current-user";
+import { hasPermission } from "@/lib/auth/authorization";
 import { sql } from "@/lib/db/client";
 import {
   normalizeCpf,
@@ -9,6 +10,15 @@ import { createClientSchema } from "@/lib/validation/client";
 export async function GET(request: Request) {
   try {
     const currentUser = await requireCurrentUser(request);
+
+    if (!hasPermission(currentUser.role, "clients", "read")) {
+      return Response.json(
+        {
+          error: "Você não tem permissão para visualizar clientes.",
+        },
+        { status: 403 }
+      );
+    }
 
     const { searchParams } = new URL(request.url);
 
@@ -127,6 +137,15 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const currentUser = await requireCurrentUser(request);
+
+    if (!hasPermission(currentUser.role, "clients", "create")) {
+      return Response.json(
+        {
+          error: "Você não tem permissão para criar clientes.",
+        },
+        { status: 403 }
+      );
+    }
 
     const body = await request.json();
 

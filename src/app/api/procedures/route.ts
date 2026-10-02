@@ -1,10 +1,21 @@
 import { requireCurrentUser } from "@/lib/auth/require-current-user";
+import { hasPermission } from "@/lib/auth/authorization";
 import { sql } from "@/lib/db/client";
 import { createProcedureSchema } from "@/lib/validation/procedure";
 
 export async function GET(request: Request) {
   try {
     const currentUser = await requireCurrentUser(request);
+
+    if (!hasPermission(currentUser.role, "procedures", "read")) {
+      return Response.json(
+        {
+          error: "Você não tem permissão para visualizar procedimentos.",
+        },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
 
     const search = searchParams.get("search")?.trim() || "";
@@ -111,6 +122,15 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const currentUser = await requireCurrentUser(request);
+
+    if (!hasPermission(currentUser.role, "procedures", "create")) {
+      return Response.json(
+        {
+          error: "Você não tem permissão para criar procedimentos.",
+        },
+        { status: 403 }
+      );
+    }
 
     const body = await request.json();
 

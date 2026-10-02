@@ -1,4 +1,5 @@
 import { requireCurrentUser } from "@/lib/auth/require-current-user";
+import { hasPermission } from "@/lib/auth/authorization";
 import { sql } from "@/lib/db/client";
 import { updateProcedureSchema } from "@/lib/validation/procedure";
 
@@ -8,6 +9,15 @@ export async function GET(
 ) {
   try {
     const currentUser = await requireCurrentUser(request);
+
+    if (!hasPermission(currentUser.role, "procedures", "read")) {
+      return Response.json(
+        {
+          error: "Você não tem permissão para visualizar procedimentos.",
+        },
+        { status: 403 }
+      );
+    }
 
     const { id } = await context.params;
 
@@ -73,6 +83,15 @@ export async function PATCH(
 ) {
   try {
     const currentUser = await requireCurrentUser(request);
+
+    if (!hasPermission(currentUser.role, "procedures", "update")) {
+      return Response.json(
+        {
+          error: "Você não tem permissão para atualizar procedimentos.",
+        },
+        { status: 403 }
+      );
+    }
 
     const { id } = await context.params;
 

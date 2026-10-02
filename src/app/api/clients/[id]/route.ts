@@ -1,4 +1,5 @@
 import { requireCurrentUser } from "@/lib/auth/require-current-user";
+import { hasPermission } from "@/lib/auth/authorization";
 import { sql } from "@/lib/db/client";
 import {
   normalizeCpf,
@@ -12,6 +13,15 @@ export async function GET(
 ) {
   try {
     const currentUser = await requireCurrentUser(request);
+
+    if (!hasPermission(currentUser.role, "clients", "read")) {
+      return Response.json(
+        {
+          error: "Você não tem permissão para visualizar clientes.",
+        },
+        { status: 403 }
+      );
+    }
 
     const { id } = await context.params;
 
@@ -79,6 +89,15 @@ export async function PATCH(
 ) {
   try {
     const currentUser = await requireCurrentUser(request);
+
+    if (!hasPermission(currentUser.role, "clients", "update")) {
+      return Response.json(
+        {
+          error: "Você não tem permissão para atualizar clientes.",
+        },
+        { status: 403 }
+      );
+    }
 
     const { id } = await context.params;
 

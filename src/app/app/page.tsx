@@ -1,11 +1,24 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth/current-user";
 
 export default async function AppPage() {
   const cookieStore = await cookies();
-  const session = cookieStore.get("estetiqi_session");
+  const sessionCookie = cookieStore.get("estetiqi_session");
 
-  if (!session) {
+  if (!sessionCookie?.value) {
+    redirect("/login");
+  }
+
+  const request = new Request("http://estetiqi.local/app", {
+    headers: {
+      cookie: `estetiqi_session=${sessionCookie.value}`,
+    },
+  });
+
+  const currentUser = await getCurrentUser(request);
+
+  if (!currentUser) {
     redirect("/login");
   }
 
@@ -18,12 +31,36 @@ export default async function AppPage() {
           </p>
 
           <h1 className="mt-3 text-3xl font-semibold text-[#30463c]">
-            Área da plataforma
+            Olá, {currentUser.user.name}
           </h1>
 
           <p className="mt-3 text-[#78867f]">
-            Login realizado com sucesso.
+            Você está conectado à organização{" "}
+            <strong>{currentUser.organization.name}</strong>.
           </p>
+
+          <div className="mt-8 grid gap-4 sm:grid-cols-3">
+            <div className="rounded-2xl border border-[#e4ebe7] p-5">
+              <p className="text-sm text-[#78867f]">Organização</p>
+              <p className="mt-1 font-semibold text-[#30463c]">
+                {currentUser.organization.name}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[#e4ebe7] p-5">
+              <p className="text-sm text-[#78867f]">Perfil</p>
+              <p className="mt-1 font-semibold text-[#30463c]">
+                {currentUser.role}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[#e4ebe7] p-5">
+              <p className="text-sm text-[#78867f]">E-mail</p>
+              <p className="mt-1 break-all font-semibold text-[#30463c]">
+                {currentUser.user.email}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </main>

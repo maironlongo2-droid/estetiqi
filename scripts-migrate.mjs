@@ -1,6 +1,9 @@
+import dotenv from "dotenv";
 import { neon } from "@neondatabase/serverless";
-import { readFile, readdir } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
+
+dotenv.config({ path: ".env.local" });
 
 const databaseUrl = process.env.DATABASE_URL;
 

@@ -1,4 +1,5 @@
 import { requireCurrentUser } from "@/lib/auth/require-current-user";
+import { recordCustomerEvent } from "@/lib/events/customer-events";
 import { hasPermission } from "@/lib/auth/authorization";
 import { sql } from "@/lib/db/client";
 import { updateAppointmentSchema } from "@/lib/validation/appointment";
@@ -8,7 +9,7 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const currentUser = await requireCurrentUser(request);
+    const currentUser = await requireCurrentUser();
 
     if (!hasPermission(currentUser.role, "appointments", "read")) {
       return Response.json(
@@ -88,7 +89,7 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const currentUser = await requireCurrentUser(request);
+    const currentUser = await requireCurrentUser();
 
     if (!hasPermission(currentUser.role, "appointments", "update")) {
       return Response.json(
@@ -283,6 +284,25 @@ export async function PATCH(
         created_at,
         updated_at
     `;
+
+    if (status !== current.status) {
+      await recordCustomerEvent({
+        organizationId,
+        clientId,
+        appointmentId: id,
+        eventType: `appointment.${status}`,
+        source: "system",
+        data: {
+          previousStatus: current.status,
+          newStatus: status,
+          procedureId,
+          professionalName,
+          startsAt: startsAt.toISOString(),
+          endsAt: endsAt.toISOString(),
+          price: price ?? null,
+        },
+      });
+    }
 
     return Response.json({
       appointment: result[0],

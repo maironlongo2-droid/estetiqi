@@ -2,7 +2,7 @@ import { requireCurrentUser } from "@/lib/auth/require-current-user";
 
 export async function GET(request: Request) {
   try {
-    const currentUser = await requireCurrentUser(request);
+    const currentUser = await requireCurrentUser();
 
     return Response.json({
       authenticated: true,

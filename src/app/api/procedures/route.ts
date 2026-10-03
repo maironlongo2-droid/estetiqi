@@ -5,7 +5,7 @@ import { createProcedureSchema } from "@/lib/validation/procedure";
 
 export async function GET(request: Request) {
   try {
-    const currentUser = await requireCurrentUser(request);
+    const currentUser = await requireCurrentUser();
 
     if (!hasPermission(currentUser.role, "procedures", "read")) {
       return Response.json(
@@ -121,7 +121,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const currentUser = await requireCurrentUser(request);
+    const currentUser = await requireCurrentUser();
 
     if (!hasPermission(currentUser.role, "procedures", "create")) {
       return Response.json(

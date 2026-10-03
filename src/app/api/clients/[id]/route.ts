@@ -12,7 +12,7 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const currentUser = await requireCurrentUser(request);
+    const currentUser = await requireCurrentUser();
 
     if (!hasPermission(currentUser.role, "clients", "read")) {
       return Response.json(
@@ -88,7 +88,7 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const currentUser = await requireCurrentUser(request);
+    const currentUser = await requireCurrentUser();
 
     if (!hasPermission(currentUser.role, "clients", "update")) {
       return Response.json(

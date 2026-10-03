@@ -1,0 +1,2 @@
+ALTER TABLE organizations
+ADD COLUMN IF NOT EXISTS timezone VARCHAR(50) NOT NULL DEFAULT 'America/Sao_Paulo';

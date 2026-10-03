@@ -1,19 +1,70 @@
 import { requireCurrentUser } from "@/lib/auth/require-current-user";
 import { hasPermission } from "@/lib/auth/authorization";
+import { recordCustomerEvent } from "@/lib/events/customer-events";
 import { sql } from "@/lib/db/client";
 import { createAppointmentSchema } from "@/lib/validation/appointment";
 
 export async function GET(request: Request) {
   try {
-    const currentUser = await requireCurrentUser(request);
+    const currentUser = await requireCurrentUser();
 
     if (!hasPermission(currentUser.role, "appointments", "read")) {
       return Response.json(
-        {
-          error: "Você não tem permissão para visualizar agendamentos.",
-        },
+        { error: "Você não tem permissão para visualizar agendamentos." },
         { status: 403 }
       );
+    }
+
+    const url = new URL(request.url);
+    const date = url.searchParams.get("date");
+    const status = url.searchParams.get("status");
+
+    const organizationId = currentUser.organization.id;
+
+    if (date) {
+      const start = new Date(`${date}T00:00:00-03:00`);
+      const end = new Date(`${date}T23:59:59.999-03:00`);
+
+      const appointments = await sql`
+        SELECT
+          a.id,
+          a.organization_id,
+          a.client_id,
+          c.name AS client_name,
+          a.procedure_id,
+          p.name AS procedure_name,
+          a.professional_name,
+          a.starts_at,
+          a.ends_at,
+          a.price,
+          a.notes,
+          a.status,
+          a.created_at,
+          a.updated_at
+        FROM appointments a
+        JOIN clients c
+          ON c.id = a.client_id
+          AND c.organization_id = ${organizationId}
+        LEFT JOIN procedures p
+          ON p.id = a.procedure_id
+          AND p.organization_id = ${organizationId}
+        WHERE a.organization_id = ${organizationId}
+          AND a.starts_at >= ${start.toISOString()}
+          AND a.starts_at <= ${end.toISOString()}
+          ${status ? sql`AND a.status = ${status}` : sql``}
+        ORDER BY a.starts_at ASC
+      `;
+
+      return Response.json({
+        appointments,
+        date,
+        pagination: {
+          page: 1,
+          limit: appointments.length,
+          total: appointments.length,
+          totalPages: appointments.length > 0 ? 1 : 0,
+        },
+      });
     }
 
     const appointments = await sql`
@@ -35,9 +86,12 @@ export async function GET(request: Request) {
       FROM appointments a
       JOIN clients c
         ON c.id = a.client_id
+        AND c.organization_id = ${organizationId}
       LEFT JOIN procedures p
         ON p.id = a.procedure_id
-      WHERE a.organization_id = ${currentUser.organization.id}
+        AND p.organization_id = ${organizationId}
+      WHERE a.organization_id = ${organizationId}
+        ${status ? sql`AND a.status = ${status}` : sql``}
       ORDER BY a.starts_at ASC
       LIMIT 100
     `;
@@ -57,9 +111,7 @@ export async function GET(request: Request) {
       error.message === "UNAUTHENTICATED"
     ) {
       return Response.json(
-        {
-          error: "Não autenticado.",
-        },
+        { error: "Não autenticado." },
         { status: 401 }
       );
     }
@@ -67,9 +119,7 @@ export async function GET(request: Request) {
     console.error("List appointments error:", error);
 
     return Response.json(
-      {
-        error: "Não foi possível listar os agendamentos.",
-      },
+      { error: "Não foi possível listar os agendamentos." },
       { status: 500 }
     );
   }
@@ -77,19 +127,16 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const currentUser = await requireCurrentUser(request);
+    const currentUser = await requireCurrentUser();
 
     if (!hasPermission(currentUser.role, "appointments", "create")) {
       return Response.json(
-        {
-          error: "Você não tem permissão para criar agendamentos.",
-        },
+        { error: "Você não tem permissão para criar agendamentos." },
         { status: 403 }
       );
     }
 
     const body = await request.json();
-
     const result = createAppointmentSchema.safeParse(body);
 
     if (!result.success) {
@@ -125,9 +172,7 @@ export async function POST(request: Request) {
 
     if (clientResult.length === 0) {
       return Response.json(
-        {
-          error: "Cliente não encontrado.",
-        },
+        { error: "Cliente não encontrado." },
         { status: 404 }
       );
     }
@@ -145,9 +190,7 @@ export async function POST(request: Request) {
 
       if (procedureResult.length === 0) {
         return Response.json(
-          {
-            error: "Procedimento não encontrado.",
-          },
+          { error: "Procedimento não encontrado." },
           { status: 404 }
         );
       }
@@ -162,9 +205,7 @@ export async function POST(request: Request) {
       end <= start
     ) {
       return Response.json(
-        {
-          error: "Intervalo de horário inválido.",
-        },
+        { error: "Intervalo de horário inválido." },
         { status: 400 }
       );
     }
@@ -183,99 +224,69 @@ export async function POST(request: Request) {
 
       if (conflictingAppointment.length > 0) {
         return Response.json(
-          {
-            error:
-              "O profissional já possui um agendamento nesse horário.",
-          },
+          { error: "O profissional já possui um agendamento nesse horário." },
           { status: 409 }
         );
       }
     }
 
-    let appointments;
+    const appointments = await sql`
+      INSERT INTO appointments (
+        organization_id,
+        client_id,
+        procedure_id,
+        professional_name,
+        starts_at,
+        ends_at,
+        price,
+        notes,
+        status
+      )
+      VALUES (
+        ${organizationId},
+        ${clientId},
+        ${normalizedProcedureId},
+        ${professionalName || null},
+        ${start.toISOString()},
+        ${end.toISOString()},
+        ${price ?? null},
+        ${notes || null},
+        ${status ?? "scheduled"}
+      )
+      RETURNING
+        id,
+        organization_id,
+        client_id,
+        procedure_id,
+        professional_name,
+        starts_at,
+        ends_at,
+        price,
+        notes,
+        status,
+        created_at,
+        updated_at
+    `;
 
-    if (normalizedProcedureId) {
-      appointments = await sql`
-        INSERT INTO appointments (
-          organization_id,
-          client_id,
-          procedure_id,
-          professional_name,
-          starts_at,
-          ends_at,
-          price,
-          notes,
-          status
-        )
-        VALUES (
-          ${organizationId},
-          ${clientId},
-          ${normalizedProcedureId},
-          ${professionalName || null},
-          ${start.toISOString()},
-          ${end.toISOString()},
-          ${price ?? null},
-          ${notes || null},
-          ${status ?? "scheduled"}
-        )
-        RETURNING
-          id,
-          organization_id,
-          client_id,
-          procedure_id,
-          professional_name,
-          starts_at,
-          ends_at,
-          price,
-          notes,
-          status,
-          created_at,
-          updated_at
-      `;
-    } else {
-      appointments = await sql`
-        INSERT INTO appointments (
-          organization_id,
-          client_id,
-          procedure_id,
-          professional_name,
-          starts_at,
-          ends_at,
-          price,
-          notes,
-          status
-        )
-        VALUES (
-          ${organizationId},
-          ${clientId},
-          NULL,
-          ${professionalName || null},
-          ${start.toISOString()},
-          ${end.toISOString()},
-          ${price ?? null},
-          ${notes || null},
-          ${status ?? "scheduled"}
-        )
-        RETURNING
-          id,
-          organization_id,
-          client_id,
-          procedure_id,
-          professional_name,
-          starts_at,
-          ends_at,
-          price,
-          notes,
-          status,
-          created_at,
-          updated_at
-      `;
-    }
+    const appointment = appointments[0];
+
+    await recordCustomerEvent({
+      organizationId,
+      clientId,
+      appointmentId: appointment.id,
+      eventType: "appointment.created",
+      source: "system",
+      data: {
+        procedureId: normalizedProcedureId,
+        professionalName: professionalName || null,
+        startsAt: appointment.starts_at,
+        endsAt: appointment.ends_at,
+        price: price ?? null,
+      },
+    });
 
     return Response.json(
-      {
-        appointment: appointments[0],
-      },
+      { appointment },
       { status: 201 }
     );
   } catch (error) {
@@ -284,9 +295,7 @@ export async function POST(request: Request) {
       error.message === "UNAUTHENTICATED"
     ) {
       return Response.json(
-        {
-          error: "Não autenticado.",
-        },
+        { error: "Não autenticado." },
         { status: 401 }
       );
     }
@@ -294,9 +303,7 @@ export async function POST(request: Request) {
     console.error("Create appointment error:", error);
 
     return Response.json(
-      {
-        error: "Não foi possível criar o agendamento.",
-      },
+      { error: "Não foi possível criar o agendamento." },
       { status: 500 }
     );
   }

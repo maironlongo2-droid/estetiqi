@@ -41,12 +41,12 @@ export default function Home() {
           </div>
 
           <div>
-            <div className="text-xl font-semibold tracking-[0.18em] text-[#30463c]">
+            <div className="text-2xl font-semibold tracking-[0.14em] text-[#30463c]">
               Esteti<span className="text-[#7a9f8d]">Qi</span>
             </div>
 
-            <div className="text-[9px] font-medium uppercase tracking-[0.28em] text-[#91a39b]">
-              Beauty Intelligence
+            <div className="mt-0.5 text-[8px] font-medium uppercase tracking-[0.2em] text-[#91a39b]">
+              
             </div>
           </div>
         </div>
@@ -65,9 +65,12 @@ export default function Home() {
           </a>
         </div>
 
-        <button className="rounded-full border border-[#d7e1dc] bg-white px-5 py-2.5 text-sm font-medium text-[#496458] shadow-sm transition hover:bg-[#f5faf7]">
+        <a
+          href="/login"
+          className="rounded-full border border-[#d7e1dc] bg-white px-5 py-2.5 text-sm font-medium text-[#496458] shadow-sm transition hover:bg-[#f5faf7]"
+        >
           Entrar
-        </button>
+        </a>
       </nav>
 
       {/* Hero */}
@@ -76,7 +79,7 @@ export default function Home() {
           <div>
             <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#dce8e1] bg-white/80 px-4 py-2 text-xs font-medium text-[#678075] shadow-sm backdrop-blur">
               <span className="text-[#b88996]">✦</span>
-              Gestão • Automação • Inteligência Artificial
+              
             </div>
 
             <h1 className="max-w-3xl text-5xl font-semibold leading-[1.05] tracking-[-0.04em] text-[#263a32] sm:text-6xl lg:text-7xl">
@@ -93,13 +96,13 @@ export default function Home() {
             </p>
 
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <button className="rounded-full bg-[#527765] px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#527765]/15 transition hover:-translate-y-0.5 hover:bg-[#456957]">
+              <a href="/cadastro" className="rounded-full bg-[#527765] px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#527765]/15 transition hover:-translate-y-0.5 hover:bg-[#456957]">
                 Começar agora
-              </button>
+              </a>
 
-              <button className="rounded-full border border-[#d7e1dc] bg-white px-7 py-3.5 text-sm font-semibold text-[#527765] transition hover:bg-[#f5faf7]">
+              <a href="#recursos" className="rounded-full border border-[#d7e1dc] bg-white px-7 py-3.5 text-sm font-semibold text-[#527765] transition hover:bg-[#f5faf7]">
                 Conhecer a plataforma
-              </button>
+              </a>
             </div>
 
             <div className="mt-8 flex items-center gap-3 text-xs text-[#84928c]">

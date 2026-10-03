@@ -1,30 +1,11 @@
-import { getCurrentUser } from "@/lib/auth/current-user";
+import { requireCurrentUser } from "@/lib/auth/require-current-user";
 
-export async function GET(request: Request) {
-  try {
-    const currentUser = await getCurrentUser(request);
+export async function GET() {
+  const currentUser = await requireCurrentUser();
 
-    if (!currentUser) {
-      return Response.json(
-        {
-          error: "Não autenticado.",
-        },
-        { status: 401 }
-      );
-    }
-
-    return Response.json({
-      authenticated: true,
-      ...currentUser,
-    });
-  } catch (error) {
-    console.error("Auth me error:", error);
-
-    return Response.json(
-      {
-        error: "Não foi possível verificar a sessão.",
-      },
-      { status: 500 }
-    );
-  }
+  return Response.json({
+    user: currentUser.user,
+    organization: currentUser.organization,
+    role: currentUser.role,
+  });
 }

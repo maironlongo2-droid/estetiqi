@@ -1,0 +1,6 @@
+ALTER TABLE organizations
+ADD COLUMN business_phone VARCHAR(30),
+ADD COLUMN city VARCHAR(100),
+ADD COLUMN state VARCHAR(2),
+ADD COLUMN business_type VARCHAR(80),
+ADD COLUMN onboarding_completed BOOLEAN NOT NULL DEFAULT FALSE;

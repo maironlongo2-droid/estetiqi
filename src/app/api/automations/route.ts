@@ -12,12 +12,13 @@ const automationSchema = z.object({
 });
 
 export async function GET() {
-  const currentUser = await requireCurrentUser();
-  if (!hasPermission(currentUser.role, "intelligence", "read")) {
-    throw new Error("FORBIDDEN");
-  }
+  try {
+    const currentUser = await requireCurrentUser();
+    if (!hasPermission(currentUser.role, "intelligence", "read")) {
+      throw new Error("FORBIDDEN");
+    }
 
-  const result = await sql`
+    const result = await sql`
     SELECT
       id,
       name,
@@ -32,26 +33,43 @@ export async function GET() {
     ORDER BY created_at DESC
   `;
 
-  return Response.json(result);
+    return Response.json(result);
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
+      return Response.json({ error: "Não autenticado." }, { status: 401 });
+    }
+
+    if (error instanceof Error && error.message === "FORBIDDEN") {
+      return Response.json({ error: "Sem permissão." }, { status: 403 });
+    }
+
+    console.error("List automations error:", error);
+
+    return Response.json(
+      { error: "Não foi possível listar as automações." },
+      { status: 500 },
+    );
+  }
 }
 
 export async function POST(request: Request) {
-  const currentUser = await requireCurrentUser();
-  if (!hasPermission(currentUser.role, "intelligence", "create")) {
-    throw new Error("FORBIDDEN");
-  }
+  try {
+    const currentUser = await requireCurrentUser();
+    if (!hasPermission(currentUser.role, "intelligence", "create")) {
+      throw new Error("FORBIDDEN");
+    }
 
-  const body = await request.json();
-  const parsed = automationSchema.safeParse(body);
+    const body = await request.json();
+    const parsed = automationSchema.safeParse(body);
 
-  if (!parsed.success) {
-    return Response.json(
-      { error: "INVALID_DATA", details: parsed.error.flatten() },
-      { status: 400 }
-    );
-  }
+    if (!parsed.success) {
+      return Response.json(
+        { error: "INVALID_DATA", details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
 
-  const result = await sql`
+    const result = await sql`
     INSERT INTO automations (
       organization_id,
       name,
@@ -79,5 +97,21 @@ export async function POST(request: Request) {
       updated_at
   `;
 
-  return Response.json(result[0], { status: 201 });
+    return Response.json(result[0], { status: 201 });
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
+      return Response.json({ error: "Não autenticado." }, { status: 401 });
+    }
+
+    if (error instanceof Error && error.message === "FORBIDDEN") {
+      return Response.json({ error: "Sem permissão." }, { status: 403 });
+    }
+
+    console.error("Create automation error:", error);
+
+    return Response.json(
+      { error: "Não foi possível criar a automação." },
+      { status: 500 },
+    );
+  }
 }

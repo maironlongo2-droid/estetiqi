@@ -19,16 +19,17 @@ const paymentSchema = z.object({
 });
 
 export async function GET() {
-  const currentUser = await requireCurrentUser();
+  try {
+    const currentUser = await requireCurrentUser();
 
-  if (!hasPermission(currentUser.role, "finance", "read")) {
-    return Response.json(
-      { error: "Você não tem permissão para visualizar o financeiro." },
-      { status: 403 }
-    );
-  }
+    if (!hasPermission(currentUser.role, "finance", "read")) {
+      return Response.json(
+        { error: "Você não tem permissão para visualizar o financeiro." },
+        { status: 403 },
+      );
+    }
 
-  const result = await sql`
+    const result = await sql`
     SELECT
       p.id,
       p.client_id,
@@ -54,32 +55,45 @@ export async function GET() {
     LIMIT 100
   `;
 
-  return Response.json(result);
+    return Response.json(result);
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
+      return Response.json({ error: "Não autenticado." }, { status: 401 });
+    }
+
+    console.error("List payments error:", error);
+
+    return Response.json(
+      { error: "Não foi possível listar os pagamentos." },
+      { status: 500 },
+    );
+  }
 }
 
 export async function POST(request: Request) {
-  const currentUser = await requireCurrentUser();
+  try {
+    const currentUser = await requireCurrentUser();
 
-  if (!hasPermission(currentUser.role, "finance", "create")) {
-    return Response.json(
-      { error: "Você não tem permissão para registrar pagamentos." },
-      { status: 403 }
-    );
-  }
+    if (!hasPermission(currentUser.role, "finance", "create")) {
+      return Response.json(
+        { error: "Você não tem permissão para registrar pagamentos." },
+        { status: 403 },
+      );
+    }
 
-  const body = await request.json();
-  const parsed = paymentSchema.safeParse(body);
+    const body = await request.json();
+    const parsed = paymentSchema.safeParse(body);
 
-  if (!parsed.success) {
-    return Response.json(
-      { error: "INVALID_DATA", details: parsed.error.flatten() },
-      { status: 400 }
-    );
-  }
+    if (!parsed.success) {
+      return Response.json(
+        { error: "INVALID_DATA", details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
 
-  const data = parsed.data;
+    const data = parsed.data;
 
-  const client = await sql`
+    const client = await sql`
     SELECT id
     FROM clients
     WHERE id = ${data.clientId}
@@ -87,12 +101,12 @@ export async function POST(request: Request) {
     LIMIT 1
   `;
 
-  if (client.length === 0) {
-    return Response.json({ error: "CLIENT_NOT_FOUND" }, { status: 404 });
-  }
+    if (client.length === 0) {
+      return Response.json({ error: "CLIENT_NOT_FOUND" }, { status: 404 });
+    }
 
-  if (data.procedureId) {
-    const procedure = await sql`
+    if (data.procedureId) {
+      const procedure = await sql`
       SELECT id
       FROM procedures
       WHERE id = ${data.procedureId}
@@ -100,13 +114,13 @@ export async function POST(request: Request) {
       LIMIT 1
     `;
 
-    if (procedure.length === 0) {
-      return Response.json({ error: "PROCEDURE_NOT_FOUND" }, { status: 404 });
+      if (procedure.length === 0) {
+        return Response.json({ error: "PROCEDURE_NOT_FOUND" }, { status: 404 });
+      }
     }
-  }
 
-  if (data.appointmentId) {
-    const appointment = await sql`
+    if (data.appointmentId) {
+      const appointment = await sql`
       SELECT id
       FROM appointments
       WHERE id = ${data.appointmentId}
@@ -114,22 +128,37 @@ export async function POST(request: Request) {
       LIMIT 1
     `;
 
-    if (appointment.length === 0) {
-      return Response.json({ error: "APPOINTMENT_NOT_FOUND" }, { status: 404 });
+      if (appointment.length === 0) {
+        return Response.json(
+          { error: "APPOINTMENT_NOT_FOUND" },
+          { status: 404 },
+        );
+      }
     }
+
+    const payment = await createPayment({
+      organizationId: currentUser.organization.id,
+      clientId: data.clientId,
+      appointmentId: data.appointmentId || null,
+      procedureId: data.procedureId || null,
+      amount: data.amount,
+      paymentMethod: data.paymentMethod,
+      status: data.status,
+      paidAt: data.paidAt || null,
+      notes: data.notes || null,
+    });
+
+    return Response.json(payment, { status: 201 });
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
+      return Response.json({ error: "Não autenticado." }, { status: 401 });
+    }
+
+    console.error("Create payment error:", error);
+
+    return Response.json(
+      { error: "Não foi possível registrar o pagamento." },
+      { status: 500 },
+    );
   }
-
-  const payment = await createPayment({
-    organizationId: currentUser.organization.id,
-    clientId: data.clientId,
-    appointmentId: data.appointmentId || null,
-    procedureId: data.procedureId || null,
-    amount: data.amount,
-    paymentMethod: data.paymentMethod,
-    status: data.status,
-    paidAt: data.paidAt || null,
-    notes: data.notes || null,
-  });
-
-  return Response.json(payment, { status: 201 });
 }

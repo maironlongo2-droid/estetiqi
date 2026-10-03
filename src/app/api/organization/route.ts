@@ -12,9 +12,14 @@ const onboardingSchema = z.object({
 });
 
 export async function GET() {
-  const currentUser = await requireCurrentUser();
+  try {
+    const currentUser = await requireCurrentUser();
 
-  const result = await sql`
+    if (!hasPermission(currentUser.role, "organization", "read")) {
+      return Response.json({ error: "Sem permissão." }, { status: 403 });
+    }
+
+    const result = await sql`
     SELECT
       id,
       name,
@@ -29,33 +34,50 @@ export async function GET() {
     LIMIT 1
   `;
 
-  if (result.length === 0) {
+    if (result.length === 0) {
+      return Response.json(
+        { error: "ORGANIZATION_NOT_FOUND" },
+        { status: 404 },
+      );
+    }
+
+    return Response.json(result[0]);
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
+      return Response.json({ error: "Não autenticado." }, { status: 401 });
+    }
+
+    if (error instanceof Error && error.message === "FORBIDDEN") {
+      return Response.json({ error: "Sem permissão." }, { status: 403 });
+    }
+
+    console.error("Get organization error:", error);
+
     return Response.json(
-      { error: "ORGANIZATION_NOT_FOUND" },
-      { status: 404 }
+      { error: "Não foi possível carregar a organização." },
+      { status: 500 },
     );
   }
-
-  return Response.json(result[0]);
 }
 
 export async function PATCH(request: Request) {
-  const currentUser = await requireCurrentUser();
-  if (!hasPermission(currentUser.role, "organization", "update")) {
-    throw new Error("FORBIDDEN");
-  }
+  try {
+    const currentUser = await requireCurrentUser();
+    if (!hasPermission(currentUser.role, "organization", "update")) {
+      throw new Error("FORBIDDEN");
+    }
 
-  const body = await request.json();
-  const parsed = onboardingSchema.safeParse(body);
+    const body = await request.json();
+    const parsed = onboardingSchema.safeParse(body);
 
-  if (!parsed.success) {
-    return Response.json(
-      { error: "INVALID_DATA", details: parsed.error.flatten() },
-      { status: 400 }
-    );
-  }
+    if (!parsed.success) {
+      return Response.json(
+        { error: "INVALID_DATA", details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
 
-  const result = await sql`
+    const result = await sql`
     UPDATE organizations
     SET
       name = ${parsed.data.name},
@@ -77,12 +99,28 @@ export async function PATCH(request: Request) {
       onboarding_completed
   `;
 
-  if (result.length === 0) {
+    if (result.length === 0) {
+      return Response.json(
+        { error: "ORGANIZATION_NOT_FOUND" },
+        { status: 404 },
+      );
+    }
+
+    return Response.json(result[0]);
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
+      return Response.json({ error: "Não autenticado." }, { status: 401 });
+    }
+
+    if (error instanceof Error && error.message === "FORBIDDEN") {
+      return Response.json({ error: "Sem permissão." }, { status: 403 });
+    }
+
+    console.error("Update organization error:", error);
+
     return Response.json(
-      { error: "ORGANIZATION_NOT_FOUND" },
-      { status: 404 }
+      { error: "Não foi possível atualizar a organização." },
+      { status: 500 },
     );
   }
-
-  return Response.json(result[0]);
 }

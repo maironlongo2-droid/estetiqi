@@ -4,9 +4,14 @@ import { sql } from "@/lib/db/client";
 import { analyzeBusiness } from "@/lib/ai/business-analysis";
 
 export async function GET() {
-  const currentUser = await requireCurrentUser();
+  try {
+    const currentUser = await requireCurrentUser();
 
-  const result = await sql`
+    if (!hasPermission(currentUser.role, "intelligence", "read")) {
+      return Response.json({ error: "Sem permissão." }, { status: 403 });
+    }
+
+    const result = await sql`
     SELECT
       id,
       type,
@@ -30,15 +35,42 @@ export async function GET() {
     LIMIT 20
   `;
 
-  return Response.json(result);
+    return Response.json(result);
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
+      return Response.json({ error: "Não autenticado." }, { status: 401 });
+    }
+
+    console.error("List AI opportunities error:", error);
+
+    return Response.json(
+      { error: "Não foi possível carregar as oportunidades." },
+      { status: 500 },
+    );
+  }
 }
 
 export async function POST() {
-  const currentUser = await requireCurrentUser();
+  try {
+    const currentUser = await requireCurrentUser();
 
-  const result = await analyzeBusiness(
-    currentUser.organization.id
-  );
+    if (!hasPermission(currentUser.role, "intelligence", "create")) {
+      return Response.json({ error: "Sem permissão." }, { status: 403 });
+    }
 
-  return Response.json(result);
+    const result = await analyzeBusiness(currentUser.organization.id);
+
+    return Response.json(result);
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
+      return Response.json({ error: "Não autenticado." }, { status: 401 });
+    }
+
+    console.error("Analyze AI opportunities error:", error);
+
+    return Response.json(
+      { error: "Não foi possível analisar as oportunidades." },
+      { status: 500 },
+    );
+  }
 }

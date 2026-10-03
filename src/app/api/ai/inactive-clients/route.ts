@@ -9,21 +9,26 @@ const requestSchema = z.object({
 });
 
 export async function GET(request: Request) {
-  const currentUser = await requireCurrentUser();
+  try {
+    const currentUser = await requireCurrentUser();
 
-  const url = new URL(request.url);
+    if (!hasPermission(currentUser.role, "intelligence", "read")) {
+      return Response.json({ error: "Sem permissão." }, { status: 403 });
+    }
 
-  const parsed = requestSchema.safeParse({
-    days: url.searchParams.get("days") ?? undefined,
-  });
+    const url = new URL(request.url);
 
-  if (!parsed.success) {
-    return Response.json({ error: "INVALID_DATA" }, { status: 400 });
-  }
+    const parsed = requestSchema.safeParse({
+      days: url.searchParams.get("days") ?? undefined,
+    });
 
-  const days = parsed.data.days;
+    if (!parsed.success) {
+      return Response.json({ error: "INVALID_DATA" }, { status: 400 });
+    }
 
-  const clients = await sql`
+    const days = parsed.data.days;
+
+    const clients = await sql`
     SELECT
       c.id,
       c.name,
@@ -47,21 +52,33 @@ export async function GET(request: Request) {
     LIMIT 50
   `;
 
-  const analysis = await analyzeInactiveClients(
-    clients.map((client) => ({
-      id: client.id,
-      name: client.name,
-      phone: client.phone,
-      email: client.email,
-      last_appointment_at: client.last_appointment_at,
-      inactive_days: client.inactive_days,
-    })),
-    days
-  );
+    const analysis = await analyzeInactiveClients(
+      clients.map((client) => ({
+        id: client.id,
+        name: client.name,
+        phone: client.phone,
+        email: client.email,
+        last_appointment_at: client.last_appointment_at,
+        inactive_days: client.inactive_days,
+      })),
+      days,
+    );
 
-  return Response.json({
-    count: clients.length,
-    clients,
-    analysis,
-  });
+    return Response.json({
+      count: clients.length,
+      clients,
+      analysis,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
+      return Response.json({ error: "Não autenticado." }, { status: 401 });
+    }
+
+    console.error("Inactive clients analysis error:", error);
+
+    return Response.json(
+      { error: "Não foi possível analisar os clientes inativos." },
+      { status: 500 },
+    );
+  }
 }

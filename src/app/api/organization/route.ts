@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { sql } from "@/lib/db/client";
 import { requireCurrentUser } from "@/lib/auth/require-current-user";
+import { hasPermission } from "@/lib/auth/authorization";
 
 const onboardingSchema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -40,6 +41,9 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   const currentUser = await requireCurrentUser();
+  if (!hasPermission(currentUser.role, "organization", "update")) {
+    throw new Error("FORBIDDEN");
+  }
 
   const body = await request.json();
   const parsed = onboardingSchema.safeParse(body);

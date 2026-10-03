@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { sql } from "@/lib/db/client";
 import { requireCurrentUser } from "@/lib/auth/require-current-user";
+import { hasPermission } from "@/lib/auth/authorization";
 import { analyzeInactiveClients } from "@/lib/ai/engine";
 
 const requestSchema = z.object({

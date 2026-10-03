@@ -1,11 +1,15 @@
 import { sql } from "@/lib/db/client";
 import { requireCurrentUser } from "@/lib/auth/require-current-user";
+import { hasPermission } from "@/lib/auth/authorization";
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const currentUser = await requireCurrentUser();
+  if (!hasPermission(currentUser.role, "intelligence", "update")) {
+    throw new Error("FORBIDDEN");
+  }
   const { id } = await params;
   const body = await request.json();
 

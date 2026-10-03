@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { sql } from "@/lib/db/client";
 import { requireCurrentUser } from "@/lib/auth/require-current-user";
+import { hasPermission } from "@/lib/auth/authorization";
 
 const automationSchema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -12,6 +13,9 @@ const automationSchema = z.object({
 
 export async function GET() {
   const currentUser = await requireCurrentUser();
+  if (!hasPermission(currentUser.role, "intelligence", "read")) {
+    throw new Error("FORBIDDEN");
+  }
 
   const result = await sql`
     SELECT
@@ -33,6 +37,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const currentUser = await requireCurrentUser();
+  if (!hasPermission(currentUser.role, "intelligence", "create")) {
+    throw new Error("FORBIDDEN");
+  }
 
   const body = await request.json();
   const parsed = automationSchema.safeParse(body);

@@ -1,4 +1,5 @@
 import { requireCurrentUser } from "@/lib/auth/require-current-user";
+import { hasPermission } from "@/lib/auth/authorization";
 import { sql } from "@/lib/db/client";
 import { analyzeBusiness } from "@/lib/ai/business-analysis";
 

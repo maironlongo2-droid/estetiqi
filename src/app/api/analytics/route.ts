@@ -1,4 +1,5 @@
 import { requireCurrentUser } from "@/lib/auth/require-current-user";
+import { hasPermission } from "@/lib/auth/authorization";
 import { getBusinessMetrics } from "@/lib/analytics/business-metrics";
 
 export async function GET() {

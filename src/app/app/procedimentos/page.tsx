@@ -17,6 +17,7 @@ export default function ProcedimentosPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [editingProcedure, setEditingProcedure] = useState<Procedure | null>(null);
   const [error, setError] = useState("");
 
   async function loadProcedures() {
@@ -39,18 +40,20 @@ export default function ProcedimentosPage() {
     setSaving(true);
     setError("");
 
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
 
     const price = Number(form.get("price"));
     const durationMinutes = Number(form.get("durationMinutes"));
     const returnIntervalDays = Number(form.get("returnIntervalDays"));
 
     const response = await fetch("/api/procedures", {
-      method: "POST",
+      method: editingProcedure ? "PUT" : "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        ...(editingProcedure ? { id: editingProcedure.id } : {}),
         name: form.get("name"),
         description: form.get("description"),
         price: price || undefined,
@@ -68,9 +71,42 @@ export default function ProcedimentosPage() {
       return;
     }
 
-    event.currentTarget.reset();
+    formElement.reset();
     setShowForm(false);
+    setEditingProcedure(null);
     setSaving(false);
+    await loadProcedures();
+  }
+
+
+  function startEditing(procedure: Procedure) {
+    setEditingProcedure(procedure);
+    setShowForm(true);
+    setError("");
+  }
+
+  async function handleDelete(procedure: Procedure) {
+    if (!window.confirm(`Excluir o procedimento "${procedure.name}"?`)) {
+      return;
+    }
+
+    setError("");
+
+    const response = await fetch("/api/procedures", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id: procedure.id }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(data.error || "Não foi possível excluir o procedimento.");
+      return;
+    }
+
     await loadProcedures();
   }
 
@@ -111,6 +147,7 @@ export default function ProcedimentosPage() {
                   required
                   minLength={2}
                   maxLength={120}
+                  defaultValue={editingProcedure?.name || ""}
                   className="mt-2 w-full rounded-xl border border-[#dfe9e3] px-4 py-3 outline-none focus:border-[#30463c]"
                   placeholder="Ex.: Limpeza de pele"
                 />
@@ -123,6 +160,7 @@ export default function ProcedimentosPage() {
                   rows={3}
                   className="mt-2 w-full rounded-xl border border-[#dfe9e3] px-4 py-3 outline-none focus:border-[#30463c]"
                   placeholder="Descrição do procedimento"
+                  defaultValue={editingProcedure?.description || ""}
                 />
               </label>
 
@@ -135,6 +173,7 @@ export default function ProcedimentosPage() {
                   step="0.01"
                   className="mt-2 w-full rounded-xl border border-[#dfe9e3] px-4 py-3 outline-none focus:border-[#30463c]"
                   placeholder="150.00"
+                  defaultValue={editingProcedure?.price ?? ""}
                 />
               </label>
 
@@ -146,6 +185,7 @@ export default function ProcedimentosPage() {
                   min="1"
                   className="mt-2 w-full rounded-xl border border-[#dfe9e3] px-4 py-3 outline-none focus:border-[#30463c]"
                   placeholder="60"
+                  defaultValue={editingProcedure?.duration_minutes ?? ""}
                 />
               </label>
 
@@ -159,6 +199,7 @@ export default function ProcedimentosPage() {
                   min="1"
                   className="mt-2 w-full rounded-xl border border-[#dfe9e3] px-4 py-3 outline-none focus:border-[#30463c]"
                   placeholder="30"
+                  defaultValue={editingProcedure?.return_interval_days ?? ""}
                 />
               </label>
             </div>
@@ -174,7 +215,11 @@ export default function ProcedimentosPage() {
               disabled={saving}
               className="mt-6 rounded-xl bg-[#30463c] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
             >
-              {saving ? "Salvando..." : "Cadastrar procedimento"}
+              {saving
+                ? "Salvando..."
+                : editingProcedure
+                  ? "Salvar alterações"
+                  : "Cadastrar procedimento"}
             </button>
           </form>
         )}
@@ -205,17 +250,35 @@ export default function ProcedimentosPage() {
                     </p>
                   </div>
 
-                  <div className="text-right">
-                    {procedure.price !== null && (
-                      <p className="font-semibold">
-                        R$ {Number(procedure.price).toFixed(2)}
-                      </p>
-                    )}
-                    <span className="text-xs text-[#78867f]">
-                      {procedure.duration_minutes
-                        ? `${procedure.duration_minutes} min`
-                        : "Duração não definida"}
-                    </span>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      {procedure.price !== null && (
+                        <p className="font-semibold">
+                          R$ {Number(procedure.price).toFixed(2)}
+                        </p>
+                      )}
+                      <span className="text-xs text-[#78867f]">
+                        {procedure.duration_minutes
+                          ? `${procedure.duration_minutes} min`
+                          : "Duração não definida"}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => startEditing(procedure)}
+                      className="rounded-lg border border-[#dfe9e3] px-3 py-2 text-sm font-medium"
+                    >
+                      Editar
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(procedure)}
+                      className="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-700"
+                    >
+                      Excluir
+                    </button>
                   </div>
                 </div>
               ))}

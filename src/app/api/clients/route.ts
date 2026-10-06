@@ -279,9 +279,9 @@ export async function POST(request: Request) {
       FROM clients
       WHERE organization_id = ${organizationId}
         AND (
-          (${normalizedPhone} IS NOT NULL AND phone = ${normalizedPhone})
-          OR (${normalizedEmail} IS NOT NULL AND email = ${normalizedEmail})
-          OR (${normalizedCpf} IS NOT NULL AND cpf = ${normalizedCpf})
+          (${normalizedPhone}::text IS NOT NULL AND phone = ${normalizedPhone})
+          OR (${normalizedEmail}::text IS NOT NULL AND email = ${normalizedEmail})
+          OR (${normalizedCpf}::text IS NOT NULL AND cpf = ${normalizedCpf})
         )
       LIMIT 1
     `;
@@ -346,7 +346,7 @@ export async function POST(request: Request) {
       );
     }
 
-    console.error("Create client error:", error);
+    console.error("Create client error:", error, JSON.stringify(error, Object.getOwnPropertyNames(error)));
 
     return Response.json(
       { error: "Não foi possível criar o cliente." },

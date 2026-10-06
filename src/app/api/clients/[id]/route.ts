@@ -277,3 +277,53 @@ export async function PATCH(
     );
   }
 }
+
+export async function DELETE(
+  request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const currentUser = await requireCurrentUser();
+
+    if (!hasPermission(currentUser.role, "clients", "delete")) {
+      return Response.json(
+        { error: "Você não tem permissão para excluir clientes." },
+        { status: 403 }
+      );
+    }
+
+    const { id } = await context.params;
+    const organizationId = currentUser.organization.id;
+
+    const result = await sql`
+      UPDATE clients
+      SET status = 'inactive'
+      WHERE id = ${id}
+        AND organization_id = ${organizationId}
+      RETURNING id
+    `;
+
+    if (result.length === 0) {
+      return Response.json(
+        { error: "Cliente não encontrado." },
+        { status: 404 }
+      );
+    }
+
+    return Response.json({ success: true }, { status: 200 });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "UNAUTHENTICATED"
+    ) {
+      return Response.json({ error: "Não autenticado." }, { status: 401 });
+    }
+
+    console.error("Delete client error:", error);
+
+    return Response.json(
+      { error: "Não foi possível excluir o cliente." },
+      { status: 500 }
+    );
+  }
+}

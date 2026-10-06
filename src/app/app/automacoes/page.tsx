@@ -40,7 +40,7 @@ export default function AutomacoesPage() {
     setInactiveLoading(true);
 
     const response = await fetch(
-      `/api/automations/inactive-clients?days=${inactiveDays}`
+      `/api/ai/inactive-clients?days=${inactiveDays}`
     );
 
     if (response.ok) {

@@ -412,6 +412,13 @@ export async function POST(request: Request) {
         ? error.message
         : "IMPORT_ERROR";
 
+    if (message === "UNAUTHENTICATED") {
+      return NextResponse.json(
+        { error: "Não autenticado." },
+        { status: 401 }
+      );
+    }
+
     const knownErrors = new Set([
       "ARQUIVO_NAO_ENVIADO",
       "ARQUIVO_VAZIO",

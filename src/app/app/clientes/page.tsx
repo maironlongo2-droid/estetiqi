@@ -369,12 +369,40 @@ export default function ClientesPage() {
     loadClients(page, search, status);
   }, [page]);
 
+  async function handleDelete(client: Client) {
+    const confirmed = window.confirm(
+      `Excluir o cliente "${client.name}"? Esta ação não pode ser desfeita.`
+    );
+
+    if (!confirmed) return;
+
+    setError("");
+
+    try {
+      const response = await fetch(`/api/clients/${client.id}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "Não foi possível excluir o cliente.");
+        return;
+      }
+
+      await loadClients(page, search, status);
+    } catch {
+      setError("Não foi possível excluir o cliente.");
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
     setError("");
 
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
 
     const response = await fetch("/api/clients", {
       method: "POST",
@@ -400,7 +428,7 @@ export default function ClientesPage() {
       return;
     }
 
-    event.currentTarget.reset();
+    formElement.reset();
     setShowForm(false);
     setSaving(false);
     setPage(1);
@@ -625,11 +653,21 @@ export default function ClientesPage() {
                       </p>
                     </div>
 
-                    <span className="shrink-0 rounded-full bg-[#edf3ef] px-3 py-1 text-xs font-medium">
-                      {client.status === "active"
-                        ? "Ativo"
-                        : "Inativo"}
-                    </span>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <span className="rounded-full bg-[#edf3ef] px-3 py-1 text-xs font-medium">
+                        {client.status === "active"
+                          ? "Ativo"
+                          : "Inativo"}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(client)}
+                        className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50"
+                      >
+                        Excluir
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

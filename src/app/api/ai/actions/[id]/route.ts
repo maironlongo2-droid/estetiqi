@@ -7,7 +7,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const currentUser = await requireCurrentUser();
+  try {
+    const currentUser = await requireCurrentUser();
 
   if (!hasPermission(currentUser.role, "intelligence", "update")) {
     return Response.json(
@@ -114,5 +115,13 @@ export async function PATCH(
     return Response.json(completed[0]);
   }
 
-  return Response.json(action);
+    return Response.json(action);
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
+      return Response.json({ error: "Não autenticado." }, { status: 401 });
+    }
+
+    console.error("AI action PATCH error:", error);
+    return Response.json({ error: "Erro interno." }, { status: 500 });
+  }
 }

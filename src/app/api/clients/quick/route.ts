@@ -9,7 +9,8 @@ const quickClientSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const currentUser = await requireCurrentUser();
+  try {
+    const currentUser = await requireCurrentUser();
 
   if (!hasPermission(currentUser.role, "clients", "create")) {
     return Response.json(
@@ -65,5 +66,13 @@ export async function POST(request: Request) {
     RETURNING id, name, phone, status
   `;
 
-  return Response.json(result[0], { status: 201 });
+    return Response.json(result[0], { status: 201 });
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
+      return Response.json({ error: "Não autenticado." }, { status: 401 });
+    }
+
+    console.error("Clients quick error:", error);
+    return Response.json({ error: "Erro interno." }, { status: 500 });
+  }
 }

@@ -71,7 +71,9 @@ export async function getBusinessMetrics(organizationId: string) {
     ),
     appointment_metrics AS (
       SELECT
-        COUNT(*) AS total,
+        COUNT(*) FILTER (
+          WHERE status NOT IN ('cancelled', 'no_show')
+        ) AS total,
         COUNT(*) FILTER (WHERE status = 'completed') AS completed,
         COUNT(*) FILTER (WHERE status = 'cancelled') AS cancelled,
         COUNT(*) FILTER (WHERE status = 'no_show') AS no_show

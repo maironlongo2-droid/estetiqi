@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "diagnose": "node scripts/diagnose.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.10",
@@ -22,6 +23,8 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@clerk/testing": "^2.2.42",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

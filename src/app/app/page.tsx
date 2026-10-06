@@ -175,9 +175,9 @@ export default function AppPage() {
               </div>
 
               <div className="divide-y divide-[#e4ebe7]">
-                {analytics.professionals.map((professional) => (
+                {analytics.professionals.map((professional, index) => (
                   <div
-                    key={professional.name}
+                    key={`${professional.name}-${index}`}
                     className="flex items-center justify-between px-6 py-4"
                   >
                     <div>

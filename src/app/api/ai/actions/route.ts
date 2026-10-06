@@ -12,7 +12,8 @@ const schema = z.object({
 });
 
 export async function GET() {
-  const currentUser = await requireCurrentUser();
+  try {
+    const currentUser = await requireCurrentUser();
 
   if (!hasPermission(currentUser.role, "intelligence", "read")) {
     return Response.json(
@@ -40,11 +41,20 @@ export async function GET() {
     LIMIT 50
   `;
 
-  return Response.json(result);
+    return Response.json(result);
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
+      return Response.json({ error: "Não autenticado." }, { status: 401 });
+    }
+
+    console.error("AI actions GET error:", error);
+    return Response.json({ error: "Erro interno." }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
-  const currentUser = await requireCurrentUser();
+  try {
+    const currentUser = await requireCurrentUser();
 
   if (!hasPermission(currentUser.role, "intelligence", "create")) {
     return Response.json(
@@ -97,5 +107,13 @@ export async function POST(request: Request) {
     },
   });
 
-  return Response.json(action, { status: 201 });
+    return Response.json(action, { status: 201 });
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
+      return Response.json({ error: "Não autenticado." }, { status: 401 });
+    }
+
+    console.error("AI actions POST error:", error);
+    return Response.json({ error: "Erro interno." }, { status: 500 });
+  }
 }

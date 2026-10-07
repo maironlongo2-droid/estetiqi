@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { buildWhatsAppUrl } from "@/lib/clients/whatsapp";
 import { requestSuggestedMessage } from "@/lib/ai/message-client";
+import { useToast } from "./toast";
 
 type Client = {
   id: string;
@@ -142,7 +143,7 @@ export default function AppPage() {
   const [actions, setActions] = useState<AIAction[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
-  const [dashboardError, setDashboardError] = useState("");
+  const { notifyError } = useToast();
   const [intelligenceError, setIntelligenceError] = useState("");
   const [returningClients, setReturningClients] = useState<ReturningClient[] | null>(null);
   const [returningError, setReturningError] = useState("");
@@ -174,7 +175,7 @@ export default function AppPage() {
 
       if (!active) return;
 
-      const errors: string[] = [];
+      let failedCore = false;
       const [clientsResult, analyticsResult, appointmentsResult] = coreRequests;
 
       if (clientsResult.status === "fulfilled") {
@@ -183,22 +184,26 @@ export default function AppPage() {
           clientsResult.value.total ?? clientsResult.value.clients?.length ?? 0
         );
       } else {
-        errors.push("Não foi possível carregar os clientes ativos.");
+        failedCore = true;
       }
 
       if (analyticsResult.status === "fulfilled") {
         setAnalytics(analyticsResult.value);
       } else {
-        errors.push("Não foi possível carregar os indicadores financeiros.");
+        failedCore = true;
       }
 
       if (appointmentsResult.status === "fulfilled") {
         setAppointments(appointmentsResult.value.appointments ?? []);
       } else {
-        errors.push("Não foi possível carregar os atendimentos de hoje.");
+        failedCore = true;
       }
 
-      setDashboardError(errors.join(" "));
+      if (failedCore) {
+        notifyError(
+          "Não foi possível carregar alguns dados do painel. Atualize a página para tentar novamente."
+        );
+      }
       setLoading(false);
 
       const intelligenceResults = await Promise.allSettled([
@@ -229,7 +234,7 @@ export default function AppPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [notifyError]);
 
   async function loadReturningClients() {
     setLoadingReturning(true);
@@ -385,15 +390,6 @@ export default function AppPage() {
               : ""}
           </p>
         </header>
-
-        {dashboardError && (
-          <div
-            role="alert"
-            className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
-          >
-            {dashboardError}
-          </div>
-        )}
 
         <section className={`${cardClass} mt-6 p-5 sm:p-6`}>
           <h2 className="text-lg font-semibold text-[#30463c]">

@@ -6,7 +6,8 @@ export default function LoginPage() {
       <div className="flex min-h-screen items-center justify-center px-6 py-12">
         <SignIn
           routing="hash"
-          forceRedirectUrl="/app"
+          signUpUrl="/cadastro"
+          fallbackRedirectUrl="/app"
           appearance={{
             variables: {
               colorPrimary: "#527765",

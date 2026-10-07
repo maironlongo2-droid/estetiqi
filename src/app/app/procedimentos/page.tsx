@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { useToast } from "../toast";
 
 type Procedure = {
   id: string;
@@ -18,6 +19,7 @@ export default function ProcedimentosPage() {
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingProcedure, setEditingProcedure] = useState<Procedure | null>(null);
+  const { notifyError } = useToast();
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const listRevision = useRef(0);
@@ -41,7 +43,7 @@ export default function ProcedimentosPage() {
       })
       .catch((loadError: unknown) => {
         if (current && requestedRevision === listRevision.current) {
-          setError(
+          notifyError(
             loadError instanceof Error
               ? loadError.message
               : "Não foi possível carregar procedimentos."
@@ -55,7 +57,7 @@ export default function ProcedimentosPage() {
     return () => {
       current = false;
     };
-  }, []);
+  }, [notifyError]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

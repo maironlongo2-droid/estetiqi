@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
+import { useToast } from "../toast";
 
 type Automation = {
   id: string;
@@ -102,6 +103,7 @@ const businessActions = [
 ];
 
 export default function AutomacoesPage() {
+  const { notifyError } = useToast();
   const [error, setError] = useState("");
   const [inactiveDays, setInactiveDays] = useState("60");
   const [inactiveClients, setInactiveClients] = useState<InactiveClient[]>([]);
@@ -120,7 +122,7 @@ export default function AutomacoesPage() {
       })
       .catch((loadError: unknown) => {
         if (current) {
-          setError(
+          notifyError(
             loadError instanceof Error
               ? loadError.message
               : "Não foi possível carregar clientes inativos."
@@ -134,7 +136,7 @@ export default function AutomacoesPage() {
     return () => {
       current = false;
     };
-  }, []);
+  }, [notifyError]);
 
   async function loadInactiveClients() {
     setError("");

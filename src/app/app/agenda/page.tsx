@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useToast } from "../toast";
 
 type Client = {
   id: string;
@@ -334,6 +335,7 @@ export default function AgendaPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const { notifyError } = useToast();
   const [error, setError] = useState("");
   const [paymentError, setPaymentError] = useState("");
   const [paidAppointments, setPaidAppointments] = useState<string[]>([]);
@@ -419,7 +421,7 @@ export default function AgendaPage() {
       setProfessionals(data.professionals);
       setPaidAppointments(data.paidAppointmentIds);
     } catch (err) {
-      setError(
+      notifyError(
         err instanceof Error
           ? err.message
           : "Não foi possível carregar a agenda."
@@ -443,7 +445,7 @@ export default function AgendaPage() {
       })
       .catch((err: unknown) => {
         if (active) {
-          setError(
+          notifyError(
             err instanceof Error
               ? err.message
               : "Não foi possível carregar a agenda."
@@ -456,7 +458,7 @@ export default function AgendaPage() {
     return () => {
       active = false;
     };
-  }, [selectedDate, statusFilter, upcomingView]);
+  }, [selectedDate, statusFilter, upcomingView, notifyError]);
 
   useEffect(() => {
     if (!showForm || !form.professionalId || !form.procedureId || !appointmentDate) {

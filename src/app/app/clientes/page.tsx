@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { FormEvent, useEffect, useState } from "react";
+import { useToast } from "../toast";
 
 type Client = {
   id: string;
@@ -403,6 +404,7 @@ function ImportClients({ onImported }: { onImported: () => Promise<void> }) {
 }
 
 export default function ClientesPage() {
+  const { notifyError } = useToast();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -445,7 +447,7 @@ export default function ClientesPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "Não foi possível carregar os clientes.");
+        notifyError(data.error || "Não foi possível carregar os clientes.");
         return;
       }
 
@@ -453,7 +455,7 @@ export default function ClientesPage() {
       setTotal(data.total || 0);
       setTotalPages(data.totalPages || 1);
     } catch {
-      setError("Não foi possível carregar os clientes.");
+      notifyError("Não foi possível carregar os clientes.");
     } finally {
       setLoading(false);
     }

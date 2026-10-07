@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useClerk } from "@clerk/nextjs";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ToastProvider } from "./toast";
 
 export default function AppLayout({
   children,
@@ -19,6 +20,10 @@ export default function AppLayout({
     pathname.startsWith("/app/profissionais") ||
     pathname.startsWith("/app/procedimentos") ||
     pathname.startsWith("/app/calculadora");
+  // No celular, Inteligência e Automações ficam dentro do menu "Mais".
+  const mobileSecondaryActive =
+    pathname.startsWith("/app/inteligencia") ||
+    pathname.startsWith("/app/automacoes");
 
   useEffect(() => {
     fetch("/api/organization")
@@ -59,7 +64,7 @@ export default function AppLayout({
           <div className="flex min-w-0 items-center justify-between gap-2 lg:gap-5">
             <nav
               aria-label="Navegação principal"
-              className="grid min-w-0 flex-1 grid-cols-6 items-center gap-1 text-sm text-[#66756d] lg:flex lg:flex-initial"
+              className="grid min-w-0 flex-1 grid-cols-4 items-center gap-1 text-sm text-[#66756d] lg:flex lg:flex-initial"
             >
               {[
                 { href: "/app", label: "Início", active: pathname === "/app" },
@@ -82,18 +87,22 @@ export default function AppLayout({
                   href: "/app/inteligencia",
                   label: "Inteligência",
                   active: pathname.startsWith("/app/inteligencia"),
+                  desktopOnly: true,
                 },
                 {
                   href: "/app/automacoes",
                   label: "Automações",
                   active: pathname.startsWith("/app/automacoes"),
+                  desktopOnly: true,
                 },
               ].map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
                   aria-current={item.active ? "page" : undefined}
-                  className={`min-w-0 rounded-lg px-1 py-2 text-center text-[11px] leading-tight transition hover:bg-[#f4f7f5] hover:text-[#30463c] sm:px-2 sm:text-xs lg:shrink-0 lg:px-3 lg:text-sm ${
+                  className={`min-w-0 rounded-lg px-1 py-2 text-center text-xs leading-tight transition hover:bg-[#f4f7f5] hover:text-[#30463c] sm:px-2 lg:shrink-0 lg:px-3 lg:text-sm ${
+                    item.desktopOnly ? "hidden lg:block" : ""
+                  } ${
                     item.active
                       ? "bg-[#edf3ef] font-semibold text-[#30463c]"
                       : ""
@@ -112,6 +121,10 @@ export default function AppLayout({
                 onClick={() => setMenuOpen((open) => !open)}
                 className={`flex h-10 w-10 items-center justify-center rounded-xl border border-[#dfe9e3] text-xl leading-none text-[#66756d] transition hover:bg-[#f4f7f5] ${
                   settingsActive ? "bg-[#edf3ef] text-[#30463c]" : ""
+                } ${
+                  mobileSecondaryActive
+                    ? "max-lg:bg-[#edf3ef] max-lg:text-[#30463c]"
+                    : ""
                 }`}
               >
                 ⋮
@@ -124,6 +137,16 @@ export default function AppLayout({
                   className="absolute right-0 top-12 z-50 w-52 rounded-xl border border-[#e4ebe7] bg-white p-2 shadow-lg"
                 >
                   {[
+                    {
+                      href: "/app/inteligencia",
+                      label: "Inteligência",
+                      mobileOnly: true,
+                    },
+                    {
+                      href: "/app/automacoes",
+                      label: "Automações",
+                      mobileOnly: true,
+                    },
                     { href: "/app/profissionais", label: "Profissionais" },
                     { href: "/app/procedimentos", label: "Procedimentos" },
                     { href: "/app/calculadora", label: "Calculadora de preços" },
@@ -134,7 +157,9 @@ export default function AppLayout({
                       href={item.href}
                       onClick={() => setMenuOpen(false)}
                       aria-current={pathname.startsWith(item.href) ? "page" : undefined}
-                      className="block rounded-lg px-3 py-2 text-sm text-[#50655b] hover:bg-[#f4f7f5]"
+                      className={`block rounded-lg px-3 py-2 text-sm text-[#50655b] hover:bg-[#f4f7f5] ${
+                        item.mobileOnly ? "lg:hidden" : ""
+                      }`}
                     >
                       {item.label}
                     </Link>
@@ -158,7 +183,7 @@ export default function AppLayout({
         </div>
       </header>
 
-      {children}
+      <ToastProvider>{children}</ToastProvider>
     </div>
   );
 }

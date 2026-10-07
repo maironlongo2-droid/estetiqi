@@ -51,65 +51,47 @@ export async function ensureClerkUser() {
     return existing[0];
   }
 
-  const organizationSlug = `${email
-    .split("@")[0]
+  // Slug derivado do id do Clerk: a mesma pessoa sempre resolve para a mesma organização.
+  const organizationSlug = `negocio-${clerkUserId
     .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80)}-${Date.now()}`;
+    .replace(/[^a-z0-9]+/g, "")
+    .slice(0, 100)}`;
+  const organizationName = `Negócio de ${name}`.slice(0, 120);
 
-  const organizationName = `${name}'s negócio`;
-
-  const created = await sql.transaction([
+  // Uma única transação com lock por usuário Clerk: chamadas simultâneas
+  // (dashboard dispara várias APIs no primeiro acesso) são serializadas e as
+  // seguintes enxergam o que a primeira criou.
+  await sql.transaction([
+    sql`SELECT pg_advisory_xact_lock(hashtext(${clerkUserId}))`,
     sql`
-      INSERT INTO users (
-        name,
-        email,
-        clerk_user_id
-      )
-      VALUES (
-        ${name},
-        ${email.toLowerCase()},
-        ${clerkUserId}
-      )
-      ON CONFLICT (clerk_user_id)
-      DO UPDATE SET
-        name = EXCLUDED.name,
-        email = EXCLUDED.email
-      RETURNING id, name, email
+      INSERT INTO users (name, email, clerk_user_id)
+      VALUES (${name}, ${email.toLowerCase()}, ${clerkUserId})
+      ON CONFLICT (clerk_user_id) WHERE clerk_user_id IS NOT NULL
+      DO UPDATE SET name = EXCLUDED.name, email = EXCLUDED.email
     `,
     sql`
-      INSERT INTO organizations (
-        name,
-        slug
+      INSERT INTO organizations (name, slug)
+      SELECT ${organizationName}, ${organizationSlug}
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM memberships m
+        JOIN users u ON u.id = m.user_id
+        WHERE u.clerk_user_id = ${clerkUserId}
       )
-      VALUES (
-        ${organizationName},
-        ${organizationSlug}
-      )
-      RETURNING id, name, slug
+      ON CONFLICT (slug) DO NOTHING
+    `,
+    sql`
+      INSERT INTO memberships (organization_id, user_id, role)
+      SELECT o.id, u.id, 'owner'
+      FROM users u
+      JOIN organizations o ON o.slug = ${organizationSlug}
+      WHERE u.clerk_user_id = ${clerkUserId}
+        AND NOT EXISTS (
+          SELECT 1 FROM memberships m WHERE m.user_id = u.id
+        )
+      ON CONFLICT (organization_id, user_id) DO NOTHING
     `,
   ]);
-
-  const user = created[0][0];
-  const organization = created[1][0];
-
-  await sql`
-    INSERT INTO memberships (
-      organization_id,
-      user_id,
-      role
-    )
-    VALUES (
-      ${organization.id},
-      ${user.id},
-      'owner'
-    )
-    ON CONFLICT (organization_id, user_id)
-    DO NOTHING
-  `;
 
   const result = await sql`
     SELECT

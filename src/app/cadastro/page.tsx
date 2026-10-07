@@ -6,7 +6,8 @@ export default function CadastroPage() {
       <div className="flex min-h-screen items-center justify-center px-6 py-12">
         <SignUp
           routing="hash"
-          forceRedirectUrl="/app"
+          signInUrl="/login"
+          fallbackRedirectUrl="/app/onboarding"
           appearance={{
             variables: {
               colorPrimary: "#527765",

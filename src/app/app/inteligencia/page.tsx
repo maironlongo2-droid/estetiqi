@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useToast } from "../toast";
 import { buildWhatsAppUrl } from "@/lib/clients/whatsapp";
 import { requestSuggestedMessage } from "@/lib/ai/message-client";
 
@@ -78,6 +79,7 @@ function wasRejectedForSameReason(
 }
 
 export default function InteligenciaPage() {
+  const { notifyError } = useToast();
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -143,12 +145,10 @@ export default function InteligenciaPage() {
         !opportunitiesResponse.ok ||
         !actionsResponse.ok
       ) {
-        setPageError("Algumas informações não puderam ser carregadas. Verifique sua permissão e tente novamente.");
-      } else {
-        setPageError("");
+        notifyError("Algumas informações não puderam ser carregadas. Verifique sua permissão e tente novamente.");
       }
     } catch {
-      setPageError("Não foi possível carregar a Inteligência agora. Tente novamente.");
+      notifyError("Não foi possível carregar a Inteligência agora. Tente novamente.");
     } finally {
       setLoading(false);
     }

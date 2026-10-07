@@ -118,25 +118,32 @@ test("manifesto PWA e telas principais cabem no mobile", async ({ page }) => {
     .evaluateAll((links) =>
       links.map((link) => (link as HTMLAnchorElement).getAttribute("href"))
     );
+  // No celular, Inteligência e Automações ficam no menu "Mais opções".
   expect(primaryNavigationHrefs).toEqual([
     "/app",
     "/app/clientes",
     "/app/agenda",
     "/app/financeiro",
-    "/app/inteligencia",
-    "/app/automacoes",
   ]);
-  for (const label of [
-    "Início",
-    "Clientes",
-    "Agenda",
-    "Financeiro",
-    "Inteligência",
-    "Automações",
-  ]) {
+  for (const label of ["Início", "Clientes", "Agenda", "Financeiro"]) {
     await expect(
       mainNavigation.getByRole("link", { name: label, exact: true })
     ).toBeVisible();
+  }
+  const navigationBoxes = (
+    await Promise.all(
+      (await mainNavigation.getByRole("link").all()).map((link) =>
+        link.boundingBox()
+      )
+    )
+  ).filter((box) => box !== null);
+  expect(navigationBoxes).toHaveLength(4);
+  for (let index = 1; index < navigationBoxes.length; index += 1) {
+    const previous = navigationBoxes[index - 1]!;
+    expect(
+      navigationBoxes[index]!.x,
+      "Itens da navegação não podem se sobrepor"
+    ).toBeGreaterThanOrEqual(previous.x + previous.width - 1);
   }
   const navigationDimensions = await page.evaluate(() => ({
     viewport: document.documentElement.clientWidth,
@@ -153,7 +160,10 @@ test("manifesto PWA e telas principais cabem no mobile", async ({ page }) => {
     page.getByRole("menuitem", { name: "Procedimentos" })
   ).toBeVisible();
   await expect(
+    page.getByRole("menuitem", { name: "Inteligência" })
+  ).toBeVisible();
+  await expect(
     page.getByRole("menuitem", { name: "Automações" })
-  ).toHaveCount(0);
+  ).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Sair" })).toBeVisible();
 });

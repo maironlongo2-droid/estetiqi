@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { useToast } from "../toast";
 
 type Procedure = { id: string; name: string };
 type WeeklyInterval = {
@@ -64,7 +65,18 @@ function timeInput(value: string) {
   return value.slice(0, 5);
 }
 
+function friendlyError(code: unknown, fallback: string) {
+  if (code === "INVALID_DATA") {
+    return "Confira os dados: informe o nome (mínimo 2 letras) e, se preencher, um e-mail válido.";
+  }
+  if (code === "PROCEDURE_NOT_FOUND") {
+    return "Um dos procedimentos escolhidos não está mais disponível. Atualize a página e tente novamente.";
+  }
+  return typeof code === "string" && code ? code : fallback;
+}
+
 export default function ProfessionalsPage() {
+  const { notifyError } = useToast();
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [procedures, setProcedures] = useState<Procedure[]>([]);
   const [statusFilter, setStatusFilter] = useState<"active" | "inactive">("active");
@@ -110,7 +122,7 @@ export default function ProfessionalsPage() {
       setProfessionals(professionalData);
       setProcedures(procedureData.procedures ?? []);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Erro ao carregar dados.");
+      notifyError(loadError instanceof Error ? loadError.message : "Erro ao carregar dados.");
     } finally {
       setLoading(false);
     }
@@ -141,7 +153,7 @@ export default function ProfessionalsPage() {
       })
       .catch((loadError: unknown) => {
         if (!current) return;
-        setError(
+        notifyError(
           loadError instanceof Error ? loadError.message : "Erro ao carregar dados."
         );
       })
@@ -151,7 +163,7 @@ export default function ProfessionalsPage() {
     return () => {
       current = false;
     };
-  }, []);
+  }, [notifyError]);
 
   function resetForm() {
     setEditingId(null);
@@ -184,7 +196,7 @@ export default function ProfessionalsPage() {
       );
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || "Não foi possível salvar profissional.");
+        throw new Error(friendlyError(data.error, "Não foi possível salvar profissional."));
       }
       setNotice(editingId ? "Profissional atualizado." : "Profissional cadastrado.");
       resetForm();
@@ -529,7 +541,7 @@ export default function ProfessionalsPage() {
             {loading ? (
               <p className="rounded-2xl border border-[#e4ebe7] bg-white p-6 text-sm text-[#78867f]">Carregando profissionais...</p>
             ) : professionals.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-[#cfdcd5] bg-white p-8 text-sm text-[#78867f]">Ainda não há profissionais cadastrados.</p>
+              <p className="rounded-2xl border border-dashed border-[#cfdcd5] bg-white p-8 text-sm text-[#78867f]">Ainda não há profissionais cadastrados. Cadastre quem atende no seu negócio (pode ser só você) para liberar a agenda.</p>
             ) : visibleProfessionals.length === 0 ? (
               <p className="rounded-2xl border border-dashed border-[#cfdcd5] bg-white p-8 text-sm text-[#78867f]">
                 {statusFilter === "active"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useToast } from "../toast";
 
 type Payment = {
   id: string;
@@ -43,6 +44,7 @@ function date(value: string | null) {
 export default function FinanceiroPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
+  const { notifyError } = useToast();
   const [error, setError] = useState("");
   const [period, setPeriod] = useState<"today" | "7days" | "month" | "all">("month");
 
@@ -62,11 +64,12 @@ export default function FinanceiroPage() {
 
       setPayments(data);
     } catch (err) {
-      setError(
+      const message =
         err instanceof Error
           ? err.message
-          : "Não foi possível carregar o financeiro."
-      );
+          : "Não foi possível carregar o financeiro.";
+      setError(message);
+      notifyError(message);
     } finally {
       setLoading(false);
     }
@@ -156,12 +159,6 @@ export default function FinanceiroPage() {
             Acompanhe entradas, pagamentos e formas de recebimento.
           </p>
         </header>
-
-        {error && (
-          <div role="alert" className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {error}
-          </div>
-        )}
 
         <section className="mt-6 flex flex-wrap gap-2">
           {[
@@ -267,7 +264,7 @@ export default function FinanceiroPage() {
               </p>
             ) : payments.length === 0 ? (
               <p className="p-6 text-sm text-[#78867f]">
-                Nenhum pagamento registrado.
+                Nenhum pagamento registrado ainda. Quando você concluir um atendimento na Agenda e registrar o pagamento, ele aparece aqui.
               </p>
             ) : (
               <table className="w-full text-left text-sm">

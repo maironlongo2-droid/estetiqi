@@ -1,4 +1,5 @@
 import { sql } from "@/lib/db/client";
+import { PERMANENTLY_DELETED_SOURCE } from "@/lib/clients/constants";
 
 export async function getBusinessContext(organizationId: string) {
   const result = await sql`
@@ -82,6 +83,7 @@ export async function getBusinessContext(organizationId: string) {
         COUNT(*) FILTER (WHERE status = 'inactive') AS inactive
       FROM clients
       WHERE organization_id = ${organizationId}
+          AND source IS DISTINCT FROM ${PERMANENTLY_DELETED_SOURCE}
     ),
     appointments AS (
       SELECT

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { buildWhatsAppUrl } from "@/lib/clients/whatsapp";
 
 type Client = {
   id: string;
@@ -50,6 +51,17 @@ type Profile = {
     appointments_count: number;
     completed_count: number;
     total_paid: number | string;
+    first_appointment_at: string | null;
+    last_appointment_at: string | null;
+    days_since_last_appointment: number | null;
+    next_appointment_at: string | null;
+    average_paid_ticket: number | string | null;
+    paid_transactions_count: number;
+    most_frequent_procedure: string | null;
+    last_procedure: string | null;
+    return_interval_days: number | null;
+    return_due_at: string | null;
+    days_until_return: number | null;
   };
 };
 
@@ -73,6 +85,12 @@ function formatMoney(value: number | string | null) {
     style: "currency",
     currency: "BRL",
   }).format(Number(value ?? 0));
+}
+
+function returnTiming(days: number) {
+  if (days > 0) return `Retorno previsto em aproximadamente ${days} dias`;
+  if (days < 0) return `Período de retorno previsto há ${Math.abs(days)} dias`;
+  return "Período de retorno previsto para hoje";
 }
 
 function appointmentStatus(status: string) {
@@ -175,6 +193,11 @@ export default function ClientProfilePage() {
   }
 
   const { client, appointments, payments, events, totals } = profile;
+  const whatsappUrl = buildWhatsAppUrl({
+    name: client.name,
+    phone: client.phone,
+    lastProcedureName: totals.last_procedure,
+  });
 
   return (
     <main className="min-h-screen bg-[#fbfaf8] text-[#26352f]">
@@ -211,12 +234,28 @@ export default function ClientProfilePage() {
               </div>
             </div>
 
-            <Link
-              href={`/app/agenda?client=${client.id}`}
-              className="rounded-xl bg-[#30463c] px-4 py-2 text-sm font-semibold text-white"
-            >
-              Novo agendamento
-            </Link>
+            <div className="flex flex-wrap gap-3">
+              {whatsappUrl ? (
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-xl bg-[#527765] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#456957]"
+                >
+                  Enviar pelo WhatsApp
+                </a>
+              ) : (
+                <span className="self-center text-sm text-[#8a9891]">
+                  Cadastre um telefone válido para usar o WhatsApp.
+                </span>
+              )}
+              <Link
+                href={`/app/agenda?client=${client.id}`}
+                className="rounded-xl bg-[#30463c] px-4 py-2 text-sm font-semibold text-white"
+              >
+                Novo agendamento
+              </Link>
+            </div>
           </div>
 
           {client.notes && (
@@ -231,22 +270,41 @@ export default function ClientProfilePage() {
           )}
         </section>
 
-        <section className="mt-5 grid gap-4 md:grid-cols-3">
+        <section className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-2xl border border-[#e4ebe7] bg-white p-5">
             <p className="text-xs text-[#8a9891]">
-              Agendamentos
+              Primeiro atendimento
             </p>
-            <p className="mt-2 text-2xl font-semibold text-[#30463c]">
-              {totals.appointments_count}
+            <p className="mt-2 text-lg font-semibold text-[#30463c]">
+              {formatDate(totals.first_appointment_at)}
             </p>
           </div>
 
           <div className="rounded-2xl border border-[#e4ebe7] bg-white p-5">
             <p className="text-xs text-[#8a9891]">
-              Procedimentos concluídos
+              Último atendimento
             </p>
+            <p className="mt-2 text-lg font-semibold text-[#30463c]">
+              {formatDate(totals.last_appointment_at)}
+            </p>
+            {totals.days_since_last_appointment !== null && (
+              <p className="mt-1 text-xs text-[#78867f]">
+                {totals.days_since_last_appointment} dias atrás
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-[#e4ebe7] bg-white p-5">
+            <p className="text-xs text-[#8a9891]">Atendimentos concluídos</p>
             <p className="mt-2 text-2xl font-semibold text-[#30463c]">
               {totals.completed_count}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[#e4ebe7] bg-white p-5">
+            <p className="text-xs text-[#8a9891]">Próximo atendimento</p>
+            <p className="mt-2 text-lg font-semibold text-[#30463c]">
+              {formatDate(totals.next_appointment_at)}
             </p>
           </div>
 
@@ -258,7 +316,46 @@ export default function ClientProfilePage() {
               {formatMoney(totals.total_paid)}
             </p>
           </div>
+
+          <div className="rounded-2xl border border-[#e4ebe7] bg-white p-5">
+            <p className="text-xs text-[#8a9891]">Ticket médio pago</p>
+            <p className="mt-2 text-lg font-semibold text-[#30463c]">
+              {totals.paid_transactions_count > 0
+                ? formatMoney(totals.average_paid_ticket)
+                : "Sem dados suficientes"}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[#e4ebe7] bg-white p-5">
+            <p className="text-xs text-[#8a9891]">Procedimento mais frequente</p>
+            <p className="mt-2 text-lg font-semibold text-[#30463c]">
+              {totals.most_frequent_procedure || "Sem dados suficientes"}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[#e4ebe7] bg-white p-5">
+            <p className="text-xs text-[#8a9891]">Último procedimento</p>
+            <p className="mt-2 text-lg font-semibold text-[#30463c]">
+              {totals.last_procedure || "Sem dados suficientes"}
+            </p>
+          </div>
         </section>
+
+        {totals.return_interval_days &&
+          totals.return_due_at &&
+          totals.days_until_return !== null && (
+          <section className="mt-4 rounded-2xl border border-[#dce8df] bg-[#f2f7f3] p-5">
+            <p className="text-xs font-medium uppercase tracking-wide text-[#6f927f]">
+              Informações de retorno
+            </p>
+            <p className="mt-2 text-sm font-medium text-[#30463c]">
+              {totals.last_procedure
+                ? `${totals.last_procedure}: intervalo recomendado de ${totals.return_interval_days} dias.`
+                : `Intervalo recomendado de ${totals.return_interval_days} dias.`}{" "}
+              {returnTiming(totals.days_until_return)}.
+            </p>
+          </section>
+        )}
 
         <div className="mt-5 grid gap-5 lg:grid-cols-2">
           <section className="rounded-2xl border border-[#e4ebe7] bg-white">

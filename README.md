@@ -16,6 +16,16 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Regras operacionais do MVP
+
+- Os horarios da Agenda respeitam a disponibilidade semanal da profissional. Uma excecao de disponibilidade substitui os horarios semanais naquele dia; bloqueios e atendimentos ativos prevalecem sobre essa disponibilidade.
+- A duracao cadastrada no procedimento define o horario final do atendimento. O backend valida novamente disponibilidade, bloqueios e conflitos ao criar ou alterar um agendamento.
+- Excluir um procedimento o remove da operacao normal sem apagar atendimentos ou dados financeiros historicos.
+- Aprovar uma acao de Inteligencia apenas a deixa pronta para execucao. Executar e uma etapa separada; nenhuma mensagem de WhatsApp e enviada automaticamente.
+- Abrir `wa.me` e registrado como `whatsapp_opened`; isso nao confirma que a cliente recebeu ou leu a mensagem.
+
+Para gerar mensagens com o Gemini, configure `GEMINI_API_KEY` no ambiente do servidor (em `.env.local` no desenvolvimento ou nas variaveis de ambiente do deploy). A chave deve permanecer somente no servidor e nao deve usar o prefixo `NEXT_PUBLIC_`. `GEMINI_MODEL` e opcional; se definido, use um identificador de modelo habilitado para essa chave na API Gemini. Sem `GEMINI_API_KEY`, a API retorna indisponibilidade de configuracao e a tela permite tentar novamente depois que o responsavel habilitar o servico.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

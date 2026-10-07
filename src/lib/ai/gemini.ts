@@ -3,7 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 export async function generateAI(prompt: string) {
   const apiKey = process.env.GEMINI_API_KEY;
 
-  if (!apiKey) {
+  if (!apiKey?.trim()) {
     throw new Error("GEMINI_API_KEY não configurada.");
   }
 

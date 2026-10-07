@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -16,6 +16,21 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "EstetiQI",
   description: "Inteligência para negócios de beleza",
+  applicationName: "EstetiQI",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "EstetiQI",
+  },
+  icons: {
+    icon: "/icon.svg",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#fbfaf8",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

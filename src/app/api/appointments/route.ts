@@ -3,6 +3,7 @@ import { hasPermission } from "@/lib/auth/authorization";
 import { recordCustomerEvent } from "@/lib/events/customer-events";
 import { sql } from "@/lib/db/client";
 import { createAppointmentSchema } from "@/lib/validation/appointment";
+import { checkProfessionalAvailability } from "@/lib/appointments/availability";
 
 export async function GET(request: Request) {
   try {
@@ -33,12 +34,19 @@ export async function GET(request: Request) {
           c.name AS client_name,
           a.procedure_id,
           p.name AS procedure_name,
+          a.professional_id,
           a.professional_name,
           a.starts_at,
           a.ends_at,
           a.price,
           a.notes,
           a.status,
+          EXISTS (
+            SELECT 1
+            FROM payments payment
+            WHERE payment.organization_id = a.organization_id
+              AND payment.appointment_id = a.id
+          ) AS has_payments,
           a.created_at,
           a.updated_at
         FROM appointments a
@@ -75,12 +83,19 @@ export async function GET(request: Request) {
         c.name AS client_name,
         a.procedure_id,
         p.name AS procedure_name,
+        a.professional_id,
         a.professional_name,
         a.starts_at,
         a.ends_at,
         a.price,
         a.notes,
         a.status,
+        EXISTS (
+          SELECT 1
+          FROM payments payment
+          WHERE payment.organization_id = a.organization_id
+            AND payment.appointment_id = a.id
+        ) AS has_payments,
         a.created_at,
         a.updated_at
       FROM appointments a
@@ -152,7 +167,7 @@ export async function POST(request: Request) {
     const {
       clientId,
       procedureId,
-      professionalName,
+      professionalId,
       startsAt,
       endsAt,
       price,
@@ -163,41 +178,89 @@ export async function POST(request: Request) {
     const organizationId = currentUser.organization.id;
 
     const clientResult = await sql`
-      SELECT id
+      SELECT id, status
       FROM clients
       WHERE id = ${clientId}
         AND organization_id = ${organizationId}
+        AND status = 'active'
       LIMIT 1
     `;
 
     if (clientResult.length === 0) {
       return Response.json(
-        { error: "Cliente não encontrado." },
+        { error: "Cliente não encontrado ou inativo." },
         { status: 404 }
       );
     }
 
     const normalizedProcedureId = procedureId || null;
+    const normalizedProfessionalId = professionalId || null;
+    let normalizedProfessionalName: string | null = null;
 
+    let procedureDurationMinutes: number | null = null;
     if (normalizedProcedureId) {
       const procedureResult = await sql`
-        SELECT id
+        SELECT id, duration_minutes
         FROM procedures
         WHERE id = ${normalizedProcedureId}
           AND organization_id = ${organizationId}
+          AND status = 'active'
         LIMIT 1
       `;
 
       if (procedureResult.length === 0) {
         return Response.json(
-          { error: "Procedimento não encontrado." },
+          { error: "Procedimento não encontrado ou inativo." },
           { status: 404 }
         );
+      }
+      procedureDurationMinutes = procedureResult[0].duration_minutes;
+    }
+
+    if (normalizedProfessionalId) {
+      const professionalResult = await sql`
+        SELECT id, name
+        FROM professionals
+        WHERE id = ${normalizedProfessionalId}
+          AND organization_id = ${organizationId}
+          AND active = TRUE
+        LIMIT 1
+      `;
+
+      if (professionalResult.length === 0) {
+        return Response.json(
+          { error: "Profissional não encontrado ou inativo." },
+          { status: 404 }
+        );
+      }
+
+      normalizedProfessionalName = professionalResult[0].name;
+
+      if (normalizedProcedureId) {
+        const assignment = await sql`
+          SELECT 1
+          FROM professional_procedures
+          WHERE professional_id = ${normalizedProfessionalId}
+            AND procedure_id = ${normalizedProcedureId}
+            AND organization_id = ${organizationId}
+          LIMIT 1
+        `;
+
+        if (assignment.length === 0) {
+          return Response.json(
+            { error: "O profissional não está habilitado para este procedimento." },
+            { status: 409 }
+          );
+        }
       }
     }
 
     const start = new Date(startsAt);
-    const end = new Date(endsAt);
+    const requestedEnd = new Date(endsAt);
+    const end =
+      procedureDurationMinutes && !Number.isNaN(start.getTime())
+        ? new Date(start.getTime() + procedureDurationMinutes * 60_000)
+        : requestedEnd;
 
     if (
       Number.isNaN(start.getTime()) ||
@@ -210,31 +273,43 @@ export async function POST(request: Request) {
       );
     }
 
-    if (professionalName) {
-      const conflictingAppointment = await sql`
-        SELECT id
-        FROM appointments
-        WHERE organization_id = ${organizationId}
-          AND professional_name = ${professionalName}
-          AND status NOT IN ('cancelled', 'no_show')
-          AND starts_at < ${end.toISOString()}
-          AND ends_at > ${start.toISOString()}
-        LIMIT 1
-      `;
+    if (
+      normalizedProfessionalId &&
+      status !== "cancelled" &&
+      status !== "no_show"
+    ) {
+      const availability = await checkProfessionalAvailability({
+        organizationId,
+        professionalId: normalizedProfessionalId,
+        startsAt: start,
+        endsAt: end,
+      });
 
-      if (conflictingAppointment.length > 0) {
+      if (!availability.isAvailable) {
         return Response.json(
-          { error: "O profissional já possui um agendamento nesse horário." },
+          {
+            error:
+              availability.reason === "appointment_conflict"
+                ? "O profissional já possui um agendamento nesse horário."
+                : availability.reason === "blocked"
+                  ? "Este horário está bloqueado para o profissional."
+                  : "O horário não está dentro da disponibilidade do profissional.",
+          },
           { status: 409 }
         );
       }
     }
 
-    const appointments = await sql`
+    const bypassConflictCheck =
+      !normalizedProfessionalId ||
+      status === "cancelled" ||
+      status === "no_show";
+    const insertStatement = sql`
       INSERT INTO appointments (
         organization_id,
         client_id,
         procedure_id,
+        professional_id,
         professional_name,
         starts_at,
         ends_at,
@@ -242,22 +317,39 @@ export async function POST(request: Request) {
         notes,
         status
       )
-      VALUES (
+      SELECT
         ${organizationId},
         ${clientId},
         ${normalizedProcedureId},
-        ${professionalName || null},
+        ${normalizedProfessionalId},
+        ${normalizedProfessionalName},
         ${start.toISOString()},
         ${end.toISOString()},
         ${price ?? null},
         ${notes || null},
         ${status ?? "scheduled"}
-      )
+      WHERE ${bypassConflictCheck}
+        OR NOT EXISTS (
+          SELECT 1
+          FROM appointments existing
+          WHERE existing.organization_id = ${organizationId}
+            AND (
+              existing.professional_id = ${normalizedProfessionalId}
+              OR (
+                existing.professional_id IS NULL
+                AND existing.professional_name = ${normalizedProfessionalName}
+              )
+            )
+            AND existing.status NOT IN ('cancelled', 'no_show')
+            AND existing.starts_at < ${end.toISOString()}
+            AND existing.ends_at > ${start.toISOString()}
+        )
       RETURNING
         id,
         organization_id,
         client_id,
         procedure_id,
+        professional_id,
         professional_name,
         starts_at,
         ends_at,
@@ -267,6 +359,28 @@ export async function POST(request: Request) {
         created_at,
         updated_at
     `;
+
+    const appointments =
+      normalizedProfessionalId && !bypassConflictCheck
+        ? (await sql.transaction([
+            sql`
+              SELECT pg_advisory_xact_lock(
+                hashtextextended(
+                  ${`${organizationId}:${normalizedProfessionalId}`},
+                  0
+                )
+              )
+            `,
+            insertStatement,
+          ]))[1]
+        : await insertStatement;
+
+    if (!appointments.length) {
+      return Response.json(
+        { error: "O profissional já possui um agendamento nesse horário." },
+        { status: 409 }
+      );
+    }
 
     const appointment = appointments[0];
 
@@ -278,7 +392,7 @@ export async function POST(request: Request) {
       source: "system",
       data: {
         procedureId: normalizedProcedureId,
-        professionalName: professionalName || null,
+        professionalName: normalizedProfessionalName,
         startsAt: appointment.starts_at,
         endsAt: appointment.ends_at,
         price: price ?? null,

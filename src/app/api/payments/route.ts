@@ -121,7 +121,7 @@ export async function POST(request: Request) {
 
     if (data.appointmentId) {
       const appointment = await sql`
-      SELECT id
+    SELECT id, client_id, status
       FROM appointments
       WHERE id = ${data.appointmentId}
         AND organization_id = ${currentUser.organization.id}
@@ -132,6 +132,20 @@ export async function POST(request: Request) {
         return Response.json(
           { error: "APPOINTMENT_NOT_FOUND" },
           { status: 404 },
+        );
+      }
+
+      if (appointment[0].client_id !== data.clientId) {
+        return Response.json(
+          { error: "APPOINTMENT_CLIENT_MISMATCH" },
+          { status: 400 },
+        );
+      }
+
+      if (appointment[0].status === "cancelled") {
+        return Response.json(
+          { error: "APPOINTMENT_CANCELLED" },
+          { status: 409 },
         );
       }
     }

@@ -5,6 +5,7 @@ import {
   normalizeCpf,
   normalizePhone,
 } from "@/lib/normalization/brazil";
+import { PERMANENTLY_DELETED_SOURCE } from "@/lib/clients/constants";
 import { createClientSchema } from "@/lib/validation/client";
 
 export async function GET(request: Request) {
@@ -21,7 +22,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
 
     const search = searchParams.get("search")?.trim() || "";
-    const status = searchParams.get("status")?.trim() || "";
+    const requestedStatus = searchParams.get("status")?.trim() || "active";
+    const status = requestedStatus === "all" ? "" : requestedStatus;
     const sort = searchParams.get("sort") || "name";
     const order = searchParams.get("order") === "desc" ? "desc" : "asc";
 
@@ -32,11 +34,11 @@ export async function GET(request: Request) {
       Number.isInteger(rawPage) && rawPage >= 1 ? rawPage : 1;
 
     const limit =
-      Number.isInteger(rawLimit) && rawLimit >= 1 && rawLimit <= 100
+      Number.isInteger(rawLimit) && rawLimit >= 1 && rawLimit <= 500
         ? rawLimit
         : 20;
 
-    if (status && !["active", "inactive"].includes(status)) {
+    if (requestedStatus !== "all" && !["active", "inactive"].includes(status)) {
       return Response.json(
         { error: "Status inválido." },
         { status: 400 }
@@ -60,6 +62,7 @@ export async function GET(request: Request) {
       SELECT COUNT(*)::int AS total
       FROM clients
       WHERE organization_id = ${organizationId}
+        AND source IS DISTINCT FROM ${PERMANENTLY_DELETED_SOURCE}
         AND (
           ${search} = ''
           OR name ILIKE ${searchPattern}
@@ -77,37 +80,7 @@ export async function GET(request: Request) {
 
     const clients =
       safeSort === "created_at"
-        ? await sql`
-            SELECT
-              id,
-              name,
-              phone,
-              email,
-              cpf,
-              birth_date,
-              notes,
-              status,
-              source,
-              created_at,
-              updated_at
-            FROM clients
-            WHERE organization_id = ${organizationId}
-              AND (
-                ${search} = ''
-                OR name ILIKE ${searchPattern}
-                OR phone ILIKE ${searchPattern}
-                OR email ILIKE ${searchPattern}
-                OR cpf ILIKE ${searchPattern}
-              )
-              AND (
-                ${status} = ''
-                OR status = ${status}
-              )
-            ORDER BY created_at ${safeOrder}, name ASC
-            LIMIT ${limit}
-            OFFSET ${offset}
-          `
-        : safeSort === "updated_at"
+        ? safeOrder === "DESC"
           ? await sql`
               SELECT
                 id,
@@ -123,6 +96,7 @@ export async function GET(request: Request) {
                 updated_at
               FROM clients
               WHERE organization_id = ${organizationId}
+                AND source IS DISTINCT FROM ${PERMANENTLY_DELETED_SOURCE}
                 AND (
                   ${search} = ''
                   OR name ILIKE ${searchPattern}
@@ -134,10 +108,105 @@ export async function GET(request: Request) {
                   ${status} = ''
                   OR status = ${status}
                 )
-              ORDER BY updated_at ${safeOrder}, name ASC
+              ORDER BY created_at DESC, name ASC
               LIMIT ${limit}
               OFFSET ${offset}
             `
+          : await sql`
+              SELECT
+                id,
+                name,
+                phone,
+                email,
+                cpf,
+                birth_date,
+                notes,
+                status,
+                source,
+                created_at,
+                updated_at
+              FROM clients
+              WHERE organization_id = ${organizationId}
+                AND source IS DISTINCT FROM ${PERMANENTLY_DELETED_SOURCE}
+                AND (
+                  ${search} = ''
+                  OR name ILIKE ${searchPattern}
+                  OR phone ILIKE ${searchPattern}
+                  OR email ILIKE ${searchPattern}
+                  OR cpf ILIKE ${searchPattern}
+                )
+                AND (
+                  ${status} = ''
+                  OR status = ${status}
+                )
+              ORDER BY created_at ASC, name ASC
+              LIMIT ${limit}
+              OFFSET ${offset}
+            `
+        : safeSort === "updated_at"
+          ? safeOrder === "DESC"
+            ? await sql`
+                SELECT
+                  id,
+                  name,
+                  phone,
+                  email,
+                  cpf,
+                  birth_date,
+                  notes,
+                  status,
+                  source,
+                  created_at,
+                  updated_at
+                FROM clients
+                WHERE organization_id = ${organizationId}
+                  AND source IS DISTINCT FROM ${PERMANENTLY_DELETED_SOURCE}
+                  AND (
+                    ${search} = ''
+                    OR name ILIKE ${searchPattern}
+                    OR phone ILIKE ${searchPattern}
+                    OR email ILIKE ${searchPattern}
+                    OR cpf ILIKE ${searchPattern}
+                  )
+                  AND (
+                    ${status} = ''
+                    OR status = ${status}
+                  )
+                ORDER BY updated_at DESC, name ASC
+                LIMIT ${limit}
+                OFFSET ${offset}
+              `
+            : await sql`
+                SELECT
+                  id,
+                  name,
+                  phone,
+                  email,
+                  cpf,
+                  birth_date,
+                  notes,
+                  status,
+                  source,
+                  created_at,
+                  updated_at
+                FROM clients
+                WHERE organization_id = ${organizationId}
+                  AND source IS DISTINCT FROM ${PERMANENTLY_DELETED_SOURCE}
+                  AND (
+                    ${search} = ''
+                    OR name ILIKE ${searchPattern}
+                    OR phone ILIKE ${searchPattern}
+                    OR email ILIKE ${searchPattern}
+                    OR cpf ILIKE ${searchPattern}
+                  )
+                  AND (
+                    ${status} = ''
+                    OR status = ${status}
+                  )
+                ORDER BY updated_at ASC, name ASC
+                LIMIT ${limit}
+                OFFSET ${offset}
+              `
           : order === "desc"
             ? await sql`
                 SELECT
@@ -154,6 +223,7 @@ export async function GET(request: Request) {
                   updated_at
                 FROM clients
                 WHERE organization_id = ${organizationId}
+                  AND source IS DISTINCT FROM ${PERMANENTLY_DELETED_SOURCE}
                   AND (
                     ${search} = ''
                     OR name ILIKE ${searchPattern}
@@ -184,6 +254,7 @@ export async function GET(request: Request) {
                   updated_at
                 FROM clients
                 WHERE organization_id = ${organizationId}
+                  AND source IS DISTINCT FROM ${PERMANENTLY_DELETED_SOURCE}
                   AND (
                     ${search} = ''
                     OR name ILIKE ${searchPattern}
@@ -253,6 +324,13 @@ export async function POST(request: Request) {
           error: "Dados inválidos.",
           details: result.error.flatten().fieldErrors,
         },
+        { status: 400 }
+      );
+    }
+
+    if (result.data.source === PERMANENTLY_DELETED_SOURCE) {
+      return Response.json(
+        { error: "Origem reservada." },
         { status: 400 }
       );
     }

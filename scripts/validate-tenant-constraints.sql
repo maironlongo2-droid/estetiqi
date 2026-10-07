@@ -1,0 +1,12 @@
+ALTER TABLE payments VALIDATE CONSTRAINT payments_client_org_fk;
+ALTER TABLE payments VALIDATE CONSTRAINT payments_appointment_org_fk;
+ALTER TABLE payments VALIDATE CONSTRAINT payments_procedure_org_fk;
+
+ALTER TABLE customer_events VALIDATE CONSTRAINT customer_events_client_org_fk;
+ALTER TABLE customer_events VALIDATE CONSTRAINT customer_events_appointment_org_fk;
+ALTER TABLE customer_events VALIDATE CONSTRAINT customer_events_payment_org_fk;
+
+ALTER TABLE ai_opportunities VALIDATE CONSTRAINT ai_opportunities_client_org_fk;
+
+ALTER TABLE ai_actions VALIDATE CONSTRAINT ai_actions_client_org_fk;
+ALTER TABLE ai_actions VALIDATE CONSTRAINT ai_actions_opportunity_org_fk;

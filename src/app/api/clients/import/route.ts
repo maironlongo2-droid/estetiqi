@@ -4,15 +4,15 @@ import { sql } from "@/lib/db/client";
 import { withTransaction } from "@/lib/db/transaction";
 import { requireCurrentUser } from "@/lib/auth/require-current-user";
 import { hasPermission } from "@/lib/auth/authorization";
-import {
-  normalizeCpf,
-  normalizePhone,
-} from "@/lib/normalization/brazil";
+import { normalizeCpf, normalizePhone } from "@/lib/normalization/brazil";
+import { createClientSchema } from "@/lib/validation/client";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_MULTIPART_OVERHEAD = 64 * 1024;
 const MAX_ROWS = 5000;
+const INSERT_BATCH_SIZE = 500;
 
-type ImportRow = {
+type ImportClient = {
   name: string;
   phone: string | null;
   email: string | null;
@@ -22,6 +22,33 @@ type ImportRow = {
   source: string;
 };
 
+type ImportRow = ImportClient & {
+  rowNumber: number;
+};
+
+type InsertableImportRow = ImportRow & { organizationId: string };
+
+type RowError = {
+  row: number;
+  error: string;
+};
+
+class ImportInputError extends Error {}
+
+const inputErrorMessages: Record<string, string> = {
+  ARQUIVO_NAO_ENVIADO: "Selecione um arquivo para importar.",
+  ARQUIVO_VAZIO: "O arquivo está vazio ou não contém linhas para importar.",
+  ARQUIVO_MUITO_GRANDE: "O arquivo excede o limite de 10 MB.",
+  FORMATO_NAO_SUPORTADO: "Formato não suportado. Envie CSV, XLS ou XLSX.",
+  ARQUIVO_SEM_PLANILHA: "O arquivo não contém uma planilha válida.",
+  ARQUIVO_INVALIDO: "Não foi possível ler o arquivo. Verifique o formato e tente novamente.",
+  FORMULARIO_INVALIDO: "Não foi possível receber o arquivo. Tente novamente.",
+};
+
+function inputError(message: string): never {
+  throw new ImportInputError(message);
+}
+
 function normalizeHeader(value: string) {
   return value
     .normalize("NFD")
@@ -30,21 +57,21 @@ function normalizeHeader(value: string) {
     .replace(/[^a-z0-9]/g, "");
 }
 
-function valueOf(row: Record<string, unknown>, names: string[]) {
-  const entries = Object.entries(row);
-
+function valueOf(
+  headers: string[],
+  values: unknown[],
+  names: string[]
+): unknown {
   for (const name of names) {
     const target = normalizeHeader(name);
-
-    const found = entries.find(
-      ([key]) => normalizeHeader(key) === target
+    const index = headers.findIndex(
+      (header) => normalizeHeader(header) === target
     );
 
-    if (found) {
-      const value = found[1];
-
+    if (index !== -1) {
+      const value = values[index];
       if (value !== undefined && value !== null && String(value).trim()) {
-        return String(value).trim();
+        return value;
       }
     }
   }
@@ -52,181 +79,288 @@ function valueOf(row: Record<string, unknown>, names: string[]) {
   return null;
 }
 
-function normalizeBirthDate(value: string | null) {
-  if (!value) return null;
-
-  const text = value.trim();
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
-    return text;
-  }
-
-  const br = text.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-
-  if (br) {
-    const [, day, month, year] = br;
-    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-  }
-
-  return null;
+function cellText(value: unknown) {
+  return value === undefined || value === null ? "" : String(value).trim();
 }
 
-function parseFile(buffer: Buffer): ImportRow[] {
-  const workbook = XLSX.read(buffer, {
-    type: "buffer",
-    cellDates: true,
-  });
+function datePartsToIso(year: number, month: number, day: number) {
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
+    year < 1 ||
+    year > 9999
+  ) {
+    return null;
+  }
+
+  const date = new Date(0);
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCFullYear(year, month - 1, day);
+
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function normalizeBirthDate(value: unknown, allowExcelSerial: boolean) {
+  if (value === undefined || value === null || value === "") {
+    return { date: null, error: null };
+  }
+
+  if (value instanceof Date) {
+    const date = datePartsToIso(
+      value.getUTCFullYear(),
+      value.getUTCMonth() + 1,
+      value.getUTCDate()
+    );
+    return date
+      ? { date, error: null }
+      : { date: null, error: "Data de nascimento inválida." };
+  }
+
+  if (typeof value === "number" && allowExcelSerial) {
+    const parts = XLSX.SSF.parse_date_code(value);
+    if (parts) {
+      const date = datePartsToIso(parts.y, parts.m, parts.d);
+      return date
+        ? { date, error: null }
+        : { date: null, error: "Data de nascimento inválida." };
+    }
+    return { date: null, error: "Data de nascimento inválida." };
+  }
+
+  const text = cellText(value);
+  const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const br = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  const date = iso
+    ? datePartsToIso(Number(iso[1]), Number(iso[2]), Number(iso[3]))
+    : br
+      ? datePartsToIso(Number(br[3]), Number(br[2]), Number(br[1]))
+      : null;
+
+  return date
+    ? { date, error: null }
+    : { date: null, error: "Data de nascimento inválida ou em formato não suportado." };
+}
+
+function parseFile(buffer: Buffer, fileName: string): unknown[][] {
+  const isCsv = fileName.toLowerCase().endsWith(".csv");
+  let workbook: XLSX.WorkBook;
+
+  try {
+    workbook = XLSX.read(buffer, {
+      type: "buffer",
+      cellDates: true,
+      ...(isCsv ? { codepage: 65001 } : {}),
+    });
+  } catch {
+    inputError("ARQUIVO_INVALIDO");
+  }
 
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-
-  if (!firstSheet) {
-    throw new Error("ARQUIVO_SEM_PLANILHA");
+  if (!firstSheet || !firstSheet["!ref"]) {
+    inputError("ARQUIVO_SEM_PLANILHA");
   }
 
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(
-    firstSheet,
-    {
+  let range: XLSX.Range;
+  try {
+    range = XLSX.utils.decode_range(firstSheet["!ref"]);
+  } catch {
+    inputError("ARQUIVO_INVALIDO");
+  }
+
+  if (range.e.r - range.s.r > MAX_ROWS) {
+    inputError(`LIMITE_DE_LINHAS_EXCEDIDO_${MAX_ROWS}`);
+  }
+
+  let matrix: unknown[][];
+  try {
+    matrix = XLSX.utils.sheet_to_json<unknown[]>(firstSheet, {
+      header: 1,
       defval: "",
-      raw: false,
-    }
-  );
-
-  if (rows.length === 0) {
-    throw new Error("ARQUIVO_VAZIO");
+      raw: true,
+      blankrows: true,
+    });
+  } catch {
+    inputError("ARQUIVO_INVALIDO");
   }
 
-  if (rows.length > MAX_ROWS) {
-    throw new Error(`LIMITE_DE_LINHAS_EXCEDIDO_${MAX_ROWS}`);
+  if (matrix.length < 2) {
+    inputError("ARQUIVO_VAZIO");
   }
 
-  return rows.map((row) => ({
-    name:
-      valueOf(row, [
+  return matrix;
+}
+
+function validateRows(matrix: unknown[][], isSpreadsheet: boolean) {
+  const headers = (matrix[0] ?? []).map(cellText);
+  const valid: ImportRow[] = [];
+  const errors: RowError[] = [];
+  let total = 0;
+
+  matrix.slice(1).forEach((values, index) => {
+    if (values.every((value) => !cellText(value))) return;
+    total += 1;
+    const rowNumber = index + 2;
+
+    const rawName = cellText(
+      valueOf(headers, values, [
         "nome",
         "name",
         "cliente",
         "nome completo",
         "cliente nome",
-      ]) ?? "",
-
-    phone: normalizePhone(
-      valueOf(row, [
+      ])
+    );
+    const rawPhone = cellText(
+      valueOf(headers, values, [
         "telefone",
         "phone",
         "celular",
         "whatsapp",
         "telefone celular",
       ])
-    ),
-
-    email: valueOf(row, [
-      "email",
-      "e-mail",
-      "correo",
-    ])?.toLowerCase() ?? null,
-
-    cpf: normalizeCpf(
-      valueOf(row, [
-        "cpf",
-        "documento",
+    );
+    const rawEmail = cellText(
+      valueOf(headers, values, ["email", "e-mail", "correo"])
+    ).toLowerCase();
+    const rawCpf = cellText(
+      valueOf(headers, values, ["cpf", "documento"])
+    );
+    const rawNotes = cellText(
+      valueOf(headers, values, [
+        "observacoes",
+        "observacoes gerais",
+        "observação",
+        "notes",
       ])
-    ),
-
-    birthDate: normalizeBirthDate(
-      valueOf(row, [
+    );
+    const birthDateResult = normalizeBirthDate(
+      valueOf(headers, values, [
         "nascimento",
         "data nascimento",
         "data de nascimento",
         "birth date",
         "birthdate",
-      ])
-    ),
+      ]),
+      isSpreadsheet
+    );
 
-    notes: valueOf(row, [
-      "observacoes",
-      "observacoes gerais",
-      "observação",
-      "observacoes",
-      "notes",
-    ]),
+    if (birthDateResult.error) {
+      errors.push({ row: rowNumber, error: birthDateResult.error });
+      return;
+    }
 
-    source: "import",
-  }));
-}
+    const parsed = createClientSchema.safeParse({
+      name: rawName,
+      phone: rawPhone,
+      email: rawEmail,
+      cpf: rawCpf,
+      birthDate: birthDateResult.date ?? "",
+      notes: rawNotes,
+      source: "import",
+      status: "active",
+    });
 
-function validateRows(rows: ImportRow[]) {
-  const valid: ImportRow[] = [];
-  const errors: Array<{
-    row: number;
-    error: string;
-  }> = [];
-
-  rows.forEach((row, index) => {
-    if (!row.name || row.name.length < 2) {
+    if (!parsed.success) {
+      const firstFieldError = Object.values(
+        parsed.error.flatten().fieldErrors
+      ).flat()[0];
       errors.push({
-        row: index + 2,
-        error: "Nome não informado ou inválido.",
+        row: rowNumber,
+        error: firstFieldError ?? "Dados do cliente inválidos.",
       });
       return;
     }
 
-    if (row.name.length > 120) {
-      errors.push({
-        row: index + 2,
-        error: "Nome excede 120 caracteres.",
-      });
-      return;
-    }
-
-    if (row.email && row.email.length > 255) {
-      errors.push({
-        row: index + 2,
-        error: "E-mail excede 255 caracteres.",
-      });
-      return;
-    }
-
-    if (row.birthDate && !/^\d{4}-\d{2}-\d{2}$/.test(row.birthDate)) {
-      errors.push({
-        row: index + 2,
-        error: "Data de nascimento inválida.",
-      });
-      return;
-    }
-
-    valid.push(row);
+    valid.push({
+      rowNumber,
+      name: parsed.data.name,
+      phone: normalizePhone(parsed.data.phone),
+      email: parsed.data.email || null,
+      cpf: normalizeCpf(parsed.data.cpf),
+      birthDate: birthDateResult.date,
+      notes: parsed.data.notes || null,
+      source: "import",
+    });
   });
 
-  return { valid, errors };
+  return { valid, errors, total };
 }
 
-async function readFile(request: Request) {
-  const formData = await request.formData();
+async function readUpload(formData: FormData) {
   const file = formData.get("file");
+  if (!(file instanceof File)) inputError("ARQUIVO_NAO_ENVIADO");
+  if (file.size === 0) inputError("ARQUIVO_VAZIO");
+  if (file.size > MAX_FILE_SIZE) inputError("ARQUIVO_MUITO_GRANDE");
 
-  if (!(file instanceof File)) {
-    throw new Error("ARQUIVO_NAO_ENVIADO");
-  }
-
-  if (file.size === 0) {
-    throw new Error("ARQUIVO_VAZIO");
-  }
-
-  if (file.size > MAX_FILE_SIZE) {
-    throw new Error("ARQUIVO_MUITO_GRANDE");
-  }
-
-  const name = file.name.toLowerCase();
-
+  const fileName = file.name.toLowerCase();
   if (
-    !name.endsWith(".xlsx") &&
-    !name.endsWith(".xls") &&
-    !name.endsWith(".csv")
+    !fileName.endsWith(".xlsx") &&
+    !fileName.endsWith(".xls") &&
+    !fileName.endsWith(".csv")
   ) {
-    throw new Error("FORMATO_NAO_SUPORTADO");
+    inputError("FORMATO_NAO_SUPORTADO");
   }
 
-  return Buffer.from(await file.arrayBuffer());
+  return {
+    fileName,
+    buffer: Buffer.from(await file.arrayBuffer()),
+  };
+}
+
+function rowInternalKey(row: ImportClient) {
+  return row.cpf
+    ? `cpf:${row.cpf}`
+    : row.email
+      ? `email:${row.email}`
+      : row.phone
+        ? `phone:${row.phone}`
+        : `name:${row.name.toLowerCase()}`;
+}
+
+function insertStatement(rows: InsertableImportRow[]) {
+  const values: unknown[] = [];
+  const tuples = rows.map((row, rowIndex) => {
+    const offset = rowIndex * 8;
+    values.push(
+      row.organizationId,
+      row.name,
+      row.phone,
+      row.email,
+      row.cpf,
+      row.birthDate,
+      row.notes,
+      row.source
+    );
+    return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, 'active', $${offset + 8})`;
+  });
+
+  return {
+    values,
+    query: `
+      INSERT INTO clients (
+        organization_id,
+        name,
+        phone,
+        email,
+        cpf,
+        birth_date,
+        notes,
+        status,
+        source
+      )
+      VALUES ${tuples.join(", ")}
+      RETURNING id
+    `,
+  };
 }
 
 export async function POST(request: Request) {
@@ -239,63 +373,89 @@ export async function POST(request: Request) {
         { status: 403 }
       );
     }
-    const organizationId = currentUser.organization.id;
 
-    const formData = await request.clone().formData();
-    const action = String(formData.get("action") ?? "preview");
-
-    const buffer = await readFile(request);
-    const rows = parseFile(buffer);
-    const { valid, errors } = validateRows(rows);
-
-    if (action === "preview") {
-      const phones = valid
-        .map((row) => row.phone)
-        .filter(Boolean);
-
-      const emails = valid
-        .map((row) => row.email)
-        .filter(Boolean);
-
-      const cpfs = valid
-        .map((row) => row.cpf)
-        .filter(Boolean);
-
-      const existing = await sql`
-        SELECT id, name, phone, email, cpf
-        FROM clients
-        WHERE organization_id = ${organizationId}
-          AND (
-            (${phones.length > 0} AND phone = ANY(${phones}))
-            OR (${emails.length > 0} AND email = ANY(${emails}))
-            OR (${cpfs.length > 0} AND cpf = ANY(${cpfs}))
-          )
-      `;
-
-      return NextResponse.json({
-        ok: true,
-        total: rows.length,
-        valid: valid.length,
-        errors,
-        existing,
-        preview: valid.slice(0, 100),
-      });
+    const contentLength = Number(request.headers.get("content-length"));
+    if (
+      Number.isFinite(contentLength) &&
+      contentLength > MAX_FILE_SIZE + MAX_MULTIPART_OVERHEAD
+    ) {
+      inputError("ARQUIVO_MUITO_GRANDE");
     }
 
-    if (action !== "import") {
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch {
+      inputError("FORMULARIO_INVALIDO");
+    }
+
+    const action = String(formData.get("action") ?? "preview");
+    if (action !== "preview" && action !== "import") {
       return NextResponse.json(
         { error: "AÇÃO_INVÁLIDA" },
         { status: 400 }
       );
     }
 
+    const { fileName, buffer } = await readUpload(formData);
+    const matrix = parseFile(buffer, fileName);
+    const { valid, errors, total } = validateRows(
+      matrix,
+      !fileName.endsWith(".csv")
+    );
+    const organizationId = currentUser.organization.id;
+
+    if (action === "preview") {
+      const phones = valid
+        .map((row) => row.phone)
+        .filter((value): value is string => Boolean(value));
+      const emails = valid
+        .map((row) => row.email)
+        .filter((value): value is string => Boolean(value));
+      const cpfs = valid
+        .map((row) => row.cpf)
+        .filter((value): value is string => Boolean(value));
+
+      const existing =
+        phones.length + emails.length + cpfs.length === 0
+          ? []
+          : await sql`
+              SELECT id, name, phone, email, cpf
+              FROM clients
+              WHERE organization_id = ${organizationId}
+                AND (
+                  (${phones.length > 0} AND phone = ANY(${phones}))
+                  OR (${emails.length > 0} AND email = ANY(${emails}))
+                  OR (${cpfs.length > 0} AND cpf = ANY(${cpfs}))
+                )
+            `;
+
+      return NextResponse.json({
+        ok: true,
+        total,
+        valid: valid.length,
+        invalid: errors.length,
+        errors,
+        existing,
+        preview: valid.slice(0, 100).map((row) => ({
+          name: row.name,
+          phone: row.phone,
+          email: row.email,
+          cpf: row.cpf,
+          birthDate: row.birthDate,
+          notes: row.notes,
+          source: row.source,
+        })),
+      });
+    }
+
     const result = await withTransaction(async (client) => {
-      const imported: string[] = [];
       const skipped: Array<{
         row: number;
         reason: string;
         name: string;
       }> = [];
+      const insertable: InsertableImportRow[] = [];
 
       const existing = await client.query(
         `
@@ -307,133 +467,89 @@ export async function POST(request: Request) {
       );
 
       const usedPhones = new Set(
-        existing.rows
-          .map((row) => row.phone)
-          .filter(Boolean)
+        existing.rows.map((row) => row.phone).filter(Boolean)
       );
-
       const usedEmails = new Set(
-        existing.rows
-          .map((row) => row.email)
-          .filter(Boolean)
+        existing.rows.map((row) => row.email).filter(Boolean)
       );
-
       const usedCpfs = new Set(
-        existing.rows
-          .map((row) => row.cpf)
-          .filter(Boolean)
+        existing.rows.map((row) => row.cpf).filter(Boolean)
       );
-
       const importedKeys = new Set<string>();
 
-      for (let index = 0; index < valid.length; index++) {
-        const row = valid[index];
-        const originalRow = rows.indexOf(row) + 2;
-
+      for (const row of valid) {
         const duplicate =
           (row.phone && usedPhones.has(row.phone)) ||
           (row.email && usedEmails.has(row.email)) ||
           (row.cpf && usedCpfs.has(row.cpf));
-
-        const internalKey =
-          row.cpf
-            ? `cpf:${row.cpf}`
-            : row.email
-              ? `email:${row.email}`
-              : row.phone
-                ? `phone:${row.phone}`
-                : `name:${row.name.toLowerCase()}`;
+        const internalKey = rowInternalKey(row);
 
         if (duplicate || importedKeys.has(internalKey)) {
           skipped.push({
-            row: originalRow,
+            row: row.rowNumber,
             reason: duplicate
               ? "Cliente já existe."
               : "Cliente duplicado no arquivo.",
             name: row.name,
           });
-
           continue;
         }
 
-        const inserted = await client.query(
-          `
-          INSERT INTO clients (
-            organization_id,
-            name,
-            phone,
-            email,
-            cpf,
-            birth_date,
-            notes,
-            status,
-            source
-          )
-          VALUES (
-            $1, $2, $3, $4, $5, $6, $7, 'active', $8
-          )
-          RETURNING id
-          `,
-          [
-            organizationId,
-            row.name,
-            row.phone,
-            row.email,
-            row.cpf,
-            row.birthDate,
-            row.notes,
-            row.source,
-          ]
-        );
-
-        imported.push(inserted.rows[0].id);
-
+        insertable.push({ ...row, organizationId });
         importedKeys.add(internalKey);
-
         if (row.phone) usedPhones.add(row.phone);
         if (row.email) usedEmails.add(row.email);
         if (row.cpf) usedCpfs.add(row.cpf);
       }
 
-      return {
-        imported: imported.length,
-        skipped,
-      };
+      let imported = 0;
+      for (
+        let start = 0;
+        start < insertable.length;
+        start += INSERT_BATCH_SIZE
+      ) {
+        const batch = insertable.slice(start, start + INSERT_BATCH_SIZE);
+        const statement = insertStatement(batch);
+        const inserted = await client.query(statement.query, statement.values);
+        imported += inserted.rowCount ?? inserted.rows.length;
+      }
+
+      return { imported, skipped };
     });
 
     return NextResponse.json({
       ok: true,
+      total,
       ...result,
       errors,
+      summary: {
+        total,
+        imported: result.imported,
+        skipped: result.skipped.length,
+        invalid: errors.length,
+      },
     });
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "IMPORT_ERROR";
-
-    if (message === "UNAUTHENTICATED") {
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
       return NextResponse.json(
         { error: "Não autenticado." },
         { status: 401 }
       );
     }
 
-    const knownErrors = new Set([
-      "ARQUIVO_NAO_ENVIADO",
-      "ARQUIVO_VAZIO",
-      "ARQUIVO_MUITO_GRANDE",
-      "FORMATO_NAO_SUPORTADO",
-      "ARQUIVO_SEM_PLANILHA",
-    ]);
+    if (error instanceof ImportInputError) {
+      const lineLimit = error.message.match(/^LIMITE_DE_LINHAS_EXCEDIDO_(\d+)$/);
+      const message = lineLimit
+        ? `O arquivo excede o limite de ${lineLimit[1]} linhas.`
+        : inputErrorMessages[error.message] ??
+          "O arquivo não pôde ser processado.";
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
 
+    console.error("Client import error:", error);
     return NextResponse.json(
-      {
-        error: knownErrors.has(message)
-          ? message
-          : "IMPORT_ERROR",
-      },
-      { status: 400 }
+      { error: "Não foi possível processar a importação." },
+      { status: 500 }
     );
   }
 }

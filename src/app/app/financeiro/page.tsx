@@ -73,7 +73,11 @@ export default function FinanceiroPage() {
   }
 
   useEffect(() => {
-    loadPayments();
+    const timer = window.setTimeout(() => {
+      loadPayments();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, []);
 
   const periodStart = (() => {
@@ -110,6 +114,7 @@ export default function FinanceiroPage() {
   const paidPayments = filteredPayments.filter(
     (payment) => payment.status === "paid"
   );
+  const metricsUnavailable = loading || Boolean(error);
 
   const revenue = paidPayments.reduce(
     (total, payment) => total + Number(payment.amount),
@@ -140,20 +145,20 @@ export default function FinanceiroPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#fbfaf8] text-[#26352f]">
-      <div className="mx-auto max-w-7xl px-6 py-8">
-        <div>
-          <h1 className="text-2xl font-semibold text-[#30463c]">
+    <main className="min-h-[calc(100vh-73px)] bg-[#fbfaf8] text-[#26352f]">
+      <div className="mx-auto max-w-7xl px-4 py-7 sm:px-6 sm:py-9 lg:px-8">
+        <header className="mb-7">
+          <h1 className="text-3xl font-semibold tracking-tight text-[#30463c]">
             Financeiro
           </h1>
 
-          <p className="mt-1 text-sm text-[#78867f]">
+          <p className="mt-2 text-sm leading-6 text-[#78867f]">
             Acompanhe entradas, pagamentos e formas de recebimento.
           </p>
-        </div>
+        </header>
 
         {error && (
-          <div className="mt-6 rounded-xl bg-red-50 p-4 text-sm text-red-700">
+          <div role="alert" className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {error}
           </div>
         )}
@@ -183,33 +188,33 @@ export default function FinanceiroPage() {
         </section>
 
         <section className="mt-6 grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-[#e4ebe7] bg-white p-5">
+          <div className="rounded-2xl border border-[#e4ebe7] bg-white p-5 shadow-sm">
             <p className="text-sm text-[#78867f]">
               Receita recebida
             </p>
 
             <p className="mt-2 text-2xl font-semibold text-[#30463c]">
-              {money(revenue)}
+              {metricsUnavailable ? "—" : money(revenue)}
             </p>
           </div>
 
-          <div className="rounded-2xl border border-[#e4ebe7] bg-white p-5">
+          <div className="rounded-2xl border border-[#e4ebe7] bg-white p-5 shadow-sm">
             <p className="text-sm text-[#78867f]">
               Pagamentos recebidos
             </p>
 
             <p className="mt-2 text-2xl font-semibold text-[#30463c]">
-              {paidPayments.length}
+              {metricsUnavailable ? "—" : paidPayments.length}
             </p>
           </div>
 
-          <div className="rounded-2xl border border-[#e4ebe7] bg-white p-5">
+          <div className="rounded-2xl border border-[#e4ebe7] bg-white p-5 shadow-sm">
             <p className="text-sm text-[#78867f]">
               Ticket médio
             </p>
 
             <p className="mt-2 text-2xl font-semibold text-[#30463c]">
-              {money(ticketAverage)}
+              {metricsUnavailable ? "—" : money(ticketAverage)}
             </p>
           </div>
         </section>
@@ -228,21 +233,23 @@ export default function FinanceiroPage() {
             ].map(([key, label]) => (
               <div
                 key={key}
-                className="rounded-2xl border border-[#e4ebe7] bg-white p-5"
+                className="rounded-2xl border border-[#e4ebe7] bg-white p-5 shadow-sm"
               >
                 <p className="text-sm text-[#78867f]">
                   {label}
                 </p>
 
                 <p className="mt-2 text-xl font-semibold text-[#30463c]">
-                  {money(byMethod[key as keyof typeof byMethod])}
+                  {metricsUnavailable
+                    ? "—"
+                    : money(byMethod[key as keyof typeof byMethod])}
                 </p>
               </div>
             ))}
           </div>
         </section>
 
-        <section className="mt-8 rounded-2xl border border-[#e4ebe7] bg-white">
+        <section className="mt-8 overflow-hidden rounded-2xl border border-[#e4ebe7] bg-white shadow-sm">
           <div className="border-b border-[#e4ebe7] p-6">
             <h2 className="font-semibold text-[#30463c]">
               Histórico de pagamentos

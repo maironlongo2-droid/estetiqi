@@ -5,7 +5,9 @@ import {
   normalizeCpf,
   normalizePhone,
 } from "@/lib/normalization/brazil";
+import { PERMANENTLY_DELETED_SOURCE } from "@/lib/clients/constants";
 import { updateClientSchema } from "@/lib/validation/client";
+import { withTransaction } from "@/lib/db/transaction";
 
 export async function GET(
   request: Request,
@@ -44,6 +46,7 @@ export async function GET(
       FROM clients
       WHERE id = ${id}
         AND organization_id = ${organizationId}
+        AND source IS DISTINCT FROM ${PERMANENTLY_DELETED_SOURCE}
       LIMIT 1
     `;
 
@@ -115,6 +118,13 @@ export async function PATCH(
       );
     }
 
+    if (result.data.source === PERMANENTLY_DELETED_SOURCE) {
+      return Response.json(
+        { error: "Origem reservada." },
+        { status: 400 }
+      );
+    }
+
     const organizationId = currentUser.organization.id;
 
     const existingClient = await sql`
@@ -126,6 +136,7 @@ export async function PATCH(
       FROM clients
       WHERE id = ${id}
         AND organization_id = ${organizationId}
+        AND source IS DISTINCT FROM ${PERMANENTLY_DELETED_SOURCE}
       LIMIT 1
     `;
 
@@ -205,30 +216,30 @@ export async function PATCH(
       UPDATE clients
       SET
         name = COALESCE(${name ?? null}, name),
-        phone = COALESCE(
-          ${normalizedPhone ?? null},
-          phone
-        ),
-        email = COALESCE(
-          ${normalizedEmail ?? null},
-          email
-        ),
-        cpf = COALESCE(
-          ${normalizedCpf ?? null},
-          cpf
-        ),
-        birth_date = COALESCE(
-          ${birthDate ?? null},
-          birth_date
-        ),
-        notes = COALESCE(
-          ${notes ?? null},
-          notes
-        ),
-        source = COALESCE(
-          ${source ?? null},
-          source
-        ),
+        phone = CASE WHEN ${phone !== undefined}
+          THEN ${normalizedPhone ?? null}
+          ELSE phone
+        END,
+        email = CASE WHEN ${email !== undefined}
+          THEN ${normalizedEmail ?? null}
+          ELSE email
+        END,
+        cpf = CASE WHEN ${cpf !== undefined}
+          THEN ${normalizedCpf ?? null}
+          ELSE cpf
+        END,
+        birth_date = CASE WHEN ${birthDate !== undefined}
+          THEN ${birthDate || null}::date
+          ELSE birth_date
+        END,
+        notes = CASE WHEN ${notes !== undefined}
+          THEN ${notes || null}
+          ELSE notes
+        END,
+        source = CASE WHEN ${source !== undefined}
+          THEN ${source || null}
+          ELSE source
+        END,
         status = COALESCE(
           ${status ?? null},
           status
@@ -295,15 +306,103 @@ export async function DELETE(
     const { id } = await context.params;
     const organizationId = currentUser.organization.id;
 
-    const result = await sql`
-      UPDATE clients
-      SET status = 'inactive'
-      WHERE id = ${id}
-        AND organization_id = ${organizationId}
-      RETURNING id
-    `;
+    const body = await request.json().catch(() => null);
 
-    if (result.length === 0) {
+    if (body?.confirmation !== "DELETE_PERMANENTLY") {
+      return Response.json(
+        { error: "Confirmação explícita necessária." },
+        { status: 400 }
+      );
+    }
+
+    const result = await withTransaction(async (client) => {
+      const existing = await client.query(
+        `SELECT id
+         FROM clients
+         WHERE id = $1
+           AND organization_id = $2
+           AND source IS DISTINCT FROM $3
+         FOR UPDATE`,
+        [id, organizationId, PERMANENTLY_DELETED_SOURCE]
+      );
+
+      if (existing.rows.length === 0) {
+        return false;
+      }
+
+      await client.query(
+        `UPDATE appointments
+         SET notes = NULL
+         WHERE client_id = $1 AND organization_id = $2`,
+        [id, organizationId]
+      );
+
+      await client.query(
+        `UPDATE payments
+         SET notes = NULL
+         WHERE client_id = $1 AND organization_id = $2`,
+        [id, organizationId]
+      );
+
+      await client.query(
+        `UPDATE customer_events
+         SET data = '{}'::jsonb
+         WHERE client_id = $1 AND organization_id = $2`,
+        [id, organizationId]
+      );
+
+      await client.query(
+        `UPDATE ai_opportunities
+         SET title = 'Oportunidade de cliente removido',
+             description = 'Dados pessoais removidos permanentemente.',
+             data = '{}'::jsonb,
+             status = 'dismissed',
+             updated_at = NOW()
+         WHERE client_id = $1 AND organization_id = $2`,
+        [id, organizationId]
+      );
+
+      await client.query(
+        `UPDATE ai_actions
+         SET payload = '{}'::jsonb,
+             result = NULL,
+             status = CASE
+               WHEN status IN ('pending_approval', 'approved', 'running')
+                 THEN 'cancelled'
+               ELSE status
+             END,
+             updated_at = NOW()
+         WHERE organization_id = $2
+           AND (
+             client_id = $1
+             OR opportunity_id IN (
+               SELECT id
+               FROM ai_opportunities
+               WHERE client_id = $1 AND organization_id = $2
+             )
+           )`,
+        [id, organizationId]
+      );
+
+      await client.query(
+        `UPDATE clients
+         SET name = 'Cliente removido',
+             phone = NULL,
+             email = NULL,
+             cpf = NULL,
+             birth_date = NULL,
+             notes = NULL,
+             source = $3,
+             status = 'inactive',
+             updated_at = NOW()
+         WHERE id = $1 AND organization_id = $2`,
+        [id, organizationId, PERMANENTLY_DELETED_SOURCE]
+      );
+
+      return true;
+    });
+
+    if (!result) {
       return Response.json(
         { error: "Cliente não encontrado." },
         { status: 404 }

@@ -31,6 +31,7 @@ export async function GET() {
       status,
       payload,
       result,
+      created_by_user_id,
       approved_at,
       executed_at,
       created_at,
@@ -81,7 +82,8 @@ export async function POST(request: Request) {
       title,
       description,
       priority,
-      data
+      data,
+      status
     FROM ai_opportunities
     WHERE id = ${parsed.data.opportunityId}
       AND organization_id = ${currentUser.organization.id}
@@ -94,6 +96,72 @@ export async function POST(request: Request) {
       { error: "OPPORTUNITY_NOT_FOUND" },
       { status: 404 }
     );
+  }
+
+  if (
+    parsed.data.clientId &&
+    parsed.data.clientId !== opportunity[0].client_id
+  ) {
+    return Response.json({ error: "OPPORTUNITY_CLIENT_MISMATCH" }, { status: 409 });
+  }
+
+  if (parsed.data.type === "whatsapp_opened") {
+    const message = parsed.data.payload?.message;
+    if (typeof message !== "string" || !message.trim() || message.length > 500) {
+      return Response.json({ error: "INVALID_MESSAGE" }, { status: 400 });
+    }
+    if (
+      opportunity[0].type !== "client_return" ||
+      !opportunity[0].client_id ||
+      (parsed.data.clientId &&
+        parsed.data.clientId !== opportunity[0].client_id)
+    ) {
+      return Response.json({ error: "OPPORTUNITY_CLIENT_MISMATCH" }, { status: 409 });
+    }
+
+    const recorded = await sql`
+      INSERT INTO ai_actions (
+        organization_id,
+        opportunity_id,
+        client_id,
+        type,
+        status,
+        payload,
+        result,
+        created_by_user_id
+      )
+      VALUES (
+        ${currentUser.organization.id},
+        ${opportunity[0].id},
+        ${opportunity[0].client_id},
+        'whatsapp_opened',
+        'whatsapp_opened',
+        ${JSON.stringify({
+          action: "wa.me_opened",
+          message: message.trim(),
+        })}::jsonb,
+        jsonb_build_object(
+          'messageSent',
+          FALSE,
+          'openedAt',
+          NOW()
+        ),
+        ${currentUser.user.id}
+      )
+      RETURNING
+        id,
+        opportunity_id,
+        client_id,
+        type,
+        status,
+        payload,
+        result,
+        created_by_user_id,
+        created_at,
+        updated_at
+    `;
+
+    return Response.json(recorded[0], { status: 201 });
   }
 
   const action = await createAIAction({

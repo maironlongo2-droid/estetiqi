@@ -9,10 +9,9 @@ const appointmentFields = z.object({
     .optional()
     .or(z.literal("")),
 
-  professionalName: z
+  professionalId: z
     .string()
-    .trim()
-    .max(120, "Nome do profissional muito longo.")
+    .uuid("Profissional inválido.")
     .optional()
     .or(z.literal("")),
 

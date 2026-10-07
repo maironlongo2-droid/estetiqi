@@ -46,9 +46,21 @@ for (const file of files) {
     "utf8"
   );
 
+  if (migration.includes("$$")) {
+    throw new Error(
+      `A migration ${version} contém $$ e não pode usar o migrador atual.`
+    );
+  }
+
   const statements = migration
     .split(";")
-    .map((statement) => statement.trim())
+    .map((statement) =>
+      statement
+        .split("\n")
+        .filter((line) => !line.trim().startsWith("--"))
+        .join("\n")
+        .trim()
+    )
     .filter(Boolean);
 
   try {
@@ -59,9 +71,11 @@ for (const file of files) {
     await sql`
       INSERT INTO schema_migrations (version)
       VALUES (${version})
+      ON CONFLICT (version) DO NOTHING
     `;
 
     console.log(`Migration aplicada: ${version}`);
+
   } catch (error) {
     console.error(`Erro na migration ${version}:`);
     console.error(error);

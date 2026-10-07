@@ -7,7 +7,7 @@ const automationSchema = z.object({
   name: z.string().trim().min(2).max(120),
   type: z.enum(["inactive_client", "birthday", "procedure_return"]),
   description: z.string().trim().max(500).optional().or(z.literal("")),
-  config: z.record(z.string(), z.any()).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
   active: z.boolean().optional(),
 });
 

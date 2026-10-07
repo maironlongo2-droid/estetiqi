@@ -15,6 +15,10 @@ export default function AppLayout({
   const router = useRouter();
   const [organizationName, setOrganizationName] = useState("EstetiQi");
   const [menuOpen, setMenuOpen] = useState(false);
+  const settingsActive =
+    pathname.startsWith("/app/profissionais") ||
+    pathname.startsWith("/app/procedimentos") ||
+    pathname.startsWith("/app/calculadora");
 
   useEffect(() => {
     fetch("/api/organization")
@@ -35,9 +39,9 @@ export default function AppLayout({
   return (
     <div className="min-h-screen bg-[#fbfaf8] text-[#26352f]">
       <header className="border-b border-[#e4ebe7] bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-10">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <Link href="/app" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f1f5f2] text-sm text-[#7a9f8d]">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#edf3ef] text-sm text-[#527765]">
               ✦
             </div>
 
@@ -46,107 +50,103 @@ export default function AppLayout({
                 {organizationName}
               </div>
 
-              <div className="text-[8px] font-medium uppercase tracking-[0.2em] text-[#a0aaa5]">
+              <div className="text-[9px] font-medium uppercase tracking-[0.2em] text-[#8a9891]">
                 EstetiQi
               </div>
             </div>
           </Link>
 
-          <div className="flex items-center gap-6">
-            <nav className="flex items-center gap-5 text-sm text-[#66756d]">
-              <Link
-                href="/app"
-                className={pathname === "/app" ? "font-semibold text-[#30463c]" : ""}
-              >
-                Dashboard
-              </Link>
-
-              <Link
-                href="/app/clientes"
-                className={pathname.startsWith("/app/clientes") ? "font-semibold text-[#30463c]" : ""}
-              >
-                Clientes
-              </Link>
-
-              <Link
-                href="/app/agenda"
-                className={pathname.startsWith("/app/agenda") ? "font-semibold text-[#30463c]" : ""}
-              >
-                Agenda
-              </Link>
-
-              <Link
-                href="/app/procedimentos"
-                className={pathname.startsWith("/app/procedimentos") ? "font-semibold text-[#30463c]" : ""}
-              >
-                Procedimentos
-              </Link>
-
-              <Link
-                href="/app/inteligencia"
-                className={pathname.startsWith("/app/inteligencia") ? "font-semibold text-[#30463c]" : ""}
-              >
-                Inteligência
-              </Link>
-
-              <Link
-                href="/app/campanhas"
-                className={pathname.startsWith("/app/campanhas") ? "font-semibold text-[#30463c]" : ""}
-              >
-                Campanhas
-              </Link>
+          <div className="flex min-w-0 items-center justify-between gap-2 lg:gap-5">
+            <nav
+              aria-label="Navegação principal"
+              className="grid min-w-0 flex-1 grid-cols-6 items-center gap-1 text-sm text-[#66756d] lg:flex lg:flex-initial"
+            >
+              {[
+                { href: "/app", label: "Início", active: pathname === "/app" },
+                {
+                  href: "/app/clientes",
+                  label: "Clientes",
+                  active: pathname.startsWith("/app/clientes"),
+                },
+                {
+                  href: "/app/agenda",
+                  label: "Agenda",
+                  active: pathname.startsWith("/app/agenda"),
+                },
+                {
+                  href: "/app/financeiro",
+                  label: "Financeiro",
+                  active: pathname.startsWith("/app/financeiro"),
+                },
+                {
+                  href: "/app/inteligencia",
+                  label: "Inteligência",
+                  active: pathname.startsWith("/app/inteligencia"),
+                },
+                {
+                  href: "/app/automacoes",
+                  label: "Automações",
+                  active: pathname.startsWith("/app/automacoes"),
+                },
+              ].map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={item.active ? "page" : undefined}
+                  className={`min-w-0 rounded-lg px-1 py-2 text-center text-[11px] leading-tight transition hover:bg-[#f4f7f5] hover:text-[#30463c] sm:px-2 sm:text-xs lg:shrink-0 lg:px-3 lg:text-sm ${
+                    item.active
+                      ? "bg-[#edf3ef] font-semibold text-[#30463c]"
+                      : ""
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              ))}
             </nav>
 
-            <div className="relative">
+            <div className="relative shrink-0">
               <button
                 type="button"
-                aria-label="Abrir menu"
+                aria-label="Mais opções"
                 aria-expanded={menuOpen}
                 onClick={() => setMenuOpen((open) => !open)}
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#dfe9e3] text-xl leading-none text-[#66756d] transition hover:bg-[#f4f7f5]"
+                className={`flex h-10 w-10 items-center justify-center rounded-xl border border-[#dfe9e3] text-xl leading-none text-[#66756d] transition hover:bg-[#f4f7f5] ${
+                  settingsActive ? "bg-[#edf3ef] text-[#30463c]" : ""
+                }`}
               >
                 ⋮
               </button>
 
               {menuOpen && (
-                <div className="absolute right-0 top-12 z-50 w-52 rounded-xl border border-[#e4ebe7] bg-white p-2 shadow-lg">
-                  <Link
-                    href="/app/financeiro"
-                    onClick={() => setMenuOpen(false)}
-                    className="block rounded-lg px-3 py-2 text-sm text-[#46574f] hover:bg-[#f4f7f5]"
-                  >
-                    Financeiro
-                  </Link>
-
-                  <Link
-                    href="/app/configuracoes"
-                    onClick={() => setMenuOpen(false)}
-                    className="block rounded-lg px-3 py-2 text-sm text-[#46574f] hover:bg-[#f4f7f5]"
-                  >
-                    Configurações
-                  </Link>
-
-                  <Link
-                    href="/app/integracoes"
-                    onClick={() => setMenuOpen(false)}
-                    className="block rounded-lg px-3 py-2 text-sm text-[#46574f] hover:bg-[#f4f7f5]"
-                  >
-                    Integrações
-                  </Link>
-
-                  <Link
-                    href="/app/conta"
-                    onClick={() => setMenuOpen(false)}
-                    className="block rounded-lg px-3 py-2 text-sm text-[#46574f] hover:bg-[#f4f7f5]"
-                  >
-                    Minha conta
-                  </Link>
-
+                <div
+                  role="menu"
+                  aria-label="Mais opções"
+                  className="absolute right-0 top-12 z-50 w-52 rounded-xl border border-[#e4ebe7] bg-white p-2 shadow-lg"
+                >
+                  {[
+                    { href: "/app/profissionais", label: "Profissionais" },
+                    { href: "/app/procedimentos", label: "Procedimentos" },
+                    { href: "/app/calculadora", label: "Calculadora de preços" },
+                  ].map((item) => (
+                    <Link
+                      key={item.href}
+                      role="menuitem"
+                      href={item.href}
+                      onClick={() => setMenuOpen(false)}
+                      aria-current={pathname.startsWith(item.href) ? "page" : undefined}
+                      className="block rounded-lg px-3 py-2 text-sm text-[#50655b] hover:bg-[#f4f7f5]"
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
                   <div className="my-1 border-t border-[#e4ebe7]" />
-
                   <button
                     type="button"
-                    onClick={() => signOut({ redirectUrl: "/login" })}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      void signOut({ redirectUrl: "/login" });
+                    }}
+                    role="menuitem"
                     className="block w-full rounded-lg px-3 py-2 text-left text-sm text-[#8a5149] hover:bg-[#faf2f0]"
                   >
                     Sair

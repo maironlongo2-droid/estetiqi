@@ -33,18 +33,25 @@ export async function POST(request: Request) {
   const organizationId = currentUser.organization.id;
 
   const existing = await sql`
-    SELECT id, name, phone
+    SELECT id, name, phone, status
     FROM clients
     WHERE organization_id = ${organizationId}
       AND LOWER(name) = LOWER(${name})
       AND (
-        ${phone || null} IS NULL
+        ${phone || null}::text IS NULL
         OR phone = ${phone}
       )
     LIMIT 1
   `;
 
   if (existing.length > 0) {
+    if (existing[0].status !== "active") {
+      return Response.json(
+        { error: "Cliente inativo não pode ser selecionado para um novo agendamento." },
+        { status: 409 }
+      );
+    }
+
     return Response.json(existing[0]);
   }
 

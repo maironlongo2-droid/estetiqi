@@ -19,9 +19,9 @@ export async function GET(request: Request) {
     const requestedStatus = searchParams.get("status");
 
     const status =
-      requestedStatus === "active" || requestedStatus === "inactive"
+      requestedStatus === "inactive" || requestedStatus === "all"
         ? requestedStatus
-        : null;
+        : "active";
 
     const page = Math.max(
       Number.parseInt(searchParams.get("page") || "1", 10),
@@ -58,7 +58,7 @@ export async function GET(request: Request) {
           OR description ILIKE ${searchPattern}
         )
         AND (
-          ${status}::varchar IS NULL
+          ${status} = 'all'
           OR status = ${status}::varchar
         )
       ORDER BY name ASC
@@ -76,7 +76,7 @@ export async function GET(request: Request) {
           OR description ILIKE ${searchPattern}
         )
         AND (
-          ${status}::varchar IS NULL
+          ${status} = 'all'
           OR status = ${status}::varchar
         )
     `;
@@ -337,10 +337,13 @@ export async function DELETE(request: Request) {
     const organizationId = currentUser.organization.id;
 
     const procedures = await sql`
-      DELETE FROM procedures
+      UPDATE procedures
+      SET status = 'inactive',
+          updated_at = NOW()
       WHERE id = ${id}
         AND organization_id = ${organizationId}
-      RETURNING id
+        AND status = 'active'
+      RETURNING id, status
     `;
 
     if (procedures.length === 0) {
@@ -350,7 +353,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    return Response.json({ success: true });
+    return Response.json({ success: true, procedure: procedures[0] });
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHENTICATED") {
       return Response.json({ error: "Não autenticado." }, { status: 401 });

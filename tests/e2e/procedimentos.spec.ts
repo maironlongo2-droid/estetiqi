@@ -65,4 +65,25 @@ test("fluxo básico de procedimentos", async ({ page }) => {
   await expect(
     page.getByText(editedName, { exact: true })
   ).not.toBeVisible();
+
+  const activeProcedures = await page.request.get(
+    "/api/procedures?status=active&limit=500"
+  );
+  expect(activeProcedures.ok()).toBeTruthy();
+  expect(
+    (await activeProcedures.json()).procedures.some(
+      (procedure: { name: string }) => procedure.name === editedName
+    )
+  ).toBe(false);
+
+  const inactiveProcedures = await page.request.get(
+    "/api/procedures?status=inactive&limit=500"
+  );
+  expect(inactiveProcedures.ok()).toBeTruthy();
+  expect(
+    (await inactiveProcedures.json()).procedures.some(
+      (procedure: { name: string; status: string }) =>
+        procedure.name === editedName && procedure.status === "inactive"
+    )
+  ).toBe(true);
 });

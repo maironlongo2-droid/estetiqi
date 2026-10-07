@@ -109,6 +109,11 @@ export async function POST(
     const history = Array.isArray(opportunity.history)
       ? opportunity.history.map((item: string) => cleanPromptValue(item, 100)).join("\n")
       : "";
+    // `completed_count` vem achatado da LATERAL `last_visit`; quando não há
+    // atendimento concluído a lista lateral é vazia e o valor chega nulo.
+    const completedVisits = Number.isFinite(Number(opportunity.completed_count))
+      ? Number(opportunity.completed_count)
+      : 0;
     const lastAppointmentLabel = new Intl.DateTimeFormat("pt-BR", {
       dateStyle: "long",
       timeZone: "America/Sao_Paulo",
@@ -131,7 +136,7 @@ Dias desde o atendimento: ${inactiveDays}
 Intervalo de retorno cadastrado (dias): ${Number.isFinite(returnIntervalDays) ? returnIntervalDays : "não informado"}
 Motivo da oportunidade: ${cleanPromptValue(opportunity.description)}
 Prioridade: ${opportunity.priority}
-Atendimentos concluídos no histórico: ${opportunity.last_visit.completed_count}
+Atendimentos concluídos no histórico: ${completedVisits}
 Histórico recente concluído:
 ${history || "Não há histórico adicional."}
 

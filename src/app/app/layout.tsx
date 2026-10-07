@@ -126,7 +126,7 @@ export default function AppLayout({
                   key={item.href}
                   href={item.href}
                   aria-current={item.active ? "page" : undefined}
-                  className={`min-w-0 rounded-lg px-1 py-2 text-center text-xs leading-tight transition hover:bg-[#f4f7f5] hover:text-[#30463c] sm:px-2 lg:shrink-0 lg:px-3 lg:text-sm ${
+                  className={`min-w-0 rounded-lg px-1 py-2 text-center text-xs font-medium leading-tight transition hover:bg-[#f4f7f5] hover:text-[#30463c] sm:px-2 lg:shrink-0 lg:px-3 lg:text-sm ${
                     item.desktopOnly ? "hidden lg:block" : ""
                   } ${
                     item.active
@@ -183,7 +183,7 @@ export default function AppLayout({
                       href={item.href}
                       onClick={() => setMenuOpen(false)}
                       aria-current={pathname.startsWith(item.href) ? "page" : undefined}
-                      className={`block rounded-lg px-3 py-2 text-sm text-[#50655b] hover:bg-[#f4f7f5] ${
+                      className={`block rounded-lg px-3 py-2 text-sm font-medium text-[#50655b] hover:bg-[#f4f7f5] ${
                         item.mobileOnly ? "lg:hidden" : ""
                       }`}
                     >

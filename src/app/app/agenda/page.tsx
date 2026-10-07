@@ -871,68 +871,70 @@ export default function AgendaPage() {
           </button>
         </header>
 
-        <section className="mt-6 rounded-2xl border border-[#e4ebe7] bg-white p-4 shadow-sm sm:p-5">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => changeDate(-1)}
+        {!showForm && (
+          <section className="mt-6 rounded-2xl border border-[#e4ebe7] bg-white p-4 shadow-sm sm:p-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => changeDate(-1)}
+                  className="rounded-lg border border-[#dce5e0] px-3 py-2 text-sm"
+                >
+                  ←
+                </button>
+
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(event) => {
+                    setUpcomingView(false);
+                    setSelectedDate(event.target.value);
+                  }}
+                  className="rounded-lg border border-[#dce5e0] px-3 py-2 text-sm"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => changeDate(1)}
+                  className="rounded-lg border border-[#dce5e0] px-3 py-2 text-sm"
+                >
+                  →
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedDate(brasilDateString(new Date()))
+                    setUpcomingView(true);
+                  }}
+                  className="rounded-lg bg-[#edf3ef] px-3 py-2 text-sm font-medium text-[#30463c]"
+                >
+                  Próximos
+                </button>
+              </div>
+
+              <select
+                value={statusFilter}
+                onChange={(event) =>
+                  setStatusFilter(event.target.value)
+                }
                 className="rounded-lg border border-[#dce5e0] px-3 py-2 text-sm"
               >
-                ←
-              </button>
-
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(event) => {
-                  setUpcomingView(false);
-                  setSelectedDate(event.target.value);
-                }}
-                className="rounded-lg border border-[#dce5e0] px-3 py-2 text-sm"
-              />
-
-              <button
-                type="button"
-                onClick={() => changeDate(1)}
-                className="rounded-lg border border-[#dce5e0] px-3 py-2 text-sm"
-              >
-                →
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedDate(brasilDateString(new Date()))
-                  setUpcomingView(true);
-                }}
-                className="rounded-lg bg-[#edf3ef] px-3 py-2 text-sm font-medium text-[#30463c]"
-              >
-                Próximos
-              </button>
+                {statuses.map((status) => (
+                  <option key={status.value} value={status.value}>
+                    {status.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <select
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value)
-              }
-              className="rounded-lg border border-[#dce5e0] px-3 py-2 text-sm"
-            >
-              {statuses.map((status) => (
-                <option key={status.value} value={status.value}>
-                  {status.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {!upcomingView && (
-            <p className="mt-4 text-sm font-medium capitalize text-[#50655b]">
-              {selectedDateLabel}
-            </p>
-          )}
-        </section>
+            {!upcomingView && (
+              <p className="mt-4 text-sm font-medium capitalize text-[#50655b]">
+                {selectedDateLabel}
+              </p>
+            )}
+          </section>
+        )}
 
         {showForm && (
           <form

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://estetiqi.vercel.app";
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://estetiqi.com.br";
 const siteDescription =
   "Seu negócio de estética organizado em um só lugar: clientes, agenda, financeiro e oportunidades de retorno.";
 
@@ -30,6 +30,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: "/icon.svg",
+    apple: "/apple-icon.png",
   },
   openGraph: {
     type: "website",

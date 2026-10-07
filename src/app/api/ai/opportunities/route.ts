@@ -128,7 +128,21 @@ export async function POST(request: Request) {
       return Response.json({ error: "Não autenticado." }, { status: 401 });
     }
 
+    if (error instanceof Error && error.message === "GEMINI_API_KEY não configurada.") {
+      return Response.json(
+        { error: "A análise com IA não está configurada neste ambiente." },
+        { status: 503 },
+      );
+    }
+
     console.error("Analyze AI opportunities error:", error);
+
+    if (error instanceof Error && error.message === "AI_INVALID_JSON") {
+      return Response.json(
+        { error: "A IA não retornou uma análise válida. Tente novamente." },
+        { status: 502 },
+      );
+    }
 
     return Response.json(
       { error: "Não foi possível analisar as oportunidades." },

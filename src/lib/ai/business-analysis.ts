@@ -1,6 +1,7 @@
 import { sql } from "@/lib/db/client";
 import { generateAI } from "@/lib/ai/gemini";
 import { getBusinessContext } from "@/lib/ai/context/business-context";
+import { cleanJsonResponse } from "@/lib/ai/json-response";
 
 type Opportunity = {
   type: string;
@@ -82,17 +83,16 @@ Retorne SOMENTE JSON válido neste formato:
 
   const response = await generateAI(prompt);
 
-  const cleaned = response
-    .replace(/^```json\\s*/i, "")
-    .replace(/^```\\s*/i, "")
-    .replace(/\\s*```$/i, "")
-    .trim();
-
   let parsed: { opportunities?: Opportunity[] };
 
   try {
-    parsed = JSON.parse(cleaned);
+    parsed = JSON.parse(cleanJsonResponse(response));
   } catch {
+    // Loga a resposta bruta (truncada) para tornar a falha identificável em produção.
+    console.error(
+      "AI business analysis: a resposta do Gemini não é um JSON válido.",
+      JSON.stringify(response.slice(0, 500)),
+    );
     throw new Error("AI_INVALID_JSON");
   }
 
@@ -116,6 +116,7 @@ Retorne SOMENTE JSON válido neste formato:
     : [];
 
   for (const opportunity of opportunities) {
+    // Evita repetir uma oportunidade aberta com o mesmo título a cada análise.
     await sql`
       INSERT INTO ai_opportunities (
         organization_id,
@@ -126,8 +127,8 @@ Retorne SOMENTE JSON válido neste formato:
         status,
         data
       )
-      VALUES (
-        ${organizationId},
+      SELECT
+        ${organizationId}::uuid,
         ${opportunity.type || "business"},
         ${opportunity.title.slice(0, 180)},
         ${opportunity.description},
@@ -138,6 +139,12 @@ Retorne SOMENTE JSON válido neste formato:
           target: opportunity.target,
           generatedBy: "business-context-analysis"
         })}::jsonb
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM ai_opportunities existing
+        WHERE existing.organization_id = ${organizationId}::uuid
+          AND existing.status = 'open'
+          AND LOWER(existing.title) = LOWER(${opportunity.title.slice(0, 180)})
       )
     `;
   }

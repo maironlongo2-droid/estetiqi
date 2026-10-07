@@ -118,7 +118,7 @@ test("manifesto PWA e telas principais cabem no mobile", async ({ page }) => {
     .evaluateAll((links) =>
       links.map((link) => (link as HTMLAnchorElement).getAttribute("href"))
     );
-  // No celular, Inteligência e Automações ficam no menu "Mais opções".
+  // No celular, Assistente IA e Automações ficam no menu "Mais opções".
   expect(primaryNavigationHrefs).toEqual([
     "/app",
     "/app/clientes",
@@ -160,10 +160,21 @@ test("manifesto PWA e telas principais cabem no mobile", async ({ page }) => {
     page.getByRole("menuitem", { name: "Procedimentos" })
   ).toBeVisible();
   await expect(
-    page.getByRole("menuitem", { name: "Inteligência" })
+    page.getByRole("menuitem", { name: "Assistente IA" })
   ).toBeVisible();
   await expect(
     page.getByRole("menuitem", { name: "Automações" })
   ).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Sair" })).toBeVisible();
+
+  // Clique fora e Escape fecham o menu; navegar por um item também.
+  await page.getByRole("heading").first().click({ force: true });
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await page.getByRole("button", { name: "Mais opções" }).click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await page.getByRole("button", { name: "Mais opções" }).click();
+  await page.getByRole("menuitem", { name: "Automações" }).click();
+  await expect(page).toHaveURL(/\/app\/automacoes/);
+  await expect(page.getByRole("menu")).toHaveCount(0);
 });

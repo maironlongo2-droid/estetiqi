@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useClerk } from "@clerk/nextjs";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ToastProvider } from "./toast";
 
 export default function AppLayout({
@@ -15,15 +15,41 @@ export default function AppLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [organizationName, setOrganizationName] = useState("EstetiQi");
-  const [menuOpen, setMenuOpen] = useState(false);
+  // O menu só conta como aberto na página em que foi aberto: navegar o fecha.
+  const [menuOpenPath, setMenuOpenPath] = useState<string | null>(null);
+  const menuOpen = menuOpenPath === pathname;
+  const menuRef = useRef<HTMLDivElement>(null);
+  const setMenuOpen = (open: boolean) => setMenuOpenPath(open ? pathname : null);
   const settingsActive =
     pathname.startsWith("/app/profissionais") ||
     pathname.startsWith("/app/procedimentos") ||
     pathname.startsWith("/app/calculadora");
-  // No celular, Inteligência e Automações ficam dentro do menu "Mais".
+  // No celular, Assistente IA e Automações ficam dentro do menu "Mais".
   const mobileSecondaryActive =
     pathname.startsWith("/app/inteligencia") ||
     pathname.startsWith("/app/automacoes");
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    function closeOnOutsidePress(event: MouseEvent | TouchEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setMenuOpenPath(null);
+      }
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setMenuOpenPath(null);
+    }
+
+    document.addEventListener("mousedown", closeOnOutsidePress);
+    document.addEventListener("touchstart", closeOnOutsidePress);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsidePress);
+      document.removeEventListener("touchstart", closeOnOutsidePress);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [menuOpen]);
 
   useEffect(() => {
     fetch("/api/organization")
@@ -85,7 +111,7 @@ export default function AppLayout({
                 },
                 {
                   href: "/app/inteligencia",
-                  label: "Inteligência",
+                  label: "Assistente IA",
                   active: pathname.startsWith("/app/inteligencia"),
                   desktopOnly: true,
                 },
@@ -113,12 +139,12 @@ export default function AppLayout({
               ))}
             </nav>
 
-            <div className="relative shrink-0">
+            <div ref={menuRef} className="relative shrink-0">
               <button
                 type="button"
                 aria-label="Mais opções"
                 aria-expanded={menuOpen}
-                onClick={() => setMenuOpen((open) => !open)}
+                onClick={() => setMenuOpen(!menuOpen)}
                 className={`flex h-10 w-10 items-center justify-center rounded-xl border border-[#dfe9e3] text-xl leading-none text-[#66756d] transition hover:bg-[#f4f7f5] ${
                   settingsActive ? "bg-[#edf3ef] text-[#30463c]" : ""
                 } ${
@@ -139,7 +165,7 @@ export default function AppLayout({
                   {[
                     {
                       href: "/app/inteligencia",
-                      label: "Inteligência",
+                      label: "Assistente IA",
                       mobileOnly: true,
                     },
                     {

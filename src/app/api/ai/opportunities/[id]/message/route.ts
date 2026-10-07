@@ -140,7 +140,10 @@ A mensagem deve convidar a cliente a conversar sobre o retorno, sem afirmar que 
 
     const message = await generateAI(prompt);
     if (!message || message.length > 500) {
-      console.error("Generate return message error: Gemini returned an invalid message length.");
+      console.error(
+        "Generate return message error: Gemini returned an invalid message length.",
+        message ? message.length : 0,
+      );
       return Response.json(
         { error: "A IA não retornou uma mensagem curta utilizável. Tente novamente." },
         { status: 502 }

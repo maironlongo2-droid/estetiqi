@@ -3,8 +3,6 @@ import { generateAI } from "@/lib/ai/gemini";
 export type InactiveClient = {
   id: string;
   name: string;
-  phone: string | null;
-  email: string | null;
   last_appointment_at: string;
   inactive_days: number;
 };

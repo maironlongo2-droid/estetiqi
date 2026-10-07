@@ -14,9 +14,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://estetiqi.vercel.app";
+const siteDescription =
+  "Seu negócio de estética organizado em um só lugar: clientes, agenda, financeiro e oportunidades de retorno.";
+
 export const metadata: Metadata = {
-  title: "EstetiQI",
-  description: "Inteligência para negócios de beleza",
+  metadataBase: new URL(siteUrl),
+  title: "EstetiQI — Gestão para negócios de estética",
+  description: siteDescription,
   applicationName: "EstetiQI",
   appleWebApp: {
     capable: true,
@@ -25,6 +30,18 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: "/icon.svg",
+  },
+  openGraph: {
+    type: "website",
+    siteName: "EstetiQI",
+    locale: "pt_BR",
+    title: "EstetiQI — Gestão para negócios de estética",
+    description: siteDescription,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "EstetiQI — Gestão para negócios de estética",
+    description: siteDescription,
   },
 };
 

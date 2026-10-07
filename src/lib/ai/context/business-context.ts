@@ -22,7 +22,6 @@ export async function getBusinessContext(organizationId: string) {
       SELECT
         id,
         name,
-        business_phone,
         city,
         state,
         business_type,

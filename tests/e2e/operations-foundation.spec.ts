@@ -49,42 +49,25 @@ test("profissionais têm listas de ativos e inativos e exclusão segura sem hist
   await expect(inactiveCard).toHaveCount(0);
 });
 
-test("automações mostram ações pré-estabelecidas e clientes inativos", async ({
+test("automações mostram resumo, oportunidades e clientes sem voltar", async ({
   page,
 }) => {
   await signIn(page);
   await page.goto("/app/automacoes");
 
+  await expect(page.getByRole("heading", { name: "Automações" })).toBeVisible();
+  await expect(page.getByText("Clientes para reativar")).toBeVisible();
+  await expect(page.getByText("Oportunidades encontradas")).toBeVisible();
+  await expect(page.getByText("Última atualização")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "O que você pode fazer" })
+    page.getByRole("heading", { name: "Principais oportunidades" })
   ).toBeVisible();
 
-  await expect(
-    page.getByRole("heading", {
-      name: "Lembrar clientes que estão há muito tempo sem voltar",
-    })
-  ).toBeVisible();
+  await page.getByRole("button", { name: "Atualizar" }).click();
+  await expect(page.getByRole("button", { name: "Atualizar" })).toBeEnabled();
 
-  await expect(
-    page.getByRole("heading", {
-      name: "Encontrar clientes que podem voltar",
-    })
-  ).toBeVisible();
-
-  await expect(
-    page.getByRole("heading", {
-      name: "Clientes sem voltar",
-    })
-  ).toBeVisible();
-
-  await expect(
-    page.getByRole("button", { name: "Atualizar" })
-  ).toBeVisible();
-
-  const updateButton = page.getByRole("button", { name: "Atualizar" });
-  await updateButton.click();
-
-  await expect(page.getByText(/cliente[s]* encontrado/)).toBeVisible();
+  await page.getByText("Clientes sem voltar").click();
+  await expect(page.getByLabel("Considerar sem retorno após")).toBeVisible();
 });
 
 test("profissionais, disponibilidade e conflitos alimentam os appointments", async ({

@@ -26,7 +26,7 @@ const features = [
   },
   {
     icon: "✦",
-    title: "Inteligência",
+    title: "Assistente IA",
     text: "Aponta clientes que podem voltar e sugere a mensagem de retorno.",
   },
   {

@@ -1,6 +1,7 @@
 import { sql } from "@/lib/db/client";
 import { generateAI } from "@/lib/ai/gemini";
 import { getBusinessMetrics } from "@/lib/analytics/business-metrics";
+import { cleanJsonResponse } from "@/lib/ai/json-response";
 
 type AIOpportunity = {
   type: string;
@@ -9,14 +10,6 @@ type AIOpportunity = {
   priority: "low" | "medium" | "high";
   suggestedAction: string;
 };
-
-function cleanJson(text: string) {
-  return text
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
-}
 
 export async function generateBusinessOpportunities(
   organizationId: string
@@ -57,7 +50,19 @@ Regras:
 `;
 
   const response = await generateAI(prompt);
-  const parsed = JSON.parse(cleanJson(response));
+
+  let parsed: { opportunities?: AIOpportunity[] };
+
+  try {
+    parsed = JSON.parse(cleanJsonResponse(response));
+  } catch {
+    // Loga a resposta bruta (truncada) para tornar a falha identificável em produção.
+    console.error(
+      "AI business opportunities: a resposta do Gemini não é um JSON válido.",
+      JSON.stringify(response.slice(0, 500)),
+    );
+    throw new Error("AI_INVALID_JSON");
+  }
 
   const opportunities: AIOpportunity[] = Array.isArray(parsed.opportunities)
     ? parsed.opportunities

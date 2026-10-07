@@ -793,13 +793,13 @@ export default function AppPage() {
                   Nenhuma oportunidade aberta no momento.
                 </p>
                 <p className="mt-1 text-sm text-[#78867f]">
-                  Acesse Inteligência para analisar os dados disponíveis.
+                  Acesse o Assistente IA para analisar os dados disponíveis.
                 </p>
                 <Link
                   href="/app/inteligencia"
                   className="mt-4 inline-flex rounded-xl border border-[#dce5e0] px-4 py-2 text-sm font-semibold text-[#30463c] hover:bg-[#f7faf8]"
                 >
-                  Ir para Inteligência
+                  Ir para o Assistente IA
                 </Link>
               </div>
             ) : (

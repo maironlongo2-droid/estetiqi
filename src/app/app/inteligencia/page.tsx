@@ -148,7 +148,7 @@ export default function InteligenciaPage() {
         notifyError("Algumas informações não puderam ser carregadas. Verifique sua permissão e tente novamente.");
       }
     } catch {
-      notifyError("Não foi possível carregar a Inteligência agora. Tente novamente.");
+      notifyError("Não foi possível carregar o Assistente IA agora. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -425,7 +425,7 @@ export default function InteligenciaPage() {
     <main className="min-h-[calc(100vh-73px)] bg-[#fbfaf8] px-4 py-7 text-[#26352f] sm:px-6 sm:py-9 lg:px-8">
       <div className="mx-auto max-w-7xl">
       <header className="mb-7">
-        <h1 className="text-3xl font-semibold tracking-tight text-[#30463c]">Inteligência</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-[#30463c]">Assistente IA</h1>
         <p className="mt-2 text-sm leading-6 text-[#78867f]">
           O que merece atenção no negócio agora.
         </p>

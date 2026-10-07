@@ -9,7 +9,7 @@ const pages = [
   ["/app/automacoes", "Automações"],
   ["/app/financeiro", "Financeiro"],
   ["/app/ia", "IA"],
-  ["/app/inteligencia", "Inteligência"],
+  ["/app/inteligencia", "Assistente IA"],
   ["/app/onboarding", "Onboarding"],
 ] as const;
 

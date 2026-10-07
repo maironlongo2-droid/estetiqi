@@ -56,8 +56,6 @@ export async function GET(request: Request) {
       clients.map((client) => ({
         id: client.id,
         name: client.name,
-        phone: client.phone,
-        email: client.email,
         last_appointment_at: client.last_appointment_at,
         inactive_days: client.inactive_days,
       })),

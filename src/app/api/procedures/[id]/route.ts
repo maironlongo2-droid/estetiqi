@@ -155,10 +155,14 @@ export async function PATCH(
       WHERE organization_id = ${organizationId}
         AND id <> ${id}
         AND LOWER(name) = LOWER(${finalName})
+        AND status = 'active'
       LIMIT 1
     `;
 
-    if (duplicateProcedure.length > 0) {
+    if (
+      (status ?? existingProcedure[0].status) === "active" &&
+      duplicateProcedure.length > 0
+    ) {
       return Response.json(
         {
           error: "Já existe outro procedimento com esse nome.",

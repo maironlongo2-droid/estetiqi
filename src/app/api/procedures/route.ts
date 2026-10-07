@@ -146,10 +146,11 @@ export async function POST(request: Request) {
       FROM procedures
       WHERE organization_id = ${organizationId}
         AND LOWER(name) = LOWER(${name})
+        AND status = 'active'
       LIMIT 1
     `;
 
-    if (existingProcedure.length > 0) {
+    if ((status ?? "active") === "active" && existingProcedure.length > 0) {
       return Response.json(
         { error: "Já existe um procedimento com esse nome." },
         { status: 409 }
@@ -255,11 +256,12 @@ export async function PUT(request: Request) {
       FROM procedures
       WHERE organization_id = ${organizationId}
         AND LOWER(name) = LOWER(${name})
+        AND status = 'active'
         AND id <> ${id}
       LIMIT 1
     `;
 
-    if (duplicate.length > 0) {
+    if ((status ?? "active") === "active" && duplicate.length > 0) {
       return Response.json(
         { error: "Já existe um procedimento com esse nome." },
         { status: 409 }

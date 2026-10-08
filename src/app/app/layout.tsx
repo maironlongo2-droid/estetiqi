@@ -19,7 +19,6 @@ export default function AppLayout({
   const [menuOpenPath, setMenuOpenPath] = useState<string | null>(null);
   const menuOpen = menuOpenPath === pathname;
   const menuRef = useRef<HTMLDivElement>(null);
-  const mobileMenuTriggerRef = useRef<HTMLDivElement>(null);
   const setMenuOpen = (open: boolean) => setMenuOpenPath(open ? pathname : null);
   const settingsActive =
     pathname.startsWith("/app/profissionais") ||
@@ -36,7 +35,6 @@ export default function AppLayout({
     function closeOnOutsidePress(event: MouseEvent | TouchEvent) {
       const target = event.target as Node;
       if (menuRef.current?.contains(target)) return;
-      if (mobileMenuTriggerRef.current?.contains(target)) return;
       setMenuOpenPath(null);
     }
     function closeOnEscape(event: KeyboardEvent) {
@@ -141,13 +139,13 @@ export default function AppLayout({
               ))}
             </nav>
 
-            <div ref={menuRef} className="relative shrink-0">
+            <div ref={menuRef} className="relative ml-auto shrink-0">
               <button
                 type="button"
                 aria-label="Mais opções"
                 aria-expanded={menuOpen}
                 onClick={() => setMenuOpen(!menuOpen)}
-                className={`hidden h-10 w-10 items-center justify-center rounded-xl border border-[#dfe9e3] text-xl leading-none text-[#66756d] transition hover:bg-[#f4f7f5] lg:flex ${
+                className={`flex h-10 w-10 items-center justify-center rounded-xl border border-[#dfe9e3] text-xl leading-none text-[#66756d] transition hover:bg-[#f4f7f5] ${
                   settingsActive ? "bg-[#edf3ef] text-[#30463c]" : ""
                 } ${
                   mobileSecondaryActive
@@ -249,25 +247,6 @@ export default function AppLayout({
               {item.label}
             </Link>
           ))}
-
-          <div
-            ref={mobileMenuTriggerRef}
-            className="flex flex-1 items-center justify-center"
-          >
-            <button
-              type="button"
-              aria-label="Mais opções"
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen(!menuOpen)}
-              className={`flex w-full flex-col items-center gap-0.5 py-2 text-xs font-medium leading-tight transition ${
-                settingsActive || mobileSecondaryActive
-                  ? "font-semibold text-[#30463c]"
-                  : "text-[#66756d]"
-              }`}
-            >
-              Mais
-            </button>
-          </div>
         </div>
       </nav>
     </div>

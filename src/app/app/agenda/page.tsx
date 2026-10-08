@@ -551,29 +551,6 @@ export default function AgendaPage() {
     setAvailabilityLoading(Boolean(form.professionalId && procedureId));
   }
 
-  function handleStartChange(value: string) {
-    setForm((current) => {
-      const procedure = procedures.find(
-        (item) => item.id === current.procedureId
-      );
-
-      return {
-        ...current,
-        startsAt: value,
-        endsAt:
-          procedure?.duration_minutes && value
-            ? new Date(
-                new Date(value).getTime() +
-                  procedure.duration_minutes * 60000
-              )
-                .toISOString()
-                .slice(0, 16)
-            : current.endsAt,
-      };
-    });
-  }
-
-
   async function createAppointment(
     event: React.FormEvent<HTMLFormElement>
   ) {
@@ -970,7 +947,12 @@ export default function AgendaPage() {
                   ))}
                 </select>
 
-
+                <Link
+                  href="/app/clientes"
+                  className="mt-2 inline-block text-sm font-medium text-[#6f927f] hover:text-[#30463c]"
+                >
+                  + Cadastrar nova cliente
+                </Link>
               </div>
 
               <label className="block text-sm font-medium text-[#50655b]">
@@ -1037,31 +1019,35 @@ export default function AgendaPage() {
                 </select>
               </label>
 
-              {form.professionalId && form.procedureId ? (
-                <>
-                  <label className="block text-sm font-medium text-[#50655b]">
-                    Data do atendimento
-                    <input
-                      required
-                      type="date"
-                      value={appointmentDate}
-                      onChange={(event) => {
-                        setAppointmentDate(event.target.value);
-                        setAvailableSlots([]);
-                        setAvailabilityError("");
-                        setAvailabilityLoading(Boolean(form.professionalId && form.procedureId));
-                        setForm((current) => ({
-                          ...current,
-                          startsAt: "",
-                          endsAt: "",
-                        }));
-                      }}
-                      className="mt-2 w-full rounded-xl border border-[#dce5e0] p-3"
-                    />
-                  </label>
+              <label className="block text-sm font-medium text-[#50655b]">
+                Data do atendimento
+                <input
+                  required
+                  type="date"
+                  value={appointmentDate}
+                  onChange={(event) => {
+                    setAppointmentDate(event.target.value);
+                    setAvailableSlots([]);
+                    setAvailabilityError("");
+                    setAvailabilityLoading(Boolean(form.professionalId && form.procedureId));
+                    setForm((current) => ({
+                      ...current,
+                      startsAt: "",
+                      endsAt: "",
+                    }));
+                  }}
+                  className="mt-2 w-full rounded-xl border border-[#dce5e0] p-3"
+                />
+              </label>
 
-                  <div className="block text-sm font-medium text-[#50655b]">
-                    <span>Horário disponível</span>
+              <div className="block text-sm font-medium text-[#50655b] md:col-span-2">
+                <span>Horário disponível</span>
+                {!form.professionalId || !form.procedureId ? (
+                  <span className="mt-2 block text-xs text-[#78867f]">
+                    Selecione o profissional e o procedimento para ver os horários disponíveis.
+                  </span>
+                ) : (
+                  <>
                     <div
                       role="radiogroup"
                       aria-label="Horário disponível"
@@ -1110,34 +1096,9 @@ export default function AgendaPage() {
                         Selecione um horário
                       </span>
                     ) : null}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <input
-                    required
-                    type="datetime-local"
-                    value={form.startsAt}
-                    onChange={(event) =>
-                      handleStartChange(event.target.value)
-                    }
-                    className="rounded-xl border border-[#dce5e0] p-3"
-                  />
-
-                  <input
-                    required
-                    type="datetime-local"
-                    value={form.endsAt}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        endsAt: event.target.value,
-                      })
-                    }
-                    className="rounded-xl border border-[#dce5e0] p-3"
-                  />
-                </>
-              )}
+                  </>
+                )}
+              </div>
 
               <input
                 type="number"
@@ -1180,8 +1141,7 @@ export default function AgendaPage() {
                 saving ||
                 availabilityLoading ||
                 Boolean(availabilityError) ||
-                (Boolean(form.professionalId && form.procedureId) &&
-                  !availableSlots.some((slot) => slot.startsAt === form.startsAt))
+                !availableSlots.some((slot) => slot.startsAt === form.startsAt)
               }
               className="mt-5 rounded-xl bg-[#30463c] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
             >

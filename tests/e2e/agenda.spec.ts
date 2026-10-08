@@ -36,17 +36,20 @@ test("fluxo básico da agenda", async ({ page }) => {
 
     expect(clientId).toBeTruthy();
 
+    const procedureResponse = await page.request.post("/api/procedures", {
+      data: { name: `Procedimento E2E ${unique}`, durationMinutes: 60 },
+    });
+    expect(procedureResponse.status()).toBe(201);
+    const procedureId = (await procedureResponse.json()).procedure.id;
+
     const professionalResponse = await page.request.post("/api/professionals", {
-      data: { name: `Profissional E2E ${unique}` },
+      data: { name: `Profissional E2E ${unique}`, procedureIds: [procedureId] },
     });
     expect(professionalResponse.status()).toBe(201);
     professionalId = (await professionalResponse.json()).id;
 
     const start = new Date();
     start.setHours(start.getHours() + 1, 0, 0, 0);
-
-    const end = new Date(start);
-    end.setMinutes(end.getMinutes() + 60);
 
     const localDate = (date: Date) => {
       const parts = new Intl.DateTimeFormat("en-CA", {
@@ -94,7 +97,7 @@ test("fluxo básico da agenda", async ({ page }) => {
     await page
       .getByRole("button", { name: "Novo agendamento" })
       .click();
-    await page.locator('input[type="date"]').fill(localDate(start));
+    await page.getByLabel("Data do atendimento").fill(localDate(start));
 
     await expect(
       page.getByRole("heading", { name: "Novo agendamento" })
@@ -118,25 +121,13 @@ test("fluxo básico da agenda", async ({ page }) => {
 
     await clientSelect.selectOption(clientId!);
     await professionalSelect.selectOption(professionalId!);
-    function toLocalInputValue(date: Date) {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      const hours = String(date.getHours()).padStart(2, "0");
-      const minutes = String(date.getMinutes()).padStart(2, "0");
+    await procedureSelect.selectOption(procedureId);
 
-      return `${year}-${month}-${day}T${hours}:${minutes}`;
-    }
-
-    await page
-      .locator('input[type="datetime-local"]')
-      .nth(0)
-      .fill(toLocalInputValue(start));
-
-    await page
-      .locator('input[type="datetime-local"]')
-      .nth(1)
-      .fill(toLocalInputValue(end));
+    const availableTimeSlots = appointmentForm.getByRole("radiogroup", {
+      name: "Horário disponível",
+    });
+    await expect(availableTimeSlots.getByRole("radio").first()).toBeVisible();
+    await availableTimeSlots.getByRole("radio").first().click();
 
     await page
       .locator('input[placeholder="Preço"]')

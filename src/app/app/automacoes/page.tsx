@@ -164,7 +164,7 @@ export default function AutomacoesPage() {
   const top = candidates.slice(0, TOP_OPPORTUNITIES);
 
   return (
-    <main className="min-h-[calc(100vh-73px)] bg-[#fbfaf8] px-4 py-7 sm:px-6 sm:py-9 lg:px-8">
+    <main className="app-main-min-h bg-[#fbfaf8] px-4 py-7 sm:px-6 sm:py-9 lg:px-8">
       <div className="mx-auto max-w-4xl">
         <header className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>

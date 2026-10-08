@@ -27,3 +27,25 @@ body {
   outline: 2px solid #6f927f;
   outline-offset: 2px;
 }
+
+/* Altura mínima do shell do app compatível com a viewport dinâmica do mobile.
+   100vh é usado como fallback seguro; navegadores com suporte a dvh usam a
+   altura dinâmica para evitar excesso de altura (scroll/overscroll). */
+.app-min-h {
+  min-height: 100vh;
+}
+
+/* Reserva de altura das páginas internas, descontando o header global (~73px). */
+.app-main-min-h {
+  min-height: calc(100vh - 73px);
+}
+
+@supports (height: 100dvh) {
+  .app-min-h {
+    min-height: 100dvh;
+  }
+
+  .app-main-min-h {
+    min-height: calc(100dvh - 73px);
+  }
+}

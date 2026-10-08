@@ -54,12 +54,11 @@ type Appointment = {
   has_payments?: boolean;
 };
 
-type AgendaData = {
-  appointments: Appointment[];
+// Dados necessários para abrir/preencher o formulário de novo agendamento.
+type FormSupport = {
   clients: Client[];
   procedures: Procedure[];
   professionals: Professional[];
-  paidAppointmentIds: string[];
 };
 
 type AvailableSlot = {
@@ -67,11 +66,12 @@ type AvailableSlot = {
   endsAt: string;
 };
 
-async function fetchAgendaData(
+// Listagem da agenda: busca somente os atendimentos das datas consultadas.
+async function fetchAgendaAppointments(
   selectedDate: string,
   statusFilter: string,
   upcoming = false
-): Promise<AgendaData> {
+): Promise<Appointment[]> {
   const query = new URLSearchParams();
   if (statusFilter) query.set("status", statusFilter);
   const dates = upcoming
@@ -88,59 +88,19 @@ async function fetchAgendaData(
       return fetch(`/api/appointments?${dateQuery.toString()}`);
     })
   );
-
-  const [
-    clientsResponse,
-    proceduresResponse,
-    paymentsResponse,
-    professionalsResponse,
-  ] = await Promise.all([
-    fetch("/api/clients?status=active&limit=500&sort=created_at&order=desc"),
-    fetch("/api/procedures?status=active&limit=500"),
-    fetch("/api/payments"),
-    fetch("/api/professionals"),
-  ]);
-  const [
-    appointmentsData,
-    clientsData,
-    proceduresData,
-    paymentsData,
-    professionalsData,
-  ] = await Promise.all([
-    Promise.all(appointmentResponses.map((response) => response.json())),
-    clientsResponse.json(),
-    proceduresResponse.json(),
-    paymentsResponse.json(),
-    professionalsResponse.json(),
-  ]);
+  const appointmentsData = await Promise.all(
+    appointmentResponses.map((response) => response.json())
+  );
 
   const failedAppointmentIndex = appointmentResponses.findIndex(
     (response) => !response.ok
   );
   if (failedAppointmentIndex !== -1) {
     const failedData = appointmentsData[failedAppointmentIndex];
-    throw new Error(
-      failedData.error || "Não foi possível carregar a agenda."
-    );
-  }
-  if (!paymentsResponse.ok) {
-    throw new Error(paymentsData.error || "Não foi possível carregar pagamentos.");
-  }
-  if (!professionalsResponse.ok) {
-    throw new Error(
-      professionalsData.error || "Não foi possível carregar profissionais."
-    );
+    throw new Error(failedData.error || "Não foi possível carregar a agenda.");
   }
 
-  const paidAppointmentIds = Array.from(
-    new Set(
-      (Array.isArray(paymentsData) ? paymentsData : [])
-        .filter((payment: { status?: string }) => payment?.status === "paid")
-        .map((payment: { appointment_id?: string | null }) => payment?.appointment_id)
-        .filter((id: string | null | undefined): id is string => Boolean(id))
-    )
-  );
-  const appointments: Appointment[] = appointmentsData
+  return appointmentsData
     .flatMap(
       (appointmentsForDate: { appointments?: Appointment[] }) =>
         appointmentsForDate.appointments || []
@@ -162,14 +122,56 @@ async function fetchAgendaData(
           (statusFilter !== "" ||
             !["cancelled", "no_show"].includes(appointment.status)))
     );
+}
+
+// Dados do formulário (clientes, procedimentos, profissionais). Não dependem
+// do carregamento da agenda e podem carregar em paralelo.
+async function fetchFormSupportData(): Promise<FormSupport> {
+  const [clientsResponse, proceduresResponse, professionalsResponse] =
+    await Promise.all([
+      fetch("/api/clients?status=active&limit=500&sort=created_at&order=desc"),
+      fetch("/api/procedures?status=active&limit=500"),
+      fetch("/api/professionals"),
+    ]);
+  const [clientsData, proceduresData, professionalsData] = await Promise.all([
+    clientsResponse.json(),
+    proceduresResponse.json(),
+    professionalsResponse.json(),
+  ]);
+
+  if (!professionalsResponse.ok) {
+    throw new Error(
+      professionalsData.error || "Não foi possível carregar profissionais."
+    );
+  }
 
   return {
-    appointments,
     clients: clientsData.clients || [],
     procedures: proceduresData.procedures || [],
     professionals: professionalsData || [],
-    paidAppointmentIds,
   };
+}
+
+// Pagamentos são secundários: não devem bloquear a agenda nem o formulário.
+async function fetchPaidAppointmentIds(): Promise<string[]> {
+  const response = await fetch("/api/payments");
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "Não foi possível carregar pagamentos.");
+  }
+
+  return Array.from(
+    new Set(
+      (Array.isArray(data) ? data : [])
+        .filter((payment: { status?: string }) => payment?.status === "paid")
+        .map(
+          (payment: { appointment_id?: string | null }) =>
+            payment?.appointment_id
+        )
+        .filter((id: string | null | undefined): id is string => Boolean(id))
+    )
+  );
 }
 
 const statuses = [
@@ -348,6 +350,7 @@ export default function AgendaPage() {
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [availabilityError, setAvailabilityError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [formDataLoading, setFormDataLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const { notifyError } = useToast();
@@ -444,36 +447,39 @@ export default function AgendaPage() {
   );
 
   async function loadData(date = selectedDate, showUpcoming = upcomingView) {
-    try {
-      const data = await fetchAgendaData(date, statusFilter, showUpcoming);
-      setError("");
-      setAppointments(data.appointments);
-      setClients(data.clients);
-      setProcedures(data.procedures);
-      setProfessionals(data.professionals);
-      setPaidAppointments(data.paidAppointmentIds);
-    } catch (err) {
-      notifyError(
-        err instanceof Error
-          ? err.message
-          : "Não foi possível carregar a agenda."
-      );
-    } finally {
-      setLoading(false);
-    }
+    await Promise.all([
+      fetchAgendaAppointments(date, statusFilter, showUpcoming)
+        .then((list) => {
+          setError("");
+          setAppointments(list);
+        })
+        .catch((err: unknown) => {
+          notifyError(
+            err instanceof Error
+              ? err.message
+              : "Não foi possível carregar a agenda."
+          );
+        }),
+      fetchPaidAppointmentIds()
+        .then((ids) => setPaidAppointments(ids))
+        .catch((err: unknown) => {
+          notifyError(
+            err instanceof Error
+              ? err.message
+              : "Não foi possível carregar pagamentos."
+          );
+        }),
+    ]);
   }
 
+  // Listagem da agenda: carrega somente os atendimentos da data/período.
   useEffect(() => {
     let active = true;
-    void fetchAgendaData(selectedDate, statusFilter, upcomingView)
-      .then((data) => {
+    void fetchAgendaAppointments(selectedDate, statusFilter, upcomingView)
+      .then((list) => {
         if (!active) return;
         setError("");
-        setAppointments(data.appointments);
-        setClients(data.clients);
-        setProcedures(data.procedures);
-        setProfessionals(data.professionals);
-        setPaidAppointments(data.paidAppointmentIds);
+        setAppointments(list);
       })
       .catch((err: unknown) => {
         if (active) {
@@ -491,6 +497,58 @@ export default function AgendaPage() {
       active = false;
     };
   }, [selectedDate, statusFilter, upcomingView, notifyError]);
+
+  // Dados do formulário (clientes, procedimentos, profissionais): carregam em
+  // paralelo com a agenda e liberam o botão "Novo agendamento" sem esperar a
+  // listagem completa nem os pagamentos.
+  useEffect(() => {
+    if (!isLoaded || !user) return;
+    let active = true;
+    void fetchFormSupportData()
+      .then((support) => {
+        if (!active) return;
+        setClients(support.clients);
+        setProcedures(support.procedures);
+        setProfessionals(support.professionals);
+      })
+      .catch((err: unknown) => {
+        if (active) {
+          notifyError(
+            err instanceof Error
+              ? err.message
+              : "Não foi possível carregar dados do agendamento."
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setFormDataLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isLoaded, user, notifyError]);
+
+  // Pagamentos: carregam sem bloquear a agenda nem a preparação do formulário.
+  useEffect(() => {
+    if (!isLoaded || !user) return;
+    let active = true;
+    void fetchPaidAppointmentIds()
+      .then((ids) => {
+        if (active) setPaidAppointments(ids);
+      })
+      .catch((err: unknown) => {
+        if (active) {
+          notifyError(
+            err instanceof Error
+              ? err.message
+              : "Não foi possível carregar pagamentos."
+          );
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [isLoaded, user, notifyError]);
 
   useEffect(() => {
     if (!showForm || !form.professionalId || !form.procedureId || !appointmentDate) {
@@ -939,7 +997,7 @@ export default function AgendaPage() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-73px)] bg-[#fbfaf8] text-[#26352f]">
+    <main className="app-main-min-h bg-[#fbfaf8] text-[#26352f]">
       <div className="mx-auto max-w-7xl px-4 py-7 sm:px-6 sm:py-9 lg:px-8">
         <header className="mb-7 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -953,7 +1011,7 @@ export default function AgendaPage() {
 
           <button
             type="button"
-            disabled={loading}
+            disabled={formDataLoading}
             onClick={() => {
               if (showForm) {
                 closeAppointmentForm();
@@ -963,7 +1021,11 @@ export default function AgendaPage() {
             }}
             className="min-h-11 rounded-xl bg-[#30463c] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#25382f] disabled:cursor-wait disabled:opacity-60"
           >
-            {loading ? "Carregando agenda..." : showForm ? "Fechar" : "Novo agendamento"}
+            {formDataLoading
+              ? "Carregando dados..."
+              : showForm
+                ? "Fechar"
+                : "Novo agendamento"}
           </button>
         </header>
 
@@ -1296,7 +1358,8 @@ export default function AgendaPage() {
                 <button
                   type="button"
                   onClick={openNewAppointment}
-                  className="mt-3 text-sm font-medium text-[#6f927f]"
+                  disabled={formDataLoading}
+                  className="mt-3 text-sm font-medium text-[#6f927f] disabled:cursor-wait disabled:opacity-60"
                 >
                   Criar agendamento
                 </button>

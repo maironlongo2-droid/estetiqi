@@ -366,7 +366,7 @@ export default function AppPage() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-73px)] bg-[#fbfaf8] text-[#26352f]">
+    <main className="app-main-min-h bg-[#fbfaf8] text-[#26352f]">
       <div className="mx-auto max-w-7xl px-4 py-7 sm:px-6 sm:py-9 lg:px-8">
         <header className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>

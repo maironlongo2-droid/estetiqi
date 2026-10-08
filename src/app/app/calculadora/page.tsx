@@ -55,7 +55,7 @@ export default function PricingCalculatorPage() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-73px)] bg-[#fbfaf8] px-4 py-7 text-[#26352f] sm:px-6 sm:py-9 lg:px-8">
+    <main className="app-main-min-h bg-[#fbfaf8] px-4 py-7 text-[#26352f] sm:px-6 sm:py-9 lg:px-8">
       <div className="mx-auto max-w-4xl">
         <header className="mb-7">
           <h1 className="text-3xl font-semibold tracking-tight text-[#30463c]">

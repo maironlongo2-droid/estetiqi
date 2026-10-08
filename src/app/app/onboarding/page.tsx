@@ -60,7 +60,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-73px)] bg-[#fbfaf8] px-6 py-12">
+    <main className="app-main-min-h bg-[#fbfaf8] px-6 py-12">
       <div className="mx-auto max-w-2xl">
         <div className="mb-8">
           <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#7a9f8d]">

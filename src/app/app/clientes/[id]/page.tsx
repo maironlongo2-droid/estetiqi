@@ -167,7 +167,7 @@ export default function ClientProfilePage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#fbfaf8] p-8">
+      <main className="app-min-h bg-[#fbfaf8] p-8">
         <p className="text-sm text-[#78867f]">
           Carregando ficha do cliente...
         </p>
@@ -177,7 +177,7 @@ export default function ClientProfilePage() {
 
   if (error || !profile) {
     return (
-      <main className="min-h-screen bg-[#fbfaf8] p-8">
+      <main className="app-min-h bg-[#fbfaf8] p-8">
         <Link
           href="/app/clientes"
           className="text-sm text-[#50655b]"
@@ -200,7 +200,7 @@ export default function ClientProfilePage() {
   });
 
   return (
-    <main className="min-h-screen bg-[#fbfaf8] text-[#26352f]">
+    <main className="app-min-h bg-[#fbfaf8] text-[#26352f]">
       <div className="mx-auto max-w-7xl px-6 py-8">
         <Link
           href="/app/clientes"

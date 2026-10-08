@@ -68,16 +68,16 @@ export default function AppLayout({
   }, [pathname, router]);
 
   return (
-    <div className="min-h-screen bg-[#fbfaf8] text-[#26352f] pb-[calc(4.5rem_+_env(safe-area-inset-bottom))] lg:pb-0">
+    <div className="app-min-h bg-[#fbfaf8] text-[#26352f] pb-[calc(4.5rem_+_env(safe-area-inset-bottom))] lg:pb-0">
       <header className="border-b border-[#e4ebe7] bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-          <Link href="/app" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#edf3ef] text-sm text-[#527765]">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+          <Link href="/app" className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#edf3ef] text-sm text-[#527765]">
               ✦
             </div>
 
-            <div>
-              <div className="text-lg font-semibold text-[#30463c]">
+            <div className="min-w-0">
+              <div className="truncate text-lg font-semibold text-[#30463c]">
                 {organizationName}
               </div>
 
@@ -87,7 +87,7 @@ export default function AppLayout({
             </div>
           </Link>
 
-          <div className="flex min-w-0 items-center justify-between gap-2 lg:gap-5">
+          <div className="flex min-w-0 items-center justify-end gap-2 lg:gap-5">
             <nav
               aria-label="Navegação principal"
               className="hidden min-w-0 flex-1 items-center gap-1 text-sm text-[#66756d] lg:flex lg:flex-initial"
@@ -145,7 +145,7 @@ export default function AppLayout({
                 aria-label="Mais opções"
                 aria-expanded={menuOpen}
                 onClick={() => setMenuOpen(!menuOpen)}
-                className={`flex h-10 w-10 items-center justify-center rounded-xl border border-[#dfe9e3] text-xl leading-none text-[#66756d] transition hover:bg-[#f4f7f5] ${
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#dfe9e3] text-xl leading-none text-[#66756d] transition hover:bg-[#f4f7f5] ${
                   settingsActive ? "bg-[#edf3ef] text-[#30463c]" : ""
                 } ${
                   mobileSecondaryActive
@@ -215,36 +215,114 @@ export default function AppLayout({
         aria-label="Navegação principal"
         className="fixed inset-x-0 bottom-0 z-40 flex border-t border-[#e4ebe7] bg-white pb-[env(safe-area-inset-bottom)] lg:hidden"
       >
-        <div className="mx-auto flex w-full max-w-7xl items-stretch px-2">
+        <div className="mx-auto flex w-full max-w-7xl items-stretch px-1">
           {[
-            { href: "/app", label: "Início", active: pathname === "/app" },
+            {
+              href: "/app",
+              label: "Início",
+              active: pathname === "/app",
+              icon: (
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-5 w-5"
+                >
+                  <path d="M3 10.5 12 3l9 7.5" />
+                  <path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5" />
+                  <path d="M9.5 21v-6h5v6" />
+                </svg>
+              ),
+            },
             {
               href: "/app/agenda",
               label: "Agenda",
               active: pathname.startsWith("/app/agenda"),
+              icon: (
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-5 w-5"
+                >
+                  <rect x="3.5" y="5" width="17" height="16" rx="2.5" />
+                  <path d="M3.5 9.5h17" />
+                  <path d="M8 3v4M16 3v4" />
+                </svg>
+              ),
             },
             {
               href: "/app/clientes",
               label: "Clientes",
               active: pathname.startsWith("/app/clientes"),
+              icon: (
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-5 w-5"
+                >
+                  <circle cx="9" cy="8" r="3.2" />
+                  <path d="M3.5 20a5.5 5.5 0 0 1 11 0" />
+                  <path d="M16 5.2a3 3 0 0 1 0 5.6" />
+                  <path d="M17.5 14.3A5.5 5.5 0 0 1 20.5 19" />
+                </svg>
+              ),
             },
             {
               href: "/app/financeiro",
               label: "Financeiro",
               active: pathname.startsWith("/app/financeiro"),
+              icon: (
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-5 w-5"
+                >
+                  <rect x="3" y="6.5" width="18" height="11" rx="2.5" />
+                  <circle cx="12" cy="12" r="2.4" />
+                  <path d="M6.5 9.5v5M17.5 9.5v5" />
+                </svg>
+              ),
             },
           ].map((item) => (
             <Link
               key={item.href}
               href={item.href}
+              aria-label={item.label}
               aria-current={item.active ? "page" : undefined}
-              className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-center text-xs font-medium leading-tight transition ${
-                item.active
-                  ? "font-semibold text-[#30463c]"
-                  : "text-[#66756d]"
+              className={`flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1 text-center transition ${
+                item.active ? "text-[#30463c]" : "text-[#66756d]"
               }`}
             >
-              {item.label}
+              <span
+                aria-hidden="true"
+                className={`flex h-6 w-6 items-center justify-center rounded-lg ${
+                  item.active ? "bg-[#edf3ef]" : ""
+                }`}
+              >
+                {item.icon}
+              </span>
+              <span
+                className={`text-[10px] leading-none ${
+                  item.active ? "font-semibold" : "font-medium"
+                }`}
+              >
+                {item.label}
+              </span>
             </Link>
           ))}
         </div>

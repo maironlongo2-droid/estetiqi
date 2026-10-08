@@ -35,7 +35,10 @@ body {
   min-height: 100vh;
 }
 
-/* Reserva de altura das páginas internas, descontando o header global (~73px). */
+/* Reserva de altura das páginas internas, descontando o header global (~73px).
+   No mobile o shell abaixo já reserva o espaço da navegação inferior
+   (4.5rem + safe-area), então as páginas internas NÃO devem reservar de novo,
+   sob pena de o documento ficar mais alto que a viewport (scroll extra). */
 .app-main-min-h {
   min-height: calc(100vh - 73px);
 }
@@ -47,5 +50,17 @@ body {
 
   .app-main-min-h {
     min-height: calc(100dvh - 73px);
+  }
+}
+
+@media (max-width: 1023.98px) {
+  .app-main-min-h {
+    min-height: calc(100vh - 73px - 4.5rem - env(safe-area-inset-bottom));
+  }
+
+  @supports (height: 100dvh) {
+    .app-main-min-h {
+      min-height: calc(100dvh - 73px - 4.5rem - env(safe-area-inset-bottom));
+    }
   }
 }

@@ -58,7 +58,6 @@ test("automações mostram resumo, oportunidades e clientes sem voltar", async (
   await expect(page.getByRole("heading", { name: "Automações" })).toBeVisible();
   await expect(page.getByText("Clientes para reativar")).toBeVisible();
   await expect(page.getByText("Oportunidades encontradas")).toBeVisible();
-  await expect(page.getByText("Última atualização")).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Principais oportunidades" })
   ).toBeVisible();
@@ -448,32 +447,33 @@ test("profissionais, disponibilidade e conflitos alimentam os appointments", asy
   ).toHaveCount(1);
   await procedureSelect.selectOption(procedure.id);
   const appointmentDateInput = page.getByLabel("Data do atendimento");
-  const availableTimeSelect = page.getByLabel("Horário disponível");
+  const availableTimeSlots = page.getByRole("radiogroup", {
+    name: "Horário disponível",
+  });
   await appointmentDateInput.fill(appointmentDate);
   await expect(
-    availableTimeSelect.getByRole("option", { name: "11:00–12:00" })
-  ).toBeAttached();
+    availableTimeSlots.getByRole("radio", { name: "11:00–12:00" })
+  ).toBeVisible();
   await procedureSelect.selectOption(longProcedure.id);
   await expect(
-    availableTimeSelect.getByRole("option", { name: "14:00–15:30" })
-  ).toBeAttached();
+    availableTimeSlots.getByRole("radio", { name: "14:00–15:30" })
+  ).toBeVisible();
   await procedureSelect.selectOption(procedure.id);
   await appointmentDateInput.fill(dateFromNow(blockedDayOffset));
-  await expect(availableTimeSelect).toBeDisabled();
+  await expect(availableTimeSlots.getByRole("radio")).toHaveCount(0);
   await expect(page.getByText("Não há horários disponíveis nessa data.")).toBeVisible();
   const exceptionalDateInput = dateFromNow(availableDayOffset);
   await appointmentDateInput.fill(exceptionalDateInput);
   await expect(
-    availableTimeSelect.getByRole("option", { name: "11:00–12:00" })
-  ).toBeAttached();
-  const exceptionalStart = new Date(`${exceptionalDateInput}T11:00:00-03:00`);
+    availableTimeSlots.getByRole("radio", { name: "11:00–12:00" })
+  ).toBeVisible();
   const exceptionalAppointmentResponsePromise = page.waitForResponse(
     (response) =>
       response.url().endsWith("/api/appointments") &&
       response.request().method() === "POST"
   );
   await page.locator("form").getByRole("combobox").nth(0).selectOption(client.id);
-  await availableTimeSelect.selectOption(exceptionalStart.toISOString());
+  await availableTimeSlots.getByRole("radio", { name: "11:00–12:00" }).click();
   await page.getByRole("button", { name: "Salvar agendamento" }).click();
   const exceptionalAppointmentResponse =
     await exceptionalAppointmentResponsePromise;

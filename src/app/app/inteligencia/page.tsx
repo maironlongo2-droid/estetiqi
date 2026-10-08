@@ -432,21 +432,7 @@ export default function InteligenciaPage() {
       </header>
 
       {metrics && (
-        <section className="mb-6 grid gap-4 md:grid-cols-4">
-          <div className="rounded-2xl border border-[#e4ebe7] bg-white p-5">
-            <p className="text-sm text-gray-500">Receita do mês</p>
-            <p className="mt-2 text-xl font-semibold">
-              {money(metrics.revenue)}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-[#e4ebe7] bg-white p-5">
-            <p className="text-sm text-gray-500">Ticket médio</p>
-            <p className="mt-2 text-xl font-semibold">
-              {money(metrics.ticketAverage)}
-            </p>
-          </div>
-
+        <section className="mb-6 grid gap-4 md:grid-cols-2">
           <div className="rounded-2xl border border-[#e4ebe7] bg-white p-5">
             <p className="text-sm text-gray-500">Clientes pagantes</p>
             <p className="mt-2 text-xl font-semibold">

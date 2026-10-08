@@ -121,11 +121,11 @@ test("manifesto PWA e telas principais cabem no mobile", async ({ page }) => {
   // No celular, Assistente IA e Automações ficam no menu "Mais opções".
   expect(primaryNavigationHrefs).toEqual([
     "/app",
-    "/app/clientes",
     "/app/agenda",
+    "/app/clientes",
     "/app/financeiro",
   ]);
-  for (const label of ["Início", "Clientes", "Agenda", "Financeiro"]) {
+  for (const label of ["Início", "Agenda", "Clientes", "Financeiro"]) {
     await expect(
       mainNavigation.getByRole("link", { name: label, exact: true })
     ).toBeVisible();

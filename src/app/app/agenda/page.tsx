@@ -1060,46 +1060,57 @@ export default function AgendaPage() {
                     />
                   </label>
 
-                  <label className="block text-sm font-medium text-[#50655b]">
-                    Horário disponível
-                    <select
-                      required
+                  <div className="block text-sm font-medium text-[#50655b]">
+                    <span>Horário disponível</span>
+                    <div
+                      role="radiogroup"
                       aria-label="Horário disponível"
-                      value={form.startsAt}
-                      onChange={(event) => {
-                        const slot = availableSlots.find(
-                          (item) => item.startsAt === event.target.value
-                        );
-                        setForm((current) => ({
-                          ...current,
-                          startsAt: slot?.startsAt ?? "",
-                          endsAt: slot?.endsAt ?? "",
-                        }));
-                      }}
-                      disabled={availabilityLoading || availableSlots.length === 0}
-                      className="mt-2 w-full rounded-xl border border-[#dce5e0] p-3 disabled:bg-[#f4f7f5]"
+                      className="mt-2 flex flex-wrap gap-2"
                     >
-                      <option value="">
-                        {availabilityLoading
-                          ? "Consultando horários..."
-                          : "Selecione um horário"}
-                      </option>
-                      {availableSlots.map((slot) => (
-                        <option key={slot.startsAt} value={slot.startsAt}>
-                          {formatSlot(slot.startsAt)}–{formatSlot(slot.endsAt)}
-                        </option>
-                      ))}
-                    </select>
+                      {availableSlots.map((slot) => {
+                        const selected = form.startsAt === slot.startsAt;
+                        return (
+                          <button
+                            key={slot.startsAt}
+                            type="button"
+                            role="radio"
+                            aria-checked={selected}
+                            onClick={() =>
+                              setForm((current) => ({
+                                ...current,
+                                startsAt: slot.startsAt,
+                                endsAt: slot.endsAt,
+                              }))
+                            }
+                            className={`rounded-xl border px-3 py-2 text-sm transition ${
+                              selected
+                                ? "border-[#30463c] bg-[#edf3ef] font-semibold text-[#30463c]"
+                                : "border-[#dce5e0] text-[#50655b] hover:bg-[#f4f7f5]"
+                            }`}
+                          >
+                            {formatSlot(slot.startsAt)}–{formatSlot(slot.endsAt)}
+                          </button>
+                        );
+                      })}
+                    </div>
                     {availabilityError ? (
                       <span role="alert" className="mt-2 block text-xs text-red-700">
                         {availabilityError}
                       </span>
-                    ) : !availabilityLoading && availableSlots.length === 0 ? (
+                    ) : availabilityLoading ? (
+                      <span className="mt-2 block text-xs text-[#78867f]">
+                        Consultando horários...
+                      </span>
+                    ) : availableSlots.length === 0 ? (
                       <span className="mt-2 block text-xs text-[#78867f]">
                         Não há horários disponíveis nessa data.
                       </span>
+                    ) : form.startsAt === "" ? (
+                      <span className="mt-2 block text-xs text-[#78867f]">
+                        Selecione um horário
+                      </span>
                     ) : null}
-                  </label>
+                  </div>
                 </>
               ) : (
                 <>

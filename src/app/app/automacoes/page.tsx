@@ -34,34 +34,11 @@ function sinceLabel(days: number) {
   return days === 1 ? "há 1 dia" : `há ${days} dias`;
 }
 
-function updatedRelativeLabel(date: Date | null) {
-  if (!date) return "—";
-  const elapsedMinutes = Math.floor(Math.max(0, Date.now() - date.getTime()) / 60_000);
-  if (elapsedMinutes < 1) return "agora";
-  if (elapsedMinutes < 60) {
-    return elapsedMinutes === 1 ? "há 1 minuto" : `há ${elapsedMinutes} minutos`;
-  }
-  const elapsedHours = Math.floor(elapsedMinutes / 60);
-  if (elapsedHours < 24) {
-    return elapsedHours === 1 ? "há 1 hora" : `há ${elapsedHours} horas`;
-  }
-  const elapsedDays = Math.floor(elapsedHours / 24);
-  return elapsedDays === 1 ? "há 1 dia" : `há ${elapsedDays} dias`;
-}
-
 function SummaryCard({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-2xl border border-[#dfe9e3] bg-white p-5">
       <div className="text-3xl font-semibold text-[#30463c]">{value}</div>
       <div className="mt-1 text-sm text-[#78867f]">{label}</div>
-    </div>
-  );
-}
-
-function UpdatedNote({ value }: { value: string }) {
-  return (
-    <div className="flex items-center rounded-2xl border border-[#eef3ef] bg-[#fbfaf8] px-4 py-3 text-xs text-[#78867f]">
-      Última atualização {value}
     </div>
   );
 }
@@ -208,7 +185,7 @@ export default function AutomacoesPage() {
           </button>
         </header>
 
-        <section aria-label="Resumo" className="grid gap-3 sm:grid-cols-3">
+        <section aria-label="Resumo" className="grid gap-3 sm:grid-cols-2">
           <SummaryCard
             label="Clientes para reativar"
             value={loading && !updatedAt ? "…" : inactiveClients.length}
@@ -217,7 +194,6 @@ export default function AutomacoesPage() {
             label="Oportunidades encontradas"
             value={loading && !updatedAt ? "…" : candidates.length}
           />
-          <UpdatedNote value={updatedRelativeLabel(updatedAt)} />
         </section>
 
         <section className="mt-8" aria-labelledby="top-opportunities">

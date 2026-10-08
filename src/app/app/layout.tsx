@@ -19,6 +19,7 @@ export default function AppLayout({
   const [menuOpenPath, setMenuOpenPath] = useState<string | null>(null);
   const menuOpen = menuOpenPath === pathname;
   const menuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuTriggerRef = useRef<HTMLDivElement>(null);
   const setMenuOpen = (open: boolean) => setMenuOpenPath(open ? pathname : null);
   const settingsActive =
     pathname.startsWith("/app/profissionais") ||
@@ -33,9 +34,10 @@ export default function AppLayout({
     if (!menuOpen) return;
 
     function closeOnOutsidePress(event: MouseEvent | TouchEvent) {
-      if (!menuRef.current?.contains(event.target as Node)) {
-        setMenuOpenPath(null);
-      }
+      const target = event.target as Node;
+      if (menuRef.current?.contains(target)) return;
+      if (mobileMenuTriggerRef.current?.contains(target)) return;
+      setMenuOpenPath(null);
     }
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key === "Escape") setMenuOpenPath(null);
@@ -68,7 +70,7 @@ export default function AppLayout({
   }, [pathname, router]);
 
   return (
-    <div className="min-h-screen bg-[#fbfaf8] text-[#26352f]">
+    <div className="min-h-screen bg-[#fbfaf8] text-[#26352f] pb-[calc(4.5rem_+_env(safe-area-inset-bottom))] lg:pb-0">
       <header className="border-b border-[#e4ebe7] bg-white">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <Link href="/app" className="flex items-center gap-3">
@@ -90,7 +92,7 @@ export default function AppLayout({
           <div className="flex min-w-0 items-center justify-between gap-2 lg:gap-5">
             <nav
               aria-label="Navegação principal"
-              className="grid min-w-0 flex-1 grid-cols-4 items-center gap-1 text-sm text-[#66756d] lg:flex lg:flex-initial"
+              className="hidden min-w-0 flex-1 items-center gap-1 text-sm text-[#66756d] lg:flex lg:flex-initial"
             >
               {[
                 { href: "/app", label: "Início", active: pathname === "/app" },
@@ -145,7 +147,7 @@ export default function AppLayout({
                 aria-label="Mais opções"
                 aria-expanded={menuOpen}
                 onClick={() => setMenuOpen(!menuOpen)}
-                className={`flex h-10 w-10 items-center justify-center rounded-xl border border-[#dfe9e3] text-xl leading-none text-[#66756d] transition hover:bg-[#f4f7f5] ${
+                className={`hidden h-10 w-10 items-center justify-center rounded-xl border border-[#dfe9e3] text-xl leading-none text-[#66756d] transition hover:bg-[#f4f7f5] lg:flex ${
                   settingsActive ? "bg-[#edf3ef] text-[#30463c]" : ""
                 } ${
                   mobileSecondaryActive
@@ -160,7 +162,7 @@ export default function AppLayout({
                 <div
                   role="menu"
                   aria-label="Mais opções"
-                  className="absolute right-0 top-12 z-50 w-52 rounded-xl border border-[#e4ebe7] bg-white p-2 shadow-lg"
+                  className="fixed inset-x-4 bottom-20 z-50 rounded-xl border border-[#e4ebe7] bg-white p-2 shadow-lg lg:absolute lg:inset-x-auto lg:bottom-auto lg:right-0 lg:top-12 lg:w-52"
                 >
                   {[
                     {
@@ -210,6 +212,64 @@ export default function AppLayout({
       </header>
 
       <ToastProvider>{children}</ToastProvider>
+
+      <nav
+        aria-label="Navegação principal"
+        className="fixed inset-x-0 bottom-0 z-40 flex border-t border-[#e4ebe7] bg-white pb-[env(safe-area-inset-bottom)] lg:hidden"
+      >
+        <div className="mx-auto flex w-full max-w-7xl items-stretch px-2">
+          {[
+            { href: "/app", label: "Início", active: pathname === "/app" },
+            {
+              href: "/app/agenda",
+              label: "Agenda",
+              active: pathname.startsWith("/app/agenda"),
+            },
+            {
+              href: "/app/clientes",
+              label: "Clientes",
+              active: pathname.startsWith("/app/clientes"),
+            },
+            {
+              href: "/app/financeiro",
+              label: "Financeiro",
+              active: pathname.startsWith("/app/financeiro"),
+            },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={item.active ? "page" : undefined}
+              className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-center text-xs font-medium leading-tight transition ${
+                item.active
+                  ? "font-semibold text-[#30463c]"
+                  : "text-[#66756d]"
+              }`}
+            >
+              {item.label}
+            </Link>
+          ))}
+
+          <div
+            ref={mobileMenuTriggerRef}
+            className="flex flex-1 items-center justify-center"
+          >
+            <button
+              type="button"
+              aria-label="Mais opções"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen(!menuOpen)}
+              className={`flex w-full flex-col items-center gap-0.5 py-2 text-xs font-medium leading-tight transition ${
+                settingsActive || mobileSecondaryActive
+                  ? "font-semibold text-[#30463c]"
+                  : "text-[#66756d]"
+              }`}
+            >
+              Mais
+            </button>
+          </div>
+        </div>
+      </nav>
     </div>
   );
 }

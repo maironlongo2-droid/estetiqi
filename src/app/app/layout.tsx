@@ -23,7 +23,8 @@ export default function AppLayout({
   const settingsActive =
     pathname.startsWith("/app/profissionais") ||
     pathname.startsWith("/app/procedimentos") ||
-    pathname.startsWith("/app/calculadora");
+    pathname.startsWith("/app/calculadora") ||
+    pathname.startsWith("/app/configuracoes");
   // No celular, Assistente IA e Automações ficam dentro do menu "Mais".
   const mobileSecondaryActive =
     pathname.startsWith("/app/inteligencia") ||
@@ -66,6 +67,26 @@ export default function AppLayout({
       })
       .catch(() => {});
   }, [pathname, router]);
+
+  // Quando o nome do negócio é alterado em /app/configuracoes, o header é
+  // atualizado imediatamente, sem refazer a chamada de carga nem remover o cache.
+  useEffect(() => {
+    function handleOrganizationUpdated(event: Event) {
+      const detail = (event as CustomEvent<{ name?: string }>).detail;
+      if (detail?.name) setOrganizationName(detail.name);
+    }
+
+    window.addEventListener(
+      "estetiqi:organization-updated",
+      handleOrganizationUpdated,
+    );
+
+    return () =>
+      window.removeEventListener(
+        "estetiqi:organization-updated",
+        handleOrganizationUpdated,
+      );
+  }, []);
 
   return (
     <div className="app-min-h bg-[#fbfaf8] text-[#26352f] pb-[calc(4.5rem_+_env(safe-area-inset-bottom))] lg:pb-0">
@@ -176,6 +197,7 @@ export default function AppLayout({
                     { href: "/app/profissionais", label: "Profissionais" },
                     { href: "/app/procedimentos", label: "Procedimentos" },
                     { href: "/app/calculadora", label: "Calculadora de preços" },
+                    { href: "/app/configuracoes", label: "Configurações" },
                   ].map((item) => (
                     <Link
                       key={item.href}

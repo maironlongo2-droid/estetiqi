@@ -67,7 +67,12 @@ export async function PATCH(request: Request) {
       throw new Error("FORBIDDEN");
     }
 
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
+
+    if (!body || typeof body !== "object") {
+      return Response.json({ error: "INVALID_DATA" }, { status: 400 });
+    }
+
     const parsed = onboardingSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -77,15 +82,73 @@ export async function PATCH(request: Request) {
       );
     }
 
+    // Atualização parcial: só altera os campos efetivamente enviados. Os campos
+    // omitidos (ex.: tela de Configurações enviando apenas "name") mantêm o valor
+    // atual, evitando que o full replace do onboarding apague telefone, cidade,
+    // estado ou tipo de negócio. O onboarding envia todos os campos e continua
+    // funcionando exatamente como antes.
+    const fields = body as Record<string, unknown>;
+    const wasProvided = (key: string) =>
+      Object.prototype.hasOwnProperty.call(fields, key);
+
+    const current = await sql`
+    SELECT
+      name,
+      business_phone,
+      city,
+      state,
+      business_type,
+      onboarding_completed
+    FROM organizations
+    WHERE id = ${currentUser.organization.id}
+    LIMIT 1
+  `;
+
+    if (current.length === 0) {
+      return Response.json(
+        { error: "ORGANIZATION_NOT_FOUND" },
+        { status: 404 },
+      );
+    }
+
+    const existing = current[0];
+
+    const nextBusinessPhone = wasProvided("businessPhone")
+      ? parsed.data.businessPhone || null
+      : existing.business_phone;
+    const nextCity = wasProvided("city")
+      ? parsed.data.city || null
+      : existing.city;
+    const nextState = wasProvided("state")
+      ? parsed.data.state || null
+      : existing.state;
+    const nextBusinessType = wasProvided("businessType")
+      ? parsed.data.businessType || null
+      : existing.business_type;
+
+    // O onboarding só é marcado como concluído quando o payload traz algum dos
+    // campos de perfil do negócio (é o fluxo de onboarding que envia todos eles).
+    // Um PATCH parcial (ex.: Configurações enviando apenas "name") preserva o
+    // estado atual, evitando concluir o onboarding sem os dados do negócio.
+    const onboardingFieldsProvided =
+      wasProvided("businessPhone") ||
+      wasProvided("city") ||
+      wasProvided("state") ||
+      wasProvided("businessType");
+
+    const nextOnboardingCompleted = onboardingFieldsProvided
+      ? true
+      : existing.onboarding_completed;
+
     const result = await sql`
     UPDATE organizations
     SET
       name = ${parsed.data.name},
-      business_phone = ${parsed.data.businessPhone || null},
-      city = ${parsed.data.city || null},
-      state = ${parsed.data.state || null},
-      business_type = ${parsed.data.businessType || null},
-      onboarding_completed = TRUE,
+      business_phone = ${nextBusinessPhone},
+      city = ${nextCity},
+      state = ${nextState},
+      business_type = ${nextBusinessType},
+      onboarding_completed = ${nextOnboardingCompleted},
       updated_at = NOW()
     WHERE id = ${currentUser.organization.id}
     RETURNING

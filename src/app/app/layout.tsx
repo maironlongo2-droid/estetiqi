@@ -160,7 +160,7 @@ export default function AppLayout({
                 <div
                   role="menu"
                   aria-label="Mais opções"
-                  className="fixed inset-x-4 bottom-20 z-50 rounded-xl border border-[#e4ebe7] bg-white p-2 shadow-lg lg:absolute lg:inset-x-auto lg:bottom-auto lg:right-0 lg:top-12 lg:w-52"
+                  className="absolute right-0 top-12 z-50 w-56 max-w-[calc(100vw-2rem)] rounded-xl border border-[#e4ebe7] bg-white p-2 shadow-lg"
                 >
                   {[
                     {
@@ -183,7 +183,7 @@ export default function AppLayout({
                       href={item.href}
                       onClick={() => setMenuOpen(false)}
                       aria-current={pathname.startsWith(item.href) ? "page" : undefined}
-                      className={`block rounded-lg px-3 py-2 text-sm font-medium text-[#50655b] hover:bg-[#f4f7f5] ${
+                      className={`flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-medium text-[#50655b] hover:bg-[#f4f7f5] ${
                         item.mobileOnly ? "lg:hidden" : ""
                       }`}
                     >
@@ -198,7 +198,7 @@ export default function AppLayout({
                       void signOut({ redirectUrl: "/login" });
                     }}
                     role="menuitem"
-                    className="block w-full rounded-lg px-3 py-2 text-left text-sm text-[#8a5149] hover:bg-[#faf2f0]"
+                    className="flex min-h-11 w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#8a5149] hover:bg-[#faf2f0]"
                   >
                     Sair
                   </button>

@@ -1,8 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useUser } from "@clerk/nextjs";
 import { useToast } from "../toast";
+
+// Rascunho do formulário de novo agendamento (apenas nesta sessão do navegador).
+const appointmentDraftPrefix = "estetiqi:agenda:draft:v1";
+
+type AppointmentDraft = {
+  clientId: string;
+  procedureId: string;
+  professionalId: string;
+  startsAt: string;
+  endsAt: string;
+  price: string;
+  notes: string;
+  appointmentDate: string;
+};
 
 type Client = {
   id: string;
@@ -336,6 +351,9 @@ export default function AgendaPage() {
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const { notifyError } = useToast();
+  const { user, isLoaded } = useUser();
+  const draftKey = `${appointmentDraftPrefix}:${user?.id ?? "anon"}`;
+  const draftHydrated = useRef(false);
   const [error, setError] = useState("");
   const [paymentError, setPaymentError] = useState("");
   const [paidAppointments, setPaidAppointments] = useState<string[]>([]);
@@ -410,6 +428,20 @@ export default function AgendaPage() {
       ),
     })).sort((left, right) => left.date.localeCompare(right.date));
   }, [appointments]);
+  const selectedProfessional = useMemo(
+    () =>
+      professionals.find((item) => item.id === form.professionalId) ?? null,
+    [professionals, form.professionalId]
+  );
+  const availableProcedures = useMemo(
+    () =>
+      procedures.filter(
+        (procedure) =>
+          !selectedProfessional ||
+          selectedProfessional.procedure_ids.includes(procedure.id)
+      ),
+    [procedures, selectedProfessional]
+  );
 
   async function loadData(date = selectedDate, showUpcoming = upcomingView) {
     try {
@@ -522,6 +554,76 @@ export default function AgendaPage() {
     showForm,
   ]);
 
+  // Recupera o rascunho ao reabrir a Agenda na mesma sessão do navegador.
+  useEffect(() => {
+    if (!isLoaded || !user || draftHydrated.current) return;
+    draftHydrated.current = true;
+
+    let raw: string | null = null;
+    try {
+      raw = window.sessionStorage.getItem(draftKey);
+    } catch {
+      return;
+    }
+    if (!raw) return;
+
+    let parsed: Partial<AppointmentDraft> | null = null;
+    try {
+      parsed = JSON.parse(raw) as Partial<AppointmentDraft>;
+    } catch {
+      window.sessionStorage.removeItem(draftKey);
+    }
+    if (!parsed) return;
+    const draft = parsed;
+
+    const nextForm = {
+      clientId: draft.clientId ?? "",
+      procedureId: draft.procedureId ?? "",
+      professionalId: draft.professionalId ?? "",
+      startsAt: draft.startsAt ?? "",
+      endsAt: draft.endsAt ?? "",
+      price: draft.price ?? "",
+      notes: draft.notes ?? "",
+    };
+    const hasContent = Object.values(nextForm).some((value) => value !== "");
+    if (!hasContent) return;
+
+    // Aplica o rascunho de forma assíncrona para não disparar render em cascata.
+    void Promise.resolve().then(() => {
+      setForm(nextForm);
+      if (draft.appointmentDate) setAppointmentDate(draft.appointmentDate);
+      setShowForm(true);
+    });
+  }, [draftKey, isLoaded, user]);
+
+  // Mantém o rascunho atualizado enquanto o formulário tem conteúdo.
+  useEffect(() => {
+    if (!isLoaded || !user) return;
+    const hasContent =
+      form.clientId !== "" ||
+      form.professionalId !== "" ||
+      form.procedureId !== "" ||
+      form.startsAt !== "" ||
+      form.endsAt !== "" ||
+      form.price !== "" ||
+      form.notes !== "";
+    if (!hasContent) return;
+    try {
+      const draft: AppointmentDraft = { ...form, appointmentDate };
+      window.sessionStorage.setItem(draftKey, JSON.stringify(draft));
+    } catch {
+      // Armazenamento indisponível (ex.: modo privado): o rascunho é ignorado.
+    }
+  }, [draftKey, isLoaded, user, form, appointmentDate]);
+
+  function clearAppointmentDraft() {
+    try {
+      window.sessionStorage.removeItem(draftKey);
+    } catch {
+      // Armazenamento indisponível: nada a limpar.
+    }
+  }
+
   function changeDate(days: number) {
     const date = new Date(`${selectedDate}T12:00:00-03:00`);
     date.setDate(date.getDate() + days);
@@ -529,7 +631,10 @@ export default function AgendaPage() {
     setSelectedDate(brasilDateString(date));
   }
 
-  function handleProcedureChange(procedureId: string) {
+  function handleProcedureChange(
+    procedureId: string,
+    nextProfessionalId = form.professionalId
+  ) {
     const procedure = procedures.find(
       (item) => item.id === procedureId
     );
@@ -537,7 +642,6 @@ export default function AgendaPage() {
     setForm((current) => ({
       ...current,
       procedureId,
-      professionalId: current.professionalId,
       startsAt: "",
       endsAt: "",
       price:
@@ -548,7 +652,7 @@ export default function AgendaPage() {
     }));
     setAvailableSlots([]);
     setAvailabilityError("");
-    setAvailabilityLoading(Boolean(form.professionalId && procedureId));
+    setAvailabilityLoading(Boolean(nextProfessionalId && procedureId));
   }
 
   async function createAppointment(
@@ -597,6 +701,7 @@ export default function AgendaPage() {
         price: "",
         notes: "",
       });
+      clearAppointmentDraft();
       setSelectedDate(appointmentListDate);
       setUpcomingView(false);
       setAppointmentDate(appointmentListDate);
@@ -818,6 +923,21 @@ export default function AgendaPage() {
     setShowForm(true);
   }
 
+  function closeAppointmentForm() {
+    setShowForm(false);
+    setAvailabilityLoading(false);
+    setForm({
+      clientId: "",
+      procedureId: "",
+      professionalId: "",
+      startsAt: "",
+      endsAt: "",
+      price: "",
+      notes: "",
+    });
+    clearAppointmentDraft();
+  }
+
   return (
     <main className="min-h-[calc(100vh-73px)] bg-[#fbfaf8] text-[#26352f]">
       <div className="mx-auto max-w-7xl px-4 py-7 sm:px-6 sm:py-9 lg:px-8">
@@ -836,8 +956,7 @@ export default function AgendaPage() {
             disabled={loading}
             onClick={() => {
               if (showForm) {
-                setShowForm(false);
-                setAvailabilityLoading(false);
+                closeAppointmentForm();
               } else {
                 openNewAppointment();
               }
@@ -855,7 +974,7 @@ export default function AgendaPage() {
                 <button
                   type="button"
                   onClick={() => changeDate(-1)}
-                  className="rounded-lg border border-[#dce5e0] px-3 py-2 text-sm"
+                  className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#dce5e0] px-3 py-2 text-sm"
                 >
                   ←
                 </button>
@@ -867,13 +986,13 @@ export default function AgendaPage() {
                     setUpcomingView(false);
                     setSelectedDate(event.target.value);
                   }}
-                  className="rounded-lg border border-[#dce5e0] px-3 py-2 text-sm"
+                  className="min-h-11 rounded-lg border border-[#dce5e0] px-3 py-2 text-sm"
                 />
 
                 <button
                   type="button"
                   onClick={() => changeDate(1)}
-                  className="rounded-lg border border-[#dce5e0] px-3 py-2 text-sm"
+                  className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#dce5e0] px-3 py-2 text-sm"
                 >
                   →
                 </button>
@@ -884,7 +1003,7 @@ export default function AgendaPage() {
                     setSelectedDate(brasilDateString(new Date()))
                     setUpcomingView(true);
                   }}
-                  className="rounded-lg bg-[#edf3ef] px-3 py-2 text-sm font-medium text-[#30463c]"
+                  className="min-h-11 rounded-lg bg-[#edf3ef] px-3 py-2 text-sm font-medium text-[#30463c]"
                 >
                   Próximos
                 </button>
@@ -895,7 +1014,7 @@ export default function AgendaPage() {
                 onChange={(event) =>
                   setStatusFilter(event.target.value)
                 }
-                className="rounded-lg border border-[#dce5e0] px-3 py-2 text-sm"
+                className="min-h-11 rounded-lg border border-[#dce5e0] px-3 py-2 text-sm"
               >
                 {statuses.map((status) => (
                   <option key={status.value} value={status.value}>
@@ -971,11 +1090,8 @@ export default function AgendaPage() {
                       professional.procedure_ids.includes(form.procedureId)
                         ? form.procedureId
                         : "";
-                    handleProcedureChange(procedureId);
+                    handleProcedureChange(procedureId, professionalId);
                     setForm((current) => ({ ...current, professionalId }));
-                    setAvailableSlots([]);
-                    setAvailabilityError("");
-                    setAvailabilityLoading(Boolean(professionalId && procedureId));
                   }}
                   className="mt-2 w-full rounded-xl border border-[#dce5e0] p-3"
                 >
@@ -1001,22 +1117,18 @@ export default function AgendaPage() {
                   className="mt-2 w-full rounded-xl border border-[#dce5e0] p-3"
                 >
                   <option value="">Selecione o procedimento</option>
-                  {procedures
-                    .filter((procedure) => {
-                      const selectedProfessional = professionals.find(
-                        (item) => item.id === form.professionalId
-                      );
-                      return (
-                        !selectedProfessional ||
-                        selectedProfessional.procedure_ids.includes(procedure.id)
-                      );
-                    })
-                    .map((procedure) => (
-                      <option key={procedure.id} value={procedure.id}>
-                        {procedure.name}
-                      </option>
-                    ))}
+                  {availableProcedures.map((procedure) => (
+                    <option key={procedure.id} value={procedure.id}>
+                      {procedure.name}
+                    </option>
+                  ))}
                 </select>
+                {selectedProfessional && availableProcedures.length === 0 && (
+                  <span className="mt-2 block text-xs text-[#8a5149]">
+                    Esta profissional ainda não tem procedimentos associados.
+                    Associe os procedimentos em Profissionais.
+                  </span>
+                )}
               </label>
 
               <label className="block text-sm font-medium text-[#50655b]">
@@ -1068,7 +1180,7 @@ export default function AgendaPage() {
                                 endsAt: slot.endsAt,
                               }))
                             }
-                            className={`rounded-xl border px-3 py-2 text-sm transition ${
+                            className={`min-h-11 rounded-xl border px-3 py-2 text-sm transition ${
                               selected
                                 ? "border-[#30463c] bg-[#edf3ef] font-semibold text-[#30463c]"
                                 : "border-[#dce5e0] text-[#50655b] hover:bg-[#f4f7f5]"

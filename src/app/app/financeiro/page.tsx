@@ -358,7 +358,7 @@ export default function FinanceiroPage() {
           </div>
         </section>
 
-        <section className="mt-8 overflow-hidden rounded-2xl border border-[#e4ebe7] bg-white shadow-sm">
+        <section className="mt-8 overflow-visible rounded-2xl border border-[#e4ebe7] bg-white shadow-sm md:overflow-hidden">
           <div className="border-b border-[#e4ebe7] p-6">
             <h2 className="font-semibold text-[#30463c]">
               Histórico de pagamentos
@@ -379,7 +379,7 @@ export default function FinanceiroPage() {
                 Nenhum pagamento registrado ainda. Quando você concluir um atendimento na Agenda e registrar o pagamento, ele aparece aqui.
               </p>
             ) : (
-              <table className="w-full text-left text-sm">
+              <table className="hidden w-full text-left text-sm md:table">
                 <thead>
                   <tr className="border-b border-[#eef2ef] text-xs text-[#78867f]">
                     <th className="px-6 py-4">Cliente</th>
@@ -454,6 +454,95 @@ export default function FinanceiroPage() {
               </table>
             )}
           </div>
+
+          {!loading && payments.length > 0 && (
+            <ul className="divide-y divide-[#f0f3f1] md:hidden">
+              {payments.map((payment) => (
+                <li key={payment.id} className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-[#30463c]">
+                        {payment.client_name}
+                      </p>
+
+                      <p className="mt-1 truncate text-sm text-[#78867f]">
+                        {payment.procedure_name || "—"}
+                      </p>
+                    </div>
+
+                    {canManagePayments ? (
+                      <details className="relative shrink-0">
+                        <summary
+                          aria-label={`Ações do pagamento de ${payment.client_name}`}
+                          className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-lg border border-[#dfe9e3] text-lg text-[#50655b] hover:bg-[#f4f7f5]"
+                        >
+                          ⋮
+                        </summary>
+
+                        <div
+                          role="menu"
+                          aria-label={`Alterar status do pagamento de ${payment.client_name}`}
+                          className="absolute right-0 z-50 mt-1 w-56 max-w-[calc(100vw-2rem)] rounded-xl border border-[#e4ebe7] bg-white p-1 shadow-lg"
+                        >
+                          {editablePaymentStatuses.map((status) => (
+                            <button
+                              key={status}
+                              type="button"
+                              role="menuitem"
+                              disabled={
+                                status === payment.status ||
+                                statusSavingId === payment.id
+                              }
+                              onClick={(event) => {
+                                event.currentTarget
+                                  .closest("details")
+                                  ?.removeAttribute("open");
+                                void changePaymentStatus(payment, status);
+                              }}
+                              className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-[#30463c] hover:bg-[#f4f7f5] disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <span>{paymentStatusLabel(status)}</span>
+
+                              {status === payment.status && (
+                                <span className="text-xs text-[#9aa59f]">
+                                  Atual
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </details>
+                    ) : (
+                      <span className="shrink-0 text-xs text-[#9aa59f]">
+                        —
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+                    <span className={paymentStatusBadgeClass(payment.status)}>
+                      {paymentStatusLabel(payment.status)}
+                    </span>
+
+                    <span className="text-[#78867f]">
+                      {date(payment.paid_at || payment.created_at)}
+                    </span>
+
+                    {payment.payment_method && (
+                      <span className="text-[#78867f]">
+                        {methodLabels[payment.payment_method] ||
+                          payment.payment_method}
+                      </span>
+                    )}
+
+                    <span className="ml-auto font-semibold text-[#30463c]">
+                      {money(Number(payment.amount))}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       </div>
     </main>

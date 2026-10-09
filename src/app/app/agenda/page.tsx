@@ -5,6 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useToast } from "../toast";
 import { useProcedureLabels } from "../procedure-labels";
+import { WhatsAppMessageDialog } from "../whatsapp-message-dialog";
+import { buildAppointmentConfirmationMessage } from "@/lib/communication/messages";
 
 // Rascunho do formulário de novo agendamento (apenas nesta sessão do navegador).
 // v3: a v2 podia guardar um preço total somado como texto (bug corrigido);
@@ -53,6 +55,7 @@ type Appointment = {
   notes: string | null;
   status: string;
   client_name: string;
+  client_phone: string | null;
   procedure_name: string | null;
   procedures?: {
     id: string;
@@ -520,6 +523,11 @@ export default function AgendaPage() {
     methods: [{ paymentMethod: "pix", amount: "" }],
   });
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  // Atendimento cuja mensagem de confirmação está sendo preparada no diálogo.
+  const [messageAppointment, setMessageAppointment] =
+    useState<Appointment | null>(null);
+  // Nome do negócio usado nas mensagens de confirmação (mesma fonte de /api/organization).
+  const [businessName, setBusinessName] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     clientId: "",
     professionalId: "",
@@ -707,6 +715,22 @@ export default function AgendaPage() {
       .reduce((sum, procedure) => sum + (procedure.price ?? 0), 0);
     return total;
   }
+
+  // Carrega o nome do negócio uma única vez para as mensagens de confirmação.
+  useEffect(() => {
+    let active = true;
+    fetch("/api/organization")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (active) setBusinessName(data?.name ?? null);
+      })
+      .catch(() => {
+        // O nome do negócio é opcional na mensagem; uma falha não bloqueia a agenda.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function loadData(date = selectedDate, showUpcoming = upcomingView) {
     await Promise.all([
@@ -1948,6 +1972,17 @@ export default function AgendaPage() {
                               role="menuitem"
                               onClick={(event) => {
                                 event.currentTarget.closest("details")?.removeAttribute("open");
+                                setMessageAppointment(appointment);
+                              }}
+                              className="min-h-11 w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-[#30463c] hover:bg-[#f4f7f5]"
+                            >
+                              Preparar confirmação no WhatsApp
+                            </button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={(event) => {
+                                event.currentTarget.closest("details")?.removeAttribute("open");
                                 openAppointmentEditor(appointment);
                               }}
                               className="min-h-11 w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-[#30463c] hover:bg-[#f4f7f5]"
@@ -2350,6 +2385,27 @@ export default function AgendaPage() {
             </button>
           </form>
         </div>
+      )}
+
+      {messageAppointment && (
+        <WhatsAppMessageDialog
+          key={messageAppointment.id}
+          title="Confirmação de agendamento"
+          recipientName={messageAppointment.client_name}
+          phone={messageAppointment.client_phone}
+          initialMessage={buildAppointmentConfirmationMessage({
+            clientName: messageAppointment.client_name,
+            procedureName: appointmentProcedureLabel(
+              messageAppointment,
+              ""
+            ),
+            professionalName: messageAppointment.professional_name,
+            businessName,
+            startsAt: messageAppointment.starts_at,
+          })}
+          category="transacional"
+          onClose={() => setMessageAppointment(null)}
+        />
       )}
     </main>
   );

@@ -135,9 +135,8 @@ export default function AppLayout({
   // Rótulos de apresentação das ofertas usados no menu e nas telas de /app.
   const procedureLabels = getProcedureLabels(businessType);
 
-  // Navegação organizada por grupos de uso. O grupo "Crescimento" já reserva o
-  // espaço do futuro módulo Comunicação Inteligente, exibido como "em breve"
-  // (sem link), para que a navegação cresça sem reestruturação.
+  // Navegação organizada por grupos de uso. O grupo "Crescimento" reúne o
+  // Assistente IA, as Automações e a Central de Comunicação.
   type NavItem = { href: string | null; label: string; soon?: boolean };
   type NavGroup = { key: string; label: string; items: NavItem[] };
   const navGroups: NavGroup[] = [
@@ -168,7 +167,7 @@ export default function AppLayout({
       items: [
         { href: "/app/inteligencia", label: "Assistente IA" },
         { href: "/app/automacoes", label: "Automações" },
-        { href: null, label: "Comunicação inteligente", soon: true },
+        { href: "/app/comunicacao", label: "Central de Comunicação" },
       ],
     },
     {
@@ -208,6 +207,7 @@ export default function AppLayout({
     prefetchedMenuRoutes.current = true;
     router.prefetch("/app/inteligencia");
     router.prefetch("/app/automacoes");
+    router.prefetch("/app/comunicacao");
   }, [router]);
 
   // Consulta uma única vez por sessão do layout se o usuário pode acessar a

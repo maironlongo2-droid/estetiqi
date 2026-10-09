@@ -26,6 +26,10 @@ export default function AppLayout({
   // a exibição do atalho para a central de suporte; a autorização real é
   // validada no servidor pelas APIs de /api/admin/support/*.
   const [isSupportAdmin, setIsSupportAdmin] = useState(false);
+  // Organização bloqueada pela administração da plataforma. A restrição real é
+  // aplicada no servidor (todas as APIs respondem 403); aqui só exibimos a
+  // mensagem adequada ao usuário.
+  const [organizationBlocked, setOrganizationBlocked] = useState(false);
   // Cada menu (grupo do topo, navegação do celular ou "Mais opções") só conta
   // como aberto na página em que foi aberto: navegar o fecha automaticamente.
   const [openMenu, setOpenMenu] = useState<{
@@ -228,6 +232,27 @@ export default function AppLayout({
     };
   }, []);
 
+  // Consulta uma única vez por sessão se a organização está bloqueada. A
+  // restrição real é aplicada no servidor; aqui apenas exibimos a mensagem.
+  useEffect(() => {
+    let active = true;
+
+    fetch("/api/auth/context")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (active && data?.organizationBlocked === true) {
+          setOrganizationBlocked(true);
+        }
+      })
+      .catch(() => {
+        // Se a verificação falhar, não bloqueamos a interface indevidamente.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   useEffect(() => {
     if (!anyMenuOpen) return;
 
@@ -305,6 +330,40 @@ export default function AppLayout({
         handleOrganizationUpdated,
       );
   }, []);
+
+  if (organizationBlocked) {
+    return (
+      <main className="app-min-h flex min-h-screen items-center justify-center bg-[#fbfaf8] px-6 py-16 text-[#26352f]">
+        <div className="w-full max-w-md rounded-3xl border border-[#e4ebe7] bg-white p-8 text-center shadow-[0_20px_60px_rgba(64,91,78,0.08)]">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#fdeceb]">
+            <BrandMark className="h-6 w-6" />
+          </div>
+          <h1 className="mt-4 text-lg font-semibold text-[#30463c]">
+            Acesso temporariamente bloqueado
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-[#66756d]">
+            A organização está bloqueada. Seus dados estão preservados. Fale com
+            o suporte da EstetiQI para reativar o acesso.
+          </p>
+          <a
+            href="mailto:contato@estetiqi.com.br"
+            className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#30463c] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#25382f]"
+          >
+            Falar com o suporte
+          </a>
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() => void signOut({ redirectUrl: "/" })}
+              className="text-sm font-medium text-[#66756d] underline-offset-2 hover:underline"
+            >
+              Sair da conta
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <div className="app-min-h bg-[#fbfaf8] text-[#26352f] pb-[calc(4.5rem_+_env(safe-area-inset-bottom))] lg:pb-0">

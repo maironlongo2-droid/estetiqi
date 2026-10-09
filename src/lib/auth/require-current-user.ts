@@ -15,6 +15,13 @@ export async function requireCurrentUser() {
     currentUser = await ensureClerkUser();
   }
 
+  // Bloqueio da organizacao (administracao da plataforma). Efetivo no servidor:
+  // nenhuma API autenticada executa quando a organizacao esta bloqueada. Os
+  // dados permanecem intactos; apenas o acesso e negado.
+  if (currentUser.organization_status === "blocked") {
+    throw new Error("ORGANIZATION_BLOCKED");
+  }
+
   return {
     user: {
       id: currentUser.user_id,

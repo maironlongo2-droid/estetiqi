@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 // Apenas o TIPO é importado (import type é apagado na compilação), evitando
 // puxar o módulo de banco para o bundle do navegador.
 import type { PlatformMetrics } from "@/lib/analytics/platform-metrics";
+import { OrganizationManagement } from "./organization-management";
 
 const PERIOD_OPTIONS = [
   { days: 7, label: "Últimos 7 dias" },
@@ -254,6 +255,99 @@ export function PlatformPanel() {
             </Section>
 
             <Section
+              title="Organizações e assinaturas"
+              description="Situação das organizações, conversão de cadastro em assinatura e origem quando registrada."
+            >
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <StatCard
+                  label="Ativas"
+                  value={formatNumber(data.organizations.active)}
+                  hint="Sem bloqueio"
+                />
+                <StatCard
+                  label="Bloqueadas"
+                  value={formatNumber(data.organizations.blocked)}
+                  hint="Acesso negado no servidor"
+                  note="Nenhum dado é apagado ao bloquear."
+                />
+                <StatCard
+                  label="Em teste"
+                  value={formatNumber(data.organizations.trial)}
+                  hint="Ativas ainda não assinantes"
+                />
+                <StatCard
+                  label="Assinantes"
+                  value={formatNumber(data.acquisition.subscribed)}
+                  hint="Com assinatura registrada"
+                />
+                <StatCard
+                  label="Taxa de conversão"
+                  value={formatPercent(data.acquisition.conversionRate)}
+                  hint="Assinantes ÷ organizações cadastradas"
+                  note="Somente assinaturas registradas no sistema."
+                />
+                <StatCard
+                  label="Tempo médio até 1ª assinatura"
+                  value={
+                    data.acquisition.avgDaysToFirstSubscription === null
+                      ? "Ainda sem dados"
+                      : `${data.acquisition.avgDaysToFirstSubscription
+                          .toFixed(1)
+                          .replace(".", ",")} dias`
+                  }
+                  hint="Entre o cadastro e a assinatura"
+                />
+                <StatCard
+                  label="Cancelamentos de assinatura"
+                  value={formatNumber(data.organizations.canceledSubscriptions)}
+                  hint="Assinaturas canceladas"
+                />
+                <StatCard
+                  label="Origem registrada"
+                  value={formatNumber(data.acquisition.organizationsWithSource)}
+                  hint="Organizações com origem informada"
+                />
+              </div>
+
+              {data.acquisition.bySource.length > 0 ? (
+                <div className="mt-5">
+                  <h3 className="mb-2 text-sm font-semibold text-[#30463c]">
+                    Origem das organizações
+                  </h3>
+                  <div className="overflow-x-auto rounded-2xl border border-[#e4ebe7]">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-[#f4f7f5] text-xs uppercase tracking-wide text-[#8a9891]">
+                        <tr>
+                          <th className="px-4 py-2 font-medium">Origem</th>
+                          <th className="px-4 py-2 text-right font-medium">
+                            Organizações
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#e4ebe7]">
+                        {data.acquisition.bySource.map((item) => (
+                          <tr key={item.source}>
+                            <td className="px-4 py-2 text-[#405149]">
+                              {item.source}
+                            </td>
+                            <td className="px-4 py-2 text-right font-medium text-[#30463c]">
+                              {formatNumber(item.count)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-4 rounded-2xl border border-[#e4ebe7] bg-[#fbfaf8] p-4 text-sm text-[#78867f]">
+                  Ainda não há origem de captação registrada. Os cadastros antigos
+                  não recebem origem presumida.
+                </p>
+              )}
+            </Section>
+
+            <Section
               title="Ativação"
               description="Proxy de ativação: onboarding concluído + ao menos 1 cliente + ao menos 1 agendamento."
             >
@@ -450,6 +544,8 @@ export function PlatformPanel() {
                 />
               </div>
             </Section>
+
+            <OrganizationManagement />
           </div>
         )}
       </div>

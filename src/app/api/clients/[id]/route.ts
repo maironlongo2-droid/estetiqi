@@ -63,6 +63,9 @@ export async function GET(
       client: clients[0],
     });
   } catch (error) {
+    if (error instanceof Error && error.message === "ORGANIZATION_BLOCKED") {
+      return Response.json({ error: "A organização está bloqueada. Fale com o suporte da EstetiQI." }, { status: 403 });
+    }
     if (
       error instanceof Error &&
       error.message === "UNAUTHENTICATED"
@@ -266,6 +269,9 @@ export async function PATCH(
       client: updatedClient[0],
     });
   } catch (error) {
+    if (error instanceof Error && error.message === "ORGANIZATION_BLOCKED") {
+      return Response.json({ error: "A organização está bloqueada. Fale com o suporte da EstetiQI." }, { status: 403 });
+    }
     if (
       error instanceof Error &&
       error.message === "UNAUTHENTICATED"
@@ -411,6 +417,9 @@ export async function DELETE(
 
     return Response.json({ success: true }, { status: 200 });
   } catch (error) {
+    if (error instanceof Error && error.message === "ORGANIZATION_BLOCKED") {
+      return Response.json({ error: "A organização está bloqueada. Fale com o suporte da EstetiQI." }, { status: 403 });
+    }
     if (
       error instanceof Error &&
       error.message === "UNAUTHENTICATED"

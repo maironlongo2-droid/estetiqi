@@ -11,6 +11,7 @@ export async function getInternalUserByClerkId(clerkUserId: string) {
       o.name AS organization_name,
       o.slug AS organization_slug,
       o.clerk_organization_id,
+      o.status AS organization_status,
       m.role
     FROM users u
     JOIN memberships m

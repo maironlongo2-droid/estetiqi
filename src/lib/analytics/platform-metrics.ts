@@ -72,6 +72,24 @@ export type PlatformMetrics = {
     paidVolumeTotal: number;
     paidVolumeInPeriod: number;
   };
+  // Estado operacional das organizações (status da migration 032).
+  organizations: {
+    active: number;
+    blocked: number;
+    // Ativas que ainda não viraram assinantes (em teste).
+    trial: number;
+    subscribed: number;
+    canceledSubscriptions: number;
+  };
+  // Aquisição e conversão. Valores honestos: 0 quando ainda não há registro.
+  acquisition: {
+    registered: number;
+    subscribed: number;
+    conversionRate: number;
+    avgDaysToFirstSubscription: number | null;
+    organizationsWithSource: number;
+    bySource: { source: string; count: number }[];
+  };
 };
 
 export async function getPlatformMetrics(
@@ -215,6 +233,43 @@ export async function getPlatformMetrics(
         FROM support_messages m
         WHERE m.request_id = s.id AND m.author_type = 'support'
       ) first_reply ON first_reply.first_at IS NOT NULL
+    ),
+    org_lifecycle AS (
+      SELECT
+        COUNT(*) FILTER (WHERE status = 'blocked')::int AS blocked,
+        COUNT(*) FILTER (WHERE status <> 'blocked')::int AS active,
+        COUNT(*) FILTER (
+          WHERE status <> 'blocked' AND subscribed_at IS NULL
+        )::int AS trial,
+        COUNT(*) FILTER (WHERE subscribed_at IS NOT NULL)::int AS subscribed,
+        COUNT(*) FILTER (
+          WHERE subscription_canceled_at IS NOT NULL
+        )::int AS canceled_subscriptions,
+        COUNT(*) FILTER (
+          WHERE acquisition_source IS NOT NULL
+        )::int AS with_source,
+        (
+          AVG(EXTRACT(EPOCH FROM (subscribed_at - created_at)) / 86400.0)
+            FILTER (WHERE subscribed_at IS NOT NULL)
+        )::numeric AS avg_days_to_subscribe
+      FROM organizations
+    ),
+    acquisition_sources AS (
+      SELECT COALESCE(
+        (
+          SELECT json_agg(
+            json_build_object('source', grouped.source, 'count', grouped.cnt)
+            ORDER BY grouped.cnt DESC, grouped.source ASC
+          )
+          FROM (
+            SELECT acquisition_source AS source, COUNT(*)::int AS cnt
+            FROM organizations
+            WHERE acquisition_source IS NOT NULL
+            GROUP BY acquisition_source
+          ) grouped
+        ),
+        '[]'::json
+      ) AS by_source
     )
     SELECT
       org_counts.total AS total_organizations,
@@ -243,7 +298,15 @@ export async function getPlatformMetrics(
       support_counts.resolved_count AS support_resolved,
       support_counts.closed_count AS support_closed,
       support_counts.pending_count AS support_pending,
-      support_response.avg_seconds AS support_avg_first_response_seconds
+      support_response.avg_seconds AS support_avg_first_response_seconds,
+      org_lifecycle.active AS orgs_active,
+      org_lifecycle.blocked AS orgs_blocked,
+      org_lifecycle.trial AS orgs_trial,
+      org_lifecycle.subscribed AS orgs_subscribed,
+      org_lifecycle.canceled_subscriptions AS orgs_canceled_subscriptions,
+      org_lifecycle.with_source AS orgs_with_source,
+      org_lifecycle.avg_days_to_subscribe AS orgs_avg_days_to_subscribe,
+      acquisition_sources.by_source AS orgs_by_source
     FROM org_counts,
          activated,
          activity_counts,
@@ -253,7 +316,9 @@ export async function getPlatformMetrics(
          opportunity_counts,
          action_counts,
          support_counts,
-         support_response
+         support_response,
+         org_lifecycle,
+         acquisition_sources
   `;
 
   return mapPlatformMetrics(periodDays, rows[0] as Record<string, unknown>);
@@ -269,6 +334,8 @@ function mapPlatformMetrics(
   const totalOrganizations = Number(row.total_organizations ?? 0);
   const activatedOrganizations = Number(row.activated_organizations ?? 0);
   const firstResponse = row.support_avg_first_response_seconds;
+  const subscribedOrganizations = Number(row.orgs_subscribed ?? 0);
+  const avgDaysToSubscribe = row.orgs_avg_days_to_subscribe;
 
   return {
     periodDays,
@@ -329,6 +396,34 @@ function mapPlatformMetrics(
     finance: {
       paidVolumeTotal: Number(row.paid_volume_total ?? 0),
       paidVolumeInPeriod: Number(row.paid_volume_in_period ?? 0),
+    },
+    organizations: {
+      active: Number(row.orgs_active ?? 0),
+      blocked: Number(row.orgs_blocked ?? 0),
+      trial: Number(row.orgs_trial ?? 0),
+      subscribed: subscribedOrganizations,
+      canceledSubscriptions: Number(row.orgs_canceled_subscriptions ?? 0),
+    },
+    acquisition: {
+      registered: totalOrganizations,
+      subscribed: subscribedOrganizations,
+      conversionRate:
+        totalOrganizations > 0
+          ? (subscribedOrganizations / totalOrganizations) * 100
+          : 0,
+      avgDaysToFirstSubscription:
+        avgDaysToSubscribe === null || avgDaysToSubscribe === undefined
+          ? null
+          : Number(avgDaysToSubscribe),
+      organizationsWithSource: Number(row.orgs_with_source ?? 0),
+      bySource: Array.isArray(row.orgs_by_source)
+        ? (row.orgs_by_source as { source: string; count: number }[]).map(
+            (item) => ({
+              source: String(item.source),
+              count: Number(item.count),
+            })
+          )
+        : [],
     },
   };
 }

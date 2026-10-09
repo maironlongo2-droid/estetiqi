@@ -11,6 +11,11 @@ import {
 // Limite defensivo para a consulta por intervalo (?from&to), em dias inclusivos.
 const MAX_APPOINTMENTS_RANGE_DAYS = 92;
 
+// Formato esperado de um identificador de profissional (UUID). Usado apenas
+// para rejeitar entradas inválidas antes de consultar o banco.
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function GET(request: Request) {
   try {
     const currentUser = await requireCurrentUser();
@@ -27,8 +32,21 @@ export async function GET(request: Request) {
     const from = url.searchParams.get("from");
     const to = url.searchParams.get("to");
     const status = url.searchParams.get("status");
+    // Filtro opcional por profissional. Vem por identificador (nunca pelo nome)
+    // e é sempre combinado com a organização da sessão na consulta abaixo.
+    const professionalId = url.searchParams.get("professionalId");
+
+    if (professionalId && !UUID_PATTERN.test(professionalId)) {
+      return Response.json(
+        { error: "Profissional inválido." },
+        { status: 400 }
+      );
+    }
 
     const organizationId = currentUser.organization.id;
+    const professionalFilter = professionalId
+      ? sql`AND a.professional_id = ${professionalId}::uuid`
+      : sql``;
 
     if (date) {
       const start = new Date(`${date}T00:00:00-03:00`);
@@ -69,6 +87,7 @@ export async function GET(request: Request) {
           AND a.starts_at >= ${start.toISOString()}
           AND a.starts_at <= ${end.toISOString()}
           ${status ? sql`AND a.status = ${status}` : sql``}
+          ${professionalFilter}
         ORDER BY a.starts_at ASC
       `;
 
@@ -153,6 +172,7 @@ export async function GET(request: Request) {
           AND a.starts_at >= ${start.toISOString()}
           AND a.starts_at <= ${end.toISOString()}
           ${status ? sql`AND a.status = ${status}` : sql``}
+          ${professionalFilter}
         ORDER BY a.starts_at ASC
       `;
 
@@ -202,6 +222,7 @@ export async function GET(request: Request) {
         AND p.organization_id = ${organizationId}
       WHERE a.organization_id = ${organizationId}
         ${status ? sql`AND a.status = ${status}` : sql``}
+        ${professionalFilter}
       ORDER BY a.starts_at ASC
       LIMIT 100
     `;
@@ -216,6 +237,9 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
+    if (error instanceof Error && error.message === "ORGANIZATION_BLOCKED") {
+      return Response.json({ error: "A organização está bloqueada. Fale com o suporte da EstetiQI." }, { status: 403 });
+    }
     if (
       error instanceof Error &&
       error.message === "UNAUTHENTICATED"
@@ -293,6 +317,9 @@ export async function POST(request: Request) {
 
     return Response.json({ appointment: outcome.appointment }, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && error.message === "ORGANIZATION_BLOCKED") {
+      return Response.json({ error: "A organização está bloqueada. Fale com o suporte da EstetiQI." }, { status: 403 });
+    }
     if (
       error instanceof Error &&
       error.message === "UNAUTHENTICATED"

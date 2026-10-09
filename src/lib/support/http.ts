@@ -9,6 +9,17 @@ export function supportErrorResponse(
     return Response.json({ error: "Não autenticado." }, { status: 401 });
   }
 
+  if (error instanceof Error && error.message === "ORGANIZATION_BLOCKED") {
+    return Response.json(
+      {
+        error:
+          "A organização está bloqueada. Fale com o suporte da EstetiQI.",
+        code: "ORGANIZATION_BLOCKED",
+      },
+      { status: 403 }
+    );
+  }
+
   if (error instanceof Error && error.message === "FORBIDDEN") {
     return Response.json({ error: "Acesso negado." }, { status: 403 });
   }

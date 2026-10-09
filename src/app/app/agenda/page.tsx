@@ -79,10 +79,12 @@ type AvailableSlot = {
 async function fetchAgendaAppointments(
   selectedDate: string,
   statusFilter: string,
+  professionalFilter: string,
   upcoming = false
 ): Promise<Appointment[]> {
   const query = new URLSearchParams();
   if (statusFilter) query.set("status", statusFilter);
+  if (professionalFilter) query.set("professionalId", professionalFilter);
   // Visão "Próximos": uma única consulta cobrindo selectedDate..selectedDate+13,
   // equivalente à união das 14 consultas diárias anteriores.
   // Visão "Dia": mantém a consulta única por data (comportamento original).
@@ -537,6 +539,8 @@ export default function AgendaPage() {
   );
   const [upcomingView, setUpcomingView] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
+  // Filtro por profissional (identificador). "" significa todas as profissionais.
+  const [professionalFilter, setProfessionalFilter] = useState("");
   const [appointmentDate, setAppointmentDate] = useState(
     brasilDateString(new Date())
   );
@@ -706,7 +710,7 @@ export default function AgendaPage() {
 
   async function loadData(date = selectedDate, showUpcoming = upcomingView) {
     await Promise.all([
-      fetchAgendaAppointments(date, statusFilter, showUpcoming)
+      fetchAgendaAppointments(date, statusFilter, professionalFilter, showUpcoming)
         .then((list) => {
           setError("");
           setAppointments(list);
@@ -733,7 +737,12 @@ export default function AgendaPage() {
   // Listagem da agenda: carrega somente os atendimentos da data/período.
   useEffect(() => {
     let active = true;
-    void fetchAgendaAppointments(selectedDate, statusFilter, upcomingView)
+    void fetchAgendaAppointments(
+      selectedDate,
+      statusFilter,
+      professionalFilter,
+      upcomingView
+    )
       .then((list) => {
         if (!active) return;
         setError("");
@@ -754,7 +763,7 @@ export default function AgendaPage() {
     return () => {
       active = false;
     };
-  }, [selectedDate, statusFilter, upcomingView, notifyError]);
+  }, [selectedDate, statusFilter, professionalFilter, upcomingView, notifyError]);
 
   // Dados do formulário (clientes, procedimentos, profissionais): carregam em
   // paralelo com a agenda e liberam o botão "Novo agendamento" sem esperar a
@@ -1427,19 +1436,38 @@ export default function AgendaPage() {
                 </button>
               </div>
 
-              <select
-                value={statusFilter}
-                onChange={(event) =>
-                  setStatusFilter(event.target.value)
-                }
-                className="min-h-11 rounded-lg border border-[#dce5e0] px-3 py-2 text-sm"
-              >
-                {statuses.map((status) => (
-                  <option key={status.value} value={status.value}>
-                    {status.label}
-                  </option>
-                ))}
-              </select>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  aria-label="Filtrar por profissional"
+                  value={professionalFilter}
+                  onChange={(event) =>
+                    setProfessionalFilter(event.target.value)
+                  }
+                  className="min-h-11 rounded-lg border border-[#dce5e0] px-3 py-2 text-sm"
+                >
+                  <option value="">Todas as profissionais</option>
+                  {professionals.map((professional) => (
+                    <option key={professional.id} value={professional.id}>
+                      {professional.name}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  aria-label="Filtrar por status"
+                  value={statusFilter}
+                  onChange={(event) =>
+                    setStatusFilter(event.target.value)
+                  }
+                  className="min-h-11 rounded-lg border border-[#dce5e0] px-3 py-2 text-sm"
+                >
+                  {statuses.map((status) => (
+                    <option key={status.value} value={status.value}>
+                      {status.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {!upcomingView && (

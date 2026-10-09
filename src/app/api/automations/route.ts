@@ -35,6 +35,9 @@ export async function GET() {
 
     return Response.json(result);
   } catch (error) {
+    if (error instanceof Error && error.message === "ORGANIZATION_BLOCKED") {
+      return Response.json({ error: "A organização está bloqueada. Fale com o suporte da EstetiQI." }, { status: 403 });
+    }
     if (error instanceof Error && error.message === "UNAUTHENTICATED") {
       return Response.json({ error: "Não autenticado." }, { status: 401 });
     }
@@ -99,6 +102,9 @@ export async function POST(request: Request) {
 
     return Response.json(result[0], { status: 201 });
   } catch (error) {
+    if (error instanceof Error && error.message === "ORGANIZATION_BLOCKED") {
+      return Response.json({ error: "A organização está bloqueada. Fale com o suporte da EstetiQI." }, { status: 403 });
+    }
     if (error instanceof Error && error.message === "UNAUTHENTICATED") {
       return Response.json({ error: "Não autenticado." }, { status: 401 });
     }

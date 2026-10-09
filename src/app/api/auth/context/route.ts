@@ -16,9 +16,22 @@ export async function GET() {
         name: currentUser.organization.name,
         slug: currentUser.organization.slug,
       },
+      organizationBlocked: false,
       role: currentUser.role,
     });
   } catch (error) {
+    // Organização bloqueada pela administração da plataforma: o cliente usa este
+    // aviso apenas para exibir a mensagem adequada. A restrição real é aplicada
+    // no servidor (todas as demais APIs respondem 403).
+    if (error instanceof Error && error.message === "ORGANIZATION_BLOCKED") {
+      return Response.json({
+        authenticated: true,
+        organizationBlocked: true,
+        error:
+          "A organização está bloqueada. Fale com o suporte da EstetiQI.",
+      });
+    }
+
     if (
       error instanceof Error &&
       error.message === "UNAUTHENTICATED"

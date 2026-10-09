@@ -516,7 +516,7 @@ export function PublicBookingForm({
               Ajuste a seleção.
             </p>
           ) : (
-            <div className="mt-4 flex flex-wrap gap-3">
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
               {eligibleProfessionals.map((professional) => {
                 const active = effectiveProfessionalId === professional.id;
                 return (
@@ -524,10 +524,11 @@ export function PublicBookingForm({
                     key={professional.id}
                     type="button"
                     onClick={() => setProfessionalId(professional.id)}
-                    className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+                    aria-pressed={active}
+                    className={`flex flex-col items-center gap-2 rounded-2xl border p-3 text-center transition ${
                       active
-                        ? "border-[#0f766e] bg-[#0f766e] text-white"
-                        : "border-[#d5e2da] text-[#30463c] hover:bg-[#f1f6f3]"
+                        ? "border-[#0f766e] bg-[#0f766e]/5 ring-1 ring-[#0f766e]"
+                        : "border-[#d5e2da] hover:bg-[#f1f6f3]"
                     }`}
                   >
                     {professional.hasPhoto ? (
@@ -540,29 +541,27 @@ export function PublicBookingForm({
                             ? `?v=${professional.photoVersion}`
                             : ""
                         }`}
-                        alt=""
-                        className="h-7 w-7 rounded-full object-cover"
+                        alt={`Foto de ${professional.name}`}
+                        className="h-16 w-16 rounded-full object-cover shadow-sm ring-2 ring-white sm:h-20 sm:w-20"
                       />
                     ) : (
                       <span
                         aria-hidden="true"
-                        className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
+                        className={`flex h-16 w-16 items-center justify-center rounded-full text-xl font-semibold sm:h-20 sm:w-20 sm:text-2xl ${
                           active
-                            ? "bg-white/25 text-white"
+                            ? "bg-[#0f766e] text-white"
                             : "bg-[#eef3f0] text-[#527765]"
                         }`}
                       >
                         {professional.name.trim().charAt(0).toUpperCase()}
                       </span>
                     )}
-                    <span className="flex flex-col items-start leading-tight">
-                      <span>{professional.name}</span>
+                    <span className="flex flex-col items-center leading-tight">
+                      <span className="text-sm font-semibold text-[#30463c]">
+                        {professional.name}
+                      </span>
                       {professional.specialty ? (
-                        <span
-                          className={`text-xs font-normal ${
-                            active ? "text-white/80" : "text-[#6d7d75]"
-                          }`}
-                        >
+                        <span className="text-xs font-normal text-[#6d7d75]">
                           {professional.specialty}
                         </span>
                       ) : null}

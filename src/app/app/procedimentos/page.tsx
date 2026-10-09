@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useToast } from "../toast";
 import { useProcedureLabels } from "../procedure-labels";
@@ -347,6 +348,74 @@ export default function ProcedimentosPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </section>
+
+        <section
+          id="protocolos"
+          className="mt-6 rounded-2xl border border-[#e4ebe7] bg-white p-5 sm:p-6"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold text-[#30463c]">
+              Protocolos de Procedimentos
+            </h2>
+            <span className="rounded-full bg-[#edf3ef] px-2.5 py-1 text-xs font-semibold text-[#50655b]">
+              Documentos
+            </span>
+          </div>
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            <p className="font-semibold">
+              Upload de PDF ainda não disponível neste ambiente.
+            </p>
+            <p className="mt-1">
+              Para anexar protocolos em PDF a cada {labels.singularLower},
+              protegidos por organização, são necessários dois recursos que ainda
+              não estão configurados:
+            </p>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              <li>
+                Armazenamento privado de objetos (bucket) com acesso autenticado
+                e temporário aos arquivos.
+              </li>
+              <li>
+                A tabela dedicada à associação protocolo ↔ {labels.singularLower}{" "}
+                (migration 034_procedure_protocols.sql), ainda não aplicada neste
+                ambiente.
+              </li>
+            </ul>
+            <p className="mt-2">
+              Enquanto isso, esta tela não faz upload nem mantém documentos —
+              nada é simulado.
+            </p>
+          </div>
+          <p className="mt-3 text-sm text-[#52635b]">
+            Você pode registrar as orientações gerais de cada{" "}
+            {labels.singularLower} no campo Descrição, acima, e usar as mensagens
+            pós-atendimento na{" "}
+            <Link
+              href="/app/comunicacao"
+              className="font-semibold text-[#30463c] underline"
+            >
+              Central de Comunicação
+            </Link>{" "}
+            para falar com a cliente após o atendimento.
+          </p>
+          {procedures.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs font-semibold text-[#78867f]">
+                {labels.plural} disponíveis para receber protocolo
+              </p>
+              <ul className="mt-2 flex flex-wrap gap-2">
+                {procedures.map((procedure) => (
+                  <li
+                    key={procedure.id}
+                    className="rounded-full bg-[#edf3ef] px-3 py-1 text-xs font-medium text-[#50655b]"
+                  >
+                    {procedure.name}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </section>

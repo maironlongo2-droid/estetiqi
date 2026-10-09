@@ -9,9 +9,9 @@ import {
   type CommunicationCategory,
 } from "@/lib/communication/messages";
 
-// Diálogo de preparação de mensagem reutilizado pela Agenda, pela Central de
-// Comunicação (confirmações, pós-atendimento e protocolos) e pelos contatos de
-// retorno. A profissional revisa o texto, pode copiá-lo e pode abrir o WhatsApp.
+// Diálogo de preparação de mensagem reutilizado pela Agenda e pela Central de
+// Comunicação (confirmações, pós-atendimento e retorno). A profissional revisa
+// o texto, pode copiá-lo e pode abrir o WhatsApp.
 //
 // Importante: abrir o WhatsApp NÃO comprova o envio. O diálogo diferencia três
 // estados — "Preparada", "WhatsApp aberto" e "Envio manual confirmado" (quando

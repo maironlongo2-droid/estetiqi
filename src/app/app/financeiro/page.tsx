@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useToast } from "../toast";
+import { useProcedureLabels } from "../procedure-labels";
 
 type Payment = {
   id: string;
@@ -75,6 +76,7 @@ export default function FinanceiroPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const { notifyError, notifySuccess } = useToast();
+  const labels = useProcedureLabels();
   const [error, setError] = useState("");
   const [period, setPeriod] = useState<"today" | "7days" | "month" | "all">("month");
   // Espelha a permissão finance:update (RBAC: owner e admin).
@@ -383,7 +385,7 @@ export default function FinanceiroPage() {
                 <thead>
                   <tr className="border-b border-[#eef2ef] text-xs text-[#78867f]">
                     <th className="px-6 py-4">Cliente</th>
-                    <th className="px-6 py-4">Procedimento</th>
+                    <th className="px-6 py-4">{labels.singular}</th>
                     <th className="px-6 py-4">Forma</th>
                     <th className="px-6 py-4">Valor</th>
                     <th className="px-6 py-4">Data</th>

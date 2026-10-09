@@ -157,7 +157,7 @@ test("manifesto PWA e telas principais cabem no mobile", async ({ page }) => {
     page.getByRole("menuitem", { name: "Profissionais" })
   ).toBeVisible();
   await expect(
-    page.getByRole("menuitem", { name: "Procedimentos" })
+    page.locator('[role="menuitem"][href="/app/procedimentos"]')
   ).toBeVisible();
   await expect(
     page.getByRole("menuitem", { name: "Assistente IA" })

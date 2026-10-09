@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "../toast";
+import { useProcedureLabels } from "../procedure-labels";
 import { buildWhatsAppUrl } from "@/lib/clients/whatsapp";
 import { requestSuggestedMessage } from "@/lib/ai/message-client";
 
@@ -80,6 +81,7 @@ function wasRejectedForSameReason(
 
 export default function InteligenciaPage() {
   const { notifyError } = useToast();
+  const labels = useProcedureLabels();
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -602,7 +604,7 @@ export default function InteligenciaPage() {
                           </dd>
                         </div>
                         <div>
-                          <dt className="text-xs text-[#78867f]">Procedimento mais recente</dt>
+                          <dt className="text-xs text-[#78867f]">{labels.singular} mais recente</dt>
                           <dd className="mt-1 text-sm font-medium">
                             {clientHistory.totals.last_procedure ?? "Não informado"}
                           </dd>
@@ -631,7 +633,7 @@ export default function InteligenciaPage() {
                             {clientHistory.appointments.slice(0, 6).map((appointment) => (
                               <li key={appointment.id} className="py-2 text-sm">
                                 <p className="font-medium text-[#30463c]">
-                                  {appointment.procedure_name ?? "Procedimento não informado"}
+                                  {appointment.procedure_name ?? `${labels.singular} não informado`}
                                 </p>
                                 <p className="mt-1 text-xs text-[#78867f]">
                                   {new Date(appointment.starts_at).toLocaleDateString("pt-BR")} · {appointment.status === "completed" ? "Concluído" : appointment.status === "no_show" ? "Não compareceu" : appointment.status === "cancelled" ? "Cancelado" : appointment.status === "confirmed" ? "Confirmado" : "Agendado"}

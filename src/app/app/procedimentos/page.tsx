@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useToast } from "../toast";
+import { useProcedureLabels } from "../procedure-labels";
 
 type Procedure = {
   id: string;
@@ -20,6 +21,7 @@ export default function ProcedimentosPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingProcedure, setEditingProcedure] = useState<Procedure | null>(null);
   const { notifyError } = useToast();
+  const labels = useProcedureLabels();
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const listRevision = useRef(0);
@@ -90,7 +92,7 @@ export default function ProcedimentosPage() {
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || "Não foi possível salvar o procedimento.");
+        throw new Error(data.error || `Não foi possível salvar o ${labels.singularLower}.`);
       }
 
       const savedProcedure = data.procedure as Procedure;
@@ -105,12 +107,16 @@ export default function ProcedimentosPage() {
       formElement.reset();
       setShowForm(false);
       setEditingProcedure(null);
-      setNotice(editingProcedure ? "Procedimento atualizado." : "Procedimento cadastrado.");
+      setNotice(
+        editingProcedure
+          ? `${labels.singular} atualizado.`
+          : `${labels.singular} cadastrado.`
+      );
     } catch (saveError) {
       setError(
         saveError instanceof Error
           ? saveError.message
-          : "Não foi possível salvar o procedimento."
+          : `Não foi possível salvar o ${labels.singularLower}.`
       );
     } finally {
       setSaving(false);
@@ -125,7 +131,7 @@ export default function ProcedimentosPage() {
   }
 
   async function handleDelete(procedure: Procedure) {
-    if (!window.confirm(`Excluir o procedimento "${procedure.name}"? Ele deixará de aparecer nos novos agendamentos. O histórico será preservado.`)) {
+    if (!window.confirm(`Excluir o ${labels.singularLower} "${procedure.name}"? Ele deixará de aparecer nos novos agendamentos. O histórico será preservado.`)) {
       return;
     }
 
@@ -139,16 +145,16 @@ export default function ProcedimentosPage() {
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || "Não foi possível excluir o procedimento.");
+        throw new Error(data.error || `Não foi possível excluir o ${labels.singularLower}.`);
       }
       listRevision.current += 1;
       setProcedures((current) => current.filter((item) => item.id !== procedure.id));
-      setNotice("Procedimento excluído. O histórico foi preservado.");
+      setNotice(`${labels.singular} excluído. O histórico foi preservado.`);
     } catch (deleteError) {
       setError(
         deleteError instanceof Error
           ? deleteError.message
-          : "Não foi possível excluir o procedimento."
+          : `Não foi possível excluir o ${labels.singularLower}.`
       );
     }
   }
@@ -158,28 +164,29 @@ export default function ProcedimentosPage() {
       <div className="mx-auto max-w-7xl px-4 py-7 sm:px-6 sm:py-9 lg:px-8">
         <header className="mb-7">
           <h1 className="text-3xl font-semibold tracking-tight text-[#30463c]">
-            Procedimentos
+            {labels.plural}
           </h1>
           <p className="mt-2 text-sm leading-6 text-[#78867f]">
-            Organize os serviços, valores e duração dos atendimentos.
+            Organize os {labels.pluralLower}, valores e duração dos atendimentos.
           </p>
         </header>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-xl font-semibold">Seus procedimentos</h2>
+            <h2 className="text-xl font-semibold">Seus {labels.pluralLower}</h2>
             <p className="mt-1 text-sm text-[#78867f]">
-              Cadastre os serviços oferecidos pela sua empresa.
+              Cadastre os {labels.pluralLower} oferecidos pela sua empresa.
             </p>
           </div>
 
           <button type="button"
+            data-testid="procedure-form-toggle"
             onClick={() => {
               setShowForm(!showForm);
               setError("");
             }}
             className="min-h-11 rounded-xl bg-[#30463c] px-5 py-3 text-sm font-semibold text-white"
           >
-            {showForm ? "Fechar" : "Novo procedimento"}
+            {showForm ? "Fechar" : `Novo ${labels.singularLower}`}
           </button>
         </div>
 
@@ -214,7 +221,7 @@ export default function ProcedimentosPage() {
                   name="description"
                   rows={3}
                   className="mt-2 w-full rounded-xl border border-[#dfe9e3] px-4 py-3 outline-none focus:border-[#30463c]"
-                  placeholder="Descrição do procedimento"
+                  placeholder={`Descrição do ${labels.singularLower}`}
                   defaultValue={editingProcedure?.description || ""}
                 />
               </label>
@@ -267,6 +274,7 @@ export default function ProcedimentosPage() {
 
             <button
               type="submit"
+              data-testid="procedure-form-submit"
               disabled={saving}
               className="mt-6 rounded-xl bg-[#30463c] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
             >
@@ -274,7 +282,7 @@ export default function ProcedimentosPage() {
                 ? "Salvando..."
                 : editingProcedure
                   ? "Salvar alterações"
-                  : "Cadastrar procedimento"}
+                  : `Cadastrar ${labels.singularLower}`}
             </button>
           </form>
         )}
@@ -282,15 +290,15 @@ export default function ProcedimentosPage() {
         <section className="mt-6 overflow-hidden rounded-2xl border border-[#e4ebe7] bg-white">
           {loading ? (
             <p className="p-6 text-sm text-[#78867f]">
-              Carregando procedimentos...
+              Carregando {labels.pluralLower}...
             </p>
           ) : procedures.length === 0 ? (
             <div className="p-10 text-center">
               <p className="font-medium">
-                Nenhum procedimento cadastrado.
+                Nenhum {labels.singularLower} cadastrado.
               </p>
               <p className="mt-1 text-sm text-[#78867f]">
-                Cadastre os serviços oferecidos pela sua empresa.
+                Cadastre os {labels.pluralLower} oferecidos pela sua empresa.
               </p>
             </div>
           ) : (

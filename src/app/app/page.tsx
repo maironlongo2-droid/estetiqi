@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { buildWhatsAppUrl } from "@/lib/clients/whatsapp";
 import { requestSuggestedMessage } from "@/lib/ai/message-client";
 import { useToast } from "./toast";
+import { useProcedureLabels } from "./procedure-labels";
 
 type Client = {
   id: string;
@@ -144,6 +145,7 @@ export default function AppPage() {
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const { notifyError } = useToast();
+  const labels = useProcedureLabels();
   const [intelligenceError, setIntelligenceError] = useState("");
   const [returningClients, setReturningClients] = useState<ReturningClient[] | null>(null);
   const [returningError, setReturningError] = useState("");
@@ -573,7 +575,7 @@ export default function AppPage() {
               Clientes que podem estar prontos para voltar
             </h2>
             <p className="mt-2 text-sm leading-6 text-[#78867f]">
-              Regras de retorno consideram o histórico, o intervalo do procedimento,
+              Regras de retorno consideram o histórico, o intervalo do {labels.singularLower},
               cancelamentos e agendamentos futuros. Nenhuma mensagem é enviada
               automaticamente.
             </p>

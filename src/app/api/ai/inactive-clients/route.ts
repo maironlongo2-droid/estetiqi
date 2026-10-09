@@ -28,6 +28,16 @@ export async function GET(request: Request) {
 
     const days = parsed.data.days;
 
+    // Contexto mínimo do negócio: o tipo de atuação orienta o vocabulário da
+    // análise. A organização vem do usuário autenticado (isolamento de tenant).
+    const organizationResult = await sql`
+      SELECT business_type
+      FROM organizations
+      WHERE id = ${currentUser.organization.id}
+      LIMIT 1
+    `;
+    const businessType = organizationResult[0]?.business_type ?? null;
+
     const clients = await sql`
     SELECT
       c.id,
@@ -60,6 +70,7 @@ export async function GET(request: Request) {
         inactive_days: client.inactive_days,
       })),
       days,
+      { businessType },
     );
 
     return Response.json({

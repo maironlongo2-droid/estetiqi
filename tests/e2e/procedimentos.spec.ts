@@ -15,21 +15,21 @@ test("fluxo básico de procedimentos", async ({ page }) => {
 
   await page.goto("/app/procedimentos");
 
-  await page.getByRole("button", { name: "Novo procedimento" }).click();
+  await page.getByTestId("procedure-form-toggle").click();
 
   await page
     .getByPlaceholder("Ex.: Limpeza de pele")
     .fill(name);
 
   await page
-    .getByPlaceholder("Descrição do procedimento")
+    .locator('textarea[name="description"]')
     .fill("Procedimento criado pelo teste E2E");
 
   await page.getByPlaceholder("150.00").fill("150");
   await page.getByPlaceholder("60").fill("60");
 
   await page
-    .getByRole("button", { name: "Cadastrar procedimento" })
+    .getByTestId("procedure-form-submit")
     .click();
 
   await expect(page.getByText(name, { exact: true })).toBeVisible();

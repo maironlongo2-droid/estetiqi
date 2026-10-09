@@ -168,9 +168,9 @@ const demoFinance: Record<DemoFinanceTab, { label: string; value: string }[]> = 
 };
 
 const primaryButton =
-  "inline-flex min-h-12 items-center justify-center rounded-full bg-[#527765] px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-[#527765]/15 transition hover:bg-[#456957]";
+  "inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[#527765] px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-[#527765]/15 transition hover:bg-[#456957] sm:w-auto";
 const secondaryButton =
-  "inline-flex min-h-12 items-center justify-center rounded-full border border-[#d7e1dc] bg-white px-7 py-3 text-sm font-semibold text-[#496458] transition hover:bg-[#f5faf7]";
+  "inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#d7e1dc] bg-white px-7 py-3 text-sm font-semibold text-[#496458] transition hover:bg-[#f5faf7] sm:w-auto";
 
 function AgendaPreview() {
   const [selected, setSelected] = useState(demoAgenda[0].id);
@@ -360,39 +360,43 @@ function FinancePreview() {
 export default function Home() {
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#fbfaf8] text-[#26352f]">
-      <header className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-5 sm:px-8">
-        <Link href="/" className="flex items-center gap-3" aria-label="EstetiQI">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#dceee4]">
-            <BrandMark className="h-6 w-6" />
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-2 px-4 py-4 sm:gap-3 sm:px-8 sm:py-5">
+        <Link
+          href="/"
+          className="flex shrink-0 items-center gap-2 sm:gap-3"
+          aria-label="EstetiQI"
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#dceee4] sm:h-10 sm:w-10">
+            <BrandMark className="h-5 w-5 sm:h-6 sm:w-6" />
           </span>
-          <span className="text-xl font-semibold tracking-[0.12em] text-[#30463c]">
+          <span className="whitespace-nowrap text-lg font-semibold tracking-[0.04em] text-[#30463c] sm:text-xl sm:tracking-[0.12em]">
             Esteti<span className="text-[#7a9f8d]">Qi</span>
           </span>
         </Link>
 
-        <nav aria-label="Acesso" className="flex items-center gap-2">
+        <nav aria-label="Acesso" className="flex items-center gap-1 sm:gap-2">
           <Link
             href="/login"
-            className="inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium text-[#496458] transition hover:bg-[#f0f5f2]"
+            className="inline-flex min-h-11 items-center whitespace-nowrap rounded-full px-2.5 text-sm font-medium text-[#496458] transition hover:bg-[#f0f5f2] sm:px-3"
           >
             Entrar
           </Link>
           <Link
             href="/cadastro"
-            className="inline-flex min-h-11 items-center whitespace-nowrap rounded-full bg-[#527765] px-4 text-sm font-semibold text-white transition hover:bg-[#456957] sm:px-5"
+            className="inline-flex min-h-11 items-center whitespace-nowrap rounded-full bg-[#527765] px-3.5 text-sm font-semibold text-white transition hover:bg-[#456957] sm:px-5"
           >
             Começar agora
           </Link>
         </nav>
       </header>
 
-      <section className="mx-auto grid max-w-6xl gap-10 px-5 py-16 sm:px-8 lg:grid-cols-2 lg:items-center lg:py-24">
+      <section className="mx-auto grid max-w-6xl gap-8 px-5 py-12 sm:gap-10 sm:px-8 sm:py-16 lg:grid-cols-2 lg:items-center lg:py-24">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#9a7a84]">
-            Plataforma inteligente para profissionais de estética
+            Plataforma inteligente para profissionais de beleza
           </p>
           <h1 className="mt-4 text-4xl font-semibold leading-[1.1] tracking-tight text-[#263a32] sm:text-5xl lg:text-6xl">
-            Seu negócio de estética organizado em um só lugar.
+            Seu negócio de beleza organizado em um só lugar.
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-8 text-[#66756d]">
             Clientes, agenda, procedimentos e financeiro juntos, com uma
@@ -409,7 +413,7 @@ export default function Home() {
           </div>
           <a
             href="#previa"
-            className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-[#496458] transition hover:text-[#30463c]"
+            className="mt-5 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-[#496458] transition hover:text-[#30463c]"
           >
             Ver a demonstração interativa
             <span aria-hidden="true">↓</span>
@@ -455,7 +459,7 @@ export default function Home() {
       </section>
 
       <section className="border-y border-[#e8eeea] bg-white/70">
-        <div className="mx-auto grid max-w-6xl gap-8 px-5 py-14 sm:px-8 lg:grid-cols-2 lg:items-center">
+        <div className="mx-auto grid max-w-6xl gap-8 px-5 py-12 sm:px-8 sm:py-14 lg:grid-cols-2 lg:items-center">
           <div>
             <h2 className="text-3xl font-semibold leading-tight tracking-tight text-[#30463c]">
               Chega de anotar tudo em caderno, planilha e conversa de WhatsApp.
@@ -479,7 +483,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="beneficios" className="mx-auto max-w-6xl px-5 py-16 sm:px-8">
+      <section id="beneficios" className="mx-auto max-w-6xl px-5 py-12 sm:px-8 sm:py-16">
         <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-[#30463c]">
           O que o EstetiQI resolve no seu dia
         </h2>
@@ -501,9 +505,9 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="recursos" className="mx-auto max-w-6xl px-5 py-16 sm:px-8">
+      <section id="recursos" className="mx-auto max-w-6xl px-5 py-12 sm:px-8 sm:py-16">
         <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-[#30463c]">
-          Feito para a rotina da sua estética
+          Feito para a rotina do seu negócio
         </h2>
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((item) => (
@@ -527,7 +531,7 @@ export default function Home() {
         id="previa"
         className="scroll-mt-20 border-y border-[#e8eeea] bg-white/70"
       >
-        <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8">
+        <div className="mx-auto max-w-6xl px-5 py-12 sm:px-8 sm:py-16">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#9a7a84]">
             Prévia interativa
           </p>
@@ -553,7 +557,7 @@ export default function Home() {
       </section>
 
       <section className="bg-[#f1f6f3]">
-        <div className="mx-auto grid max-w-6xl gap-10 px-5 py-16 sm:px-8 lg:grid-cols-2 lg:items-center">
+        <div className="mx-auto grid max-w-6xl gap-10 px-5 py-12 sm:px-8 sm:py-16 lg:grid-cols-2 lg:items-center">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#9a7a84]">
               Inteligência e relacionamento
@@ -590,7 +594,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-5 py-16 sm:px-8">
+      <section className="mx-auto max-w-6xl px-5 py-12 sm:px-8 sm:py-16">
         <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-[#30463c]">
           Feito com transparência
         </h2>
@@ -605,7 +609,7 @@ export default function Home() {
       </section>
 
       <section className="border-y border-[#e8eeea] bg-white/70">
-        <div className="mx-auto grid max-w-6xl gap-8 px-5 py-16 sm:px-8 lg:grid-cols-2 lg:items-center">
+        <div className="mx-auto grid max-w-6xl gap-8 px-5 py-12 sm:px-8 sm:py-16 lg:grid-cols-2 lg:items-center">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#9a7a84]">
               Fase de validação
@@ -615,7 +619,7 @@ export default function Home() {
             </h2>
             <p className="mt-4 max-w-lg leading-7 text-[#66756d]">
               Estamos evoluindo a plataforma com o uso real de profissionais de
-              estética. Você pode criar sua conta e conhecer o sistema.
+              beleza. Você pode criar sua conta e conhecer o sistema.
             </p>
           </div>
 
@@ -630,7 +634,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-5 py-16 sm:px-8">
+      <section className="mx-auto max-w-6xl px-5 py-12 sm:px-8 sm:py-16">
         <h2 className="text-3xl font-semibold tracking-tight text-[#30463c]">
           Simples para começar
         </h2>
@@ -649,10 +653,10 @@ export default function Home() {
         </ol>
       </section>
 
-      <section className="mx-auto max-w-6xl px-5 pb-16 sm:px-8">
-        <div className="rounded-[2rem] bg-[#dfeee6] px-6 py-12 text-center sm:px-12">
+      <section className="mx-auto max-w-6xl px-5 pb-12 sm:px-8 sm:pb-16">
+        <div className="rounded-[2rem] bg-[#dfeee6] px-6 py-10 text-center sm:px-12 sm:py-12">
           <h2 className="mx-auto max-w-xl text-3xl font-semibold leading-tight text-[#30463c]">
-            Comece a organizar sua estética hoje.
+            Comece a organizar seu negócio hoje.
           </h2>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link href="/cadastro" className={primaryButton}>
@@ -708,7 +712,7 @@ export default function Home() {
         </div>
 
         <p className="mx-auto mt-8 max-w-6xl text-center text-xs tracking-wider text-[#8a9892]">
-          EstetiQI · Gestão para profissionais de estética
+          EstetiQI · Gestão para profissionais de beleza
         </p>
         <p className="mx-auto mt-2 max-w-6xl text-center text-xs text-[#8a9892]">
           Contato:{" "}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useToast } from "../toast";
+import { useProcedureLabels } from "../procedure-labels";
 
 // Rascunho do formulário de novo agendamento (apenas nesta sessão do navegador).
 // v3: a v2 podia guardar um preço total somado como texto (bug corrigido);
@@ -321,12 +322,12 @@ function statusLabel(status: string) {
   return appointmentStatusLabels[status] ?? status;
 }
 
-function appointmentProcedureLabel(appointment: Appointment) {
+function appointmentProcedureLabel(appointment: Appointment, fallback: string) {
   const names = (appointment.procedures ?? [])
     .map((procedure) => procedure.name)
     .filter((name): name is string => Boolean(name));
   if (names.length) return names.join(" + ");
-  return appointment.procedure_name || "Procedimento não informado";
+  return appointment.procedure_name || fallback;
 }
 
 function availableStatusChanges(appointment: Appointment) {
@@ -395,19 +396,21 @@ function ProcedureFields({
   onAdd: () => void;
   onRemove: (index: number) => void;
 }) {
+  const labels = useProcedureLabels();
   return (
     <div className="block text-sm font-medium text-[#50655b]">
-      <span>Procedimentos</span>
+      <span>{labels.plural}</span>
       <div className="mt-2 space-y-2">
         {ids.map((value, index) => (
           <div key={index} className="flex items-center gap-2">
             <select
-              aria-label={index === 0 ? "Procedimento" : `Procedimento ${index + 1}`}
+              aria-label={index === 0 ? labels.singular : `${labels.singular} ${index + 1}`}
+              data-testid={index === 0 ? "agenda-procedure-select" : undefined}
               value={value}
               onChange={(event) => onChange(index, event.target.value)}
               className="w-full rounded-xl border border-[#dce5e0] bg-white p-3"
             >
-              <option value="">Selecione o procedimento</option>
+              <option value="">Selecione o {labels.singularLower}</option>
               {optionsForIndex(index).map((procedure) => (
                 <option key={procedure.id} value={procedure.id}>
                   {procedure.name}
@@ -417,7 +420,7 @@ function ProcedureFields({
             {ids.length > 1 && (
               <button
                 type="button"
-                aria-label={`Remover procedimento ${index + 1}`}
+                aria-label={`Remover ${labels.singularLower} ${index + 1}`}
                 onClick={() => onRemove(index)}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#dce5e0] text-lg text-[#8a5149] hover:bg-[#fdf5f4]"
               >
@@ -432,7 +435,7 @@ function ProcedureFields({
         onClick={onAdd}
         className="mt-2 text-sm font-medium text-[#6f927f] hover:text-[#30463c]"
       >
-        + Adicionar procedimento
+        + Adicionar {labels.singularLower}
       </button>
     </div>
   );
@@ -499,6 +502,7 @@ export default function AgendaPage() {
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const { notifyError } = useToast();
+  const labels = useProcedureLabels();
   const { user, isLoaded } = useUser();
   const draftKey = `${appointmentDraftPrefix}:${user?.id ?? "anon"}`;
   const draftHydrated = useRef(false);
@@ -683,7 +687,7 @@ export default function AgendaPage() {
       if (current) {
         options.unshift({
           id: current.id,
-          name: current.name ?? "Procedimento atual",
+          name: current.name ?? `${labels.singular} atual`,
         });
       }
     }
@@ -839,9 +843,9 @@ export default function AgendaPage() {
         if (!response.ok) {
           throw new Error(
             data.error === "PROCEDURE_DURATION_REQUIRED"
-              ? "Defina a duração do procedimento para consultar horários."
+              ? `Defina a duração do ${labels.singularLower} para consultar horários.`
               : data.error === "PROCEDURE_NOT_ASSIGNED"
-                ? "Este profissional não realiza o procedimento selecionado."
+                ? `Este profissional não realiza o ${labels.singularLower} selecionado.`
                 : data.error || "Não foi possível consultar horários."
           );
         }
@@ -879,6 +883,7 @@ export default function AgendaPage() {
   }, [
     appointmentDate,
     form.professionalId,
+    labels.singularLower,
     selectedProcedureIdsKey,
     showForm,
   ]);
@@ -1531,8 +1536,8 @@ export default function AgendaPage() {
 
               {selectedProfessional && availableProcedures.length === 0 && (
                 <span className="block text-xs text-[#8a5149] md:col-span-2">
-                  Esta profissional ainda não tem procedimentos associados.
-                  Associe os procedimentos em Profissionais.
+                  Esta profissional ainda não tem {labels.pluralLower} associados.
+                  Associe os {labels.pluralLower} em Profissionais.
                 </span>
               )}
 
@@ -1575,7 +1580,7 @@ export default function AgendaPage() {
                 <span>Horário disponível</span>
                 {!form.professionalId || selectedProcedureIds.length === 0 ? (
                   <span className="mt-2 block text-xs text-[#78867f]">
-                    Selecione o profissional e o procedimento para ver os horários disponíveis.
+                    Selecione o profissional e o {labels.singularLower} para ver os horários disponíveis.
                   </span>
                 ) : (
                   <>
@@ -1781,7 +1786,10 @@ export default function AgendaPage() {
                               {appointment.client_name}
                             </Link>
                             <p className="mt-1 text-sm font-medium text-[#50655b]">
-                              {appointmentProcedureLabel(appointment)}
+                              {appointmentProcedureLabel(
+                                appointment,
+                                `${labels.singular} não informado`
+                              )}
                             </p>
                             {appointment.professional_name && (
                               <p className="mt-0.5 text-xs text-[#9aa59f]">

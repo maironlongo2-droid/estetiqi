@@ -6,6 +6,7 @@ import {
   getPublicProcedures,
   getPublicProfessionals,
 } from "@/lib/public/profile";
+import { getProcedureLabels } from "@/lib/business/procedure-labels";
 import {
   PublicBookingForm,
   type PublicProcedureOption,
@@ -53,6 +54,8 @@ export default async function PublicBookingPage({
   if (!organization) {
     notFound();
   }
+
+  const labels = getProcedureLabels(organization.businessType);
 
   const [procedures, professionals] = await Promise.all([
     getPublicProcedures(organization.id),
@@ -111,7 +114,7 @@ export default async function PublicBookingPage({
         <div className="mt-8">
           {procedures.length === 0 ? (
             <p className="rounded-3xl border border-[#e2ebe5] bg-white p-6 text-sm text-[#6d7d75]">
-              Este cartão ainda não tem procedimentos disponíveis para
+              Este cartão ainda não tem {labels.pluralLower} disponíveis para
               agendamento online.
             </p>
           ) : (
@@ -120,6 +123,7 @@ export default async function PublicBookingPage({
               procedures={procedures as PublicProcedureOption[]}
               professionals={professionals as PublicProfessionalOption[]}
               whatsappDigits={whatsappDigits(organization.businessPhone)}
+              businessType={organization.businessType}
             />
           )}
         </div>

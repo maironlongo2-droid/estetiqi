@@ -7,19 +7,33 @@ export type InactiveClient = {
   inactive_days: number;
 };
 
+export type InactiveClientsBusinessContext = {
+  businessType?: string | null;
+};
+
 export async function analyzeInactiveClients(
   clients: InactiveClient[],
-  days: number
+  days: number,
+  business?: InactiveClientsBusinessContext
 ) {
   if (clients.length === 0) {
     return "Nenhum cliente inativo foi encontrado.";
   }
 
+  // Contexto mínimo do negócio: o tipo de atuação orienta o vocabulário da
+  // análise. Quando não informado, a IA é instruída a usar linguagem neutra,
+  // válida para qualquer negócio de serviços.
+  const businessType =
+    typeof business?.businessType === "string" && business.businessType.trim()
+      ? business.businessType.trim().slice(0, 80)
+      : "não informado";
+
   const prompt = `
-Você é o AI Engine do EstetiQI, um sistema de inteligência para negócios de beleza.
+Você é o AI Engine do EstetiQI, um sistema de inteligência para negócios de serviços.
 
 Analise os clientes abaixo.
 
+Tipo de negócio: ${businessType}
 Período de inatividade: ${days} dias.
 
 DADOS:
@@ -36,6 +50,7 @@ Retorne uma análise objetiva em português do Brasil contendo:
 Regras:
 - Não invente informações.
 - Use somente os dados fornecidos.
+- Adeque o vocabulário ao tipo de negócio informado. Se ele não estiver informado, use linguagem neutra, válida para qualquer negócio de serviços. Estética e beleza são apenas um dos segmentos possíveis.
 - Não envie mensagens.
 - Apenas analise e recomende.
 `;

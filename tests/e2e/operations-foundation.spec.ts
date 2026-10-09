@@ -441,7 +441,7 @@ test("profissionais, disponibilidade e conflitos alimentam os appointments", asy
   await page.getByRole("button", { name: "Novo agendamento" }).click();
   const professionalSelect = page.getByLabel("Profissional", { exact: true });
   await professionalSelect.selectOption(professionalA.id);
-  const procedureSelect = page.getByLabel("Procedimento");
+  const procedureSelect = page.getByTestId("agenda-procedure-select");
   await expect(
     procedureSelect.locator(`option[value="${procedure.id}"]`)
   ).toHaveCount(1);
@@ -488,7 +488,7 @@ test("profissionais, disponibilidade e conflitos alimentam os appointments", asy
 
   await page.getByRole("button", { name: "Novo agendamento" }).click();
   await professionalSelect.selectOption(professionalA.id);
-  const renewedProcedureSelect = page.getByLabel("Procedimento");
+  const renewedProcedureSelect = page.getByTestId("agenda-procedure-select");
   await renewedProcedureSelect.selectOption(procedure.id);
   await professionalSelect.selectOption(unqualifiedProfessional.id);
   await expect(

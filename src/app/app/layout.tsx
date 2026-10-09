@@ -6,6 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { BrandMark } from "../brand-mark";
 import { ToastProvider } from "./toast";
+import { getProcedureLabels } from "@/lib/business/procedure-labels";
+import { ProcedureLabelsProvider } from "./procedure-labels";
 
 export default function AppLayout({
   children,
@@ -16,6 +18,10 @@ export default function AppLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [organizationName, setOrganizationName] = useState("EstetiQi");
+  // Tipo de negócio da organização (ex.: "Estética", "Salão"). Decide apenas os
+  // rótulos de apresentação (procedimentos x serviços) e vem da mesma carga de
+  // /api/organization — sem consulta adicional.
+  const [businessType, setBusinessType] = useState<string | null>(null);
   // Indica se o usuário logado é o administrador da plataforma. Controla apenas
   // a exibição do atalho para a central de suporte; a autorização real é
   // validada no servidor pelas APIs de /api/admin/support/*.
@@ -35,6 +41,9 @@ export default function AppLayout({
   const mobileSecondaryActive =
     pathname.startsWith("/app/inteligencia") ||
     pathname.startsWith("/app/automacoes");
+
+  // Rótulos de apresentação das ofertas usados no menu e nas telas de /app.
+  const procedureLabels = getProcedureLabels(businessType);
 
   // O menu "Mais" só monta os itens "Assistente IA" e "Automações" quando é
   // aberto, e no celular esses links ficam ocultos na barra principal
@@ -119,6 +128,10 @@ export default function AppLayout({
         cache.onboardingPending = data?.onboarding_completed === false;
 
         if (data?.name) setOrganizationName(data.name);
+
+        setBusinessType(
+          typeof data?.business_type === "string" ? data.business_type : null
+        );
 
         if (cache.onboardingPending && pathname !== "/app/onboarding") {
           router.replace("/app/onboarding");
@@ -254,7 +267,10 @@ export default function AppLayout({
                       mobileOnly: true,
                     },
                     { href: "/app/profissionais", label: "Profissionais" },
-                    { href: "/app/procedimentos", label: "Procedimentos" },
+                    {
+                      href: "/app/procedimentos",
+                      label: procedureLabels.plural,
+                    },
                     { href: "/app/calculadora", label: "Calculadora de preços" },
                     { href: "/app/configuracoes", label: "Configurações" },
                   ].map((item) => (
@@ -322,7 +338,7 @@ export default function AppLayout({
                     type="button"
                     onClick={() => {
                       setMenuOpen(false);
-                      void signOut({ redirectUrl: "/login" });
+                      void signOut({ redirectUrl: "/" });
                     }}
                     role="menuitem"
                     className="flex min-h-11 w-full items-center rounded-lg px-3 py-2 text-left text-sm text-[#8a5149] hover:bg-[#faf2f0]"
@@ -336,7 +352,11 @@ export default function AppLayout({
         </div>
       </header>
 
-      <ToastProvider>{children}</ToastProvider>
+      <ToastProvider>
+        <ProcedureLabelsProvider businessType={businessType}>
+          {children}
+        </ProcedureLabelsProvider>
+      </ToastProvider>
 
       <nav
         aria-label="Navegação principal"

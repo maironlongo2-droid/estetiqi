@@ -103,6 +103,15 @@ function localVersions() {
     .sort();
 }
 
+// Numero da versao a partir do prefixo numerico do arquivo de migration
+// (ex.: "028_appointment_procedures" -> 28). As migrations usam prefixo de tres
+// digitos com zero a esquerda; comparar pelo numero evita depender da ordem
+// lexicografica do nome completo e mantem a base restrita as versoes ANTERIORES.
+function versionNumber(version) {
+  const match = /^(\d+)/.exec(version);
+  return match ? Number(match[1]) : Number.NaN;
+}
+
 async function registeredVersions() {
   const rows = await sql.query(
     "SELECT version FROM schema_migrations ORDER BY version"
@@ -136,7 +145,10 @@ async function preflight() {
     fail(`arquivo local ${TARGET_VERSION}.sql nao encontrado.`);
   }
 
-  const base = local.filter((version) => version !== TARGET_VERSION);
+  // Base = somente migrations ANTERIORES a versao-alvo (prefixo numerico menor).
+  // A 028 e anterior a 029, entao a 029 NAO e tratada como base.
+  const targetNumber = versionNumber(TARGET_VERSION);
+  const base = local.filter((version) => versionNumber(version) < targetNumber);
   const db = await registeredVersions();
   const missingBase = base.filter((version) => !db.includes(version));
   const targetPresent = db.includes(TARGET_VERSION);

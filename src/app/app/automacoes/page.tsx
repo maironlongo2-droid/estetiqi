@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { buildWhatsAppUrl } from "@/lib/clients/whatsapp";
 import { requestSuggestedMessage } from "@/lib/ai/message-client";
 import { useToast } from "../toast";
+import { useProcedureLabels } from "../procedure-labels";
 
 type InactiveClient = {
   id: string;
@@ -45,6 +46,7 @@ function SummaryCard({ label, value }: { label: string; value: string | number }
 
 export default function AutomacoesPage() {
   const { notifyError } = useToast();
+  const labels = useProcedureLabels();
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [candidates, setCandidates] = useState<ReturnCandidate[]>([]);
@@ -259,7 +261,7 @@ export default function AutomacoesPage() {
                             <dd className="mt-1 text-[#78867f]">{candidate.suggested_action}</dd>
                           </div>
                           <div>
-                            <dt className="font-medium text-[#52635b]">Último procedimento</dt>
+                            <dt className="font-medium text-[#52635b]">Último {labels.singularLower}</dt>
                             <dd className="mt-1 text-[#78867f]">
                               {candidate.last_procedure_name ?? "Não informado"} em{" "}
                               {new Date(candidate.last_appointment_at).toLocaleDateString("pt-BR")}

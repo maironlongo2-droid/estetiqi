@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useToast } from "../toast";
+import { useProcedureLabels } from "../procedure-labels";
 
 type Procedure = { id: string; name: string };
 type WeeklyInterval = {
@@ -65,18 +66,19 @@ function timeInput(value: string) {
   return value.slice(0, 5);
 }
 
-function friendlyError(code: unknown, fallback: string) {
+function friendlyError(code: unknown, fallback: string, pluralLower: string) {
   if (code === "INVALID_DATA") {
     return "Confira os dados: informe o nome (mínimo 2 letras) e, se preencher, um e-mail válido.";
   }
   if (code === "PROCEDURE_NOT_FOUND") {
-    return "Um dos procedimentos escolhidos não está mais disponível. Atualize a página e tente novamente.";
+    return `Um dos ${pluralLower} escolhidos não está mais disponível. Atualize a página e tente novamente.`;
   }
   return typeof code === "string" && code ? code : fallback;
 }
 
 export default function ProfessionalsPage() {
   const { notifyError } = useToast();
+  const labels = useProcedureLabels();
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [procedures, setProcedures] = useState<Procedure[]>([]);
   const [statusFilter, setStatusFilter] = useState<"active" | "inactive">("active");
@@ -117,7 +119,7 @@ export default function ProfessionalsPage() {
         throw new Error(professionalData.error || "Não foi possível carregar profissionais.");
       }
       if (!proceduresResponse.ok) {
-        throw new Error(procedureData.error || "Não foi possível carregar procedimentos.");
+        throw new Error(procedureData.error || `Não foi possível carregar ${labels.pluralLower}.`);
       }
       setProfessionals(professionalData);
       setProcedures(procedureData.procedures ?? []);
@@ -141,7 +143,7 @@ export default function ProfessionalsPage() {
       fetch("/api/procedures?status=active&limit=500").then(async (response) => {
         const data = await response.json();
         if (!response.ok) {
-          throw new Error(data.error || "Não foi possível carregar procedimentos.");
+          throw new Error(data.error || `Não foi possível carregar ${labels.pluralLower}.`);
         }
         return data.procedures ?? [];
       }),
@@ -163,7 +165,7 @@ export default function ProfessionalsPage() {
     return () => {
       current = false;
     };
-  }, [notifyError]);
+  }, [notifyError, labels.pluralLower]);
 
   function resetForm() {
     setEditingId(null);
@@ -196,7 +198,7 @@ export default function ProfessionalsPage() {
       );
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(friendlyError(data.error, "Não foi possível salvar profissional."));
+        throw new Error(friendlyError(data.error, "Não foi possível salvar profissional.", labels.pluralLower));
       }
       setNotice(editingId ? "Profissional atualizado." : "Profissional cadastrado.");
       resetForm();
@@ -429,7 +431,7 @@ export default function ProfessionalsPage() {
     <header className="mb-7">
       <h1 className="text-3xl font-semibold tracking-tight text-[#30463c]">Profissionais</h1>
       <p className="mt-2 text-sm leading-6 text-[#78867f]">
-        Cadastre a equipe, os procedimentos realizados e os horários de atendimento.
+        Cadastre a equipe, os {labels.pluralLower} realizados e os horários de atendimento.
       </p>
         </header>
 
@@ -464,12 +466,12 @@ export default function ProfessionalsPage() {
                 <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-1 w-full rounded-xl border border-[#dfe9e3] p-3" />
               </label>
               <h3 className="border-t border-[#eef2ef] pt-4 text-sm font-semibold text-[#52635b]">
-                Procedimentos realizados
+                {labels.plural} realizados
               </h3>
               <div>
                 <div className="mt-2 max-h-40 space-y-2 overflow-y-auto rounded-xl border border-[#eef2ef] p-3">
                   {procedures.length === 0 ? (
-                    <p className="text-xs text-[#78867f]">Cadastre procedimentos antes de associá-los.</p>
+                    <p className="text-xs text-[#78867f]">Cadastre {labels.pluralLower} antes de associá-los.</p>
                   ) : procedures.map((procedure) => (
                     <label key={procedure.id} className="flex items-center gap-2 text-sm">
                       <input
@@ -596,7 +598,7 @@ export default function ProfessionalsPage() {
                     </summary>
                     <div className="mt-3 space-y-3">
                       <p className="text-sm text-[#78867f]">
-                        Procedimentos: {professional.procedure_ids.length
+                        {labels.plural}: {professional.procedure_ids.length
                           ? professional.procedure_ids.map((id) => procedures.find((item) => item.id === id)?.name).filter(Boolean).join(", ")
                           : "Ainda não associados"}
                       </p>
@@ -623,7 +625,7 @@ export default function ProfessionalsPage() {
                                   <li key={appointment.id} className="py-2 text-sm">
                                     <span className="font-medium text-[#30463c]">{appointment.client_name}</span>
                                     <span className="text-[#78867f]">
-                                      {" · "}{appointment.procedure_name ?? "Procedimento não informado"}
+                                      {" · "}{appointment.procedure_name ?? `${labels.singular} não informado`}
                                       {" · "}{new Date(appointment.starts_at).toLocaleDateString("pt-BR")}
                                       {" · "}{appointment.status === "completed" ? "Concluído" : appointment.status === "no_show" ? "Não compareceu" : appointment.status === "cancelled" ? "Cancelado" : appointment.status === "confirmed" ? "Confirmado" : "Agendado"}
                                     </span>

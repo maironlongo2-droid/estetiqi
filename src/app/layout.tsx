@@ -67,7 +67,7 @@ export default function RootLayout({
       signUpUrl="/cadastro"
       signInFallbackRedirectUrl="/app"
       signUpFallbackRedirectUrl="/app/onboarding"
-      afterSignOutUrl="/login"
+      afterSignOutUrl="/"
     >
       <html
         lang="pt-BR"

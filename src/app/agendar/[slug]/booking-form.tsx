@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { getProcedureLabels } from "@/lib/business/procedure-labels";
 
 export type PublicProcedureOption = {
   id: string;
@@ -67,12 +68,15 @@ export function PublicBookingForm({
   procedures,
   professionals,
   whatsappDigits,
+  businessType = null,
 }: {
   slug: string;
   procedures: PublicProcedureOption[];
   professionals: PublicProfessionalOption[];
   whatsappDigits: string | null;
+  businessType?: string | null;
 }) {
+  const labels = getProcedureLabels(businessType);
   const [selected, setSelected] = useState<string[]>([]);
   const [professionalId, setProfessionalId] = useState("");
   const [date, setDate] = useState(() => todayInTimeZone());
@@ -208,7 +212,7 @@ export function PublicBookingForm({
     setError(null);
 
     if (selected.length === 0) {
-      setError("Escolha pelo menos um procedimento.");
+      setError(`Escolha pelo menos um ${labels.singularLower}.`);
       return;
     }
     if (!effectiveProfessionalId) {
@@ -360,7 +364,7 @@ export function PublicBookingForm({
     >
       <fieldset>
         <legend className="text-lg font-semibold text-[#30463c]">
-          1. Escolha os procedimentos
+          1. Escolha os {labels.pluralLower}
         </legend>
         <div className="mt-4 space-y-3">
           {procedures.map((procedure) => {
@@ -412,7 +416,7 @@ export function PublicBookingForm({
           </legend>
           {eligibleProfessionals.length === 0 ? (
             <p className="mt-3 text-sm text-[#a87483]">
-              Nenhum profissional realiza todos os procedimentos escolhidos.
+              Nenhum profissional realiza todos os {labels.pluralLower} escolhidos.
               Ajuste a seleção.
             </p>
           ) : (
@@ -529,8 +533,8 @@ export function PublicBookingForm({
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-[#6d7d75]">
           <span>
             {selected.length === 0
-              ? "Selecione ao menos um procedimento"
-              : `${selected.length} procedimento(s) · ${
+              ? `Selecione ao menos um ${labels.singularLower}`
+              : `${selected.length} ${labels.singularLower}(s) · ${
                   totalDuration > 0
                     ? `${totalDuration} min`
                     : "duração a combinar"

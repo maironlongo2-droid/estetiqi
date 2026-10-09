@@ -390,20 +390,42 @@ export default function Home() {
         </nav>
       </header>
 
-      <section className="mx-auto grid max-w-6xl gap-8 px-5 py-12 sm:gap-10 sm:px-8 sm:py-16 lg:grid-cols-2 lg:items-center lg:py-24">
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#eef6f0] via-[#f8fbf9] to-[#fbfaf8]">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 overflow-hidden"
+        >
+          <div className="eq-drift absolute -left-24 -top-24 h-72 w-72 rounded-full bg-[#cfe8da] opacity-70 blur-3xl" />
+          <div
+            className="eq-drift absolute -right-24 top-6 h-80 w-80 rounded-full bg-[#f3e3e9] opacity-60 blur-3xl"
+            style={{ animationDelay: "2.5s" }}
+          />
+        </div>
+
+        <div className="relative mx-auto grid max-w-6xl gap-8 px-5 py-14 sm:gap-10 sm:px-8 sm:py-20 lg:grid-cols-2 lg:items-center lg:py-28">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#9a7a84]">
-            Plataforma inteligente para profissionais de beleza
+          <p className="eq-fade-up text-xs font-semibold uppercase tracking-[0.22em] text-[#9a7a84]">
+            Gestão inteligente para pequenos negócios de serviços
           </p>
-          <h1 className="mt-4 text-4xl font-semibold leading-[1.1] tracking-tight text-[#263a32] sm:text-5xl lg:text-6xl">
-            Seu negócio de beleza organizado em um só lugar.
+          <h1
+            className="eq-fade-up mt-4 text-4xl font-semibold leading-[1.08] tracking-tight text-[#263a32] sm:text-5xl lg:text-6xl"
+            style={{ animationDelay: "80ms" }}
+          >
+            Seu negócio organizado em um só lugar.
           </h1>
-          <p className="mt-6 max-w-xl text-lg leading-8 text-[#66756d]">
+          <p
+            className="eq-fade-up mt-6 max-w-xl text-lg leading-8 text-[#66756d]"
+            style={{ animationDelay: "160ms" }}
+          >
             Clientes, agenda, procedimentos e financeiro juntos, com uma
             inteligência que mostra quem pode voltar e prepara a mensagem para
-            você chamar pelo WhatsApp.
+            você chamar pelo WhatsApp. Feito para a rotina de quem atende, com a
+            estética como um dos exemplos.
           </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <div
+            className="eq-fade-up mt-8 flex flex-col gap-3 sm:flex-row"
+            style={{ animationDelay: "240ms" }}
+          >
             <Link href="/cadastro" className={primaryButton}>
               Começar agora
             </Link>
@@ -413,7 +435,8 @@ export default function Home() {
           </div>
           <a
             href="#previa"
-            className="mt-5 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-[#496458] transition hover:text-[#30463c]"
+            className="eq-fade-up mt-5 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-[#496458] transition hover:text-[#30463c]"
+            style={{ animationDelay: "320ms" }}
           >
             Ver a demonstração interativa
             <span aria-hidden="true">↓</span>
@@ -422,8 +445,12 @@ export default function Home() {
 
         <div
           aria-label="Exemplo ilustrativo de oportunidade de retorno"
-          className="rounded-[2rem] border border-[#dfe9e3] bg-white p-4 shadow-[0_25px_80px_rgba(64,91,78,0.10)] sm:p-5"
+          className="eq-fade-up relative rounded-[2rem] border border-[#dfe9e3] bg-white p-4 shadow-[0_25px_80px_rgba(64,91,78,0.10)] sm:p-5"
+          style={{ animationDelay: "200ms" }}
         >
+          <span className="eq-float absolute -top-3 right-4 z-10 inline-flex items-center gap-1.5 rounded-full bg-[#30463c] px-3 py-1 text-[11px] font-semibold text-white shadow-lg">
+            <span aria-hidden="true">●</span> Agendamento online
+          </span>
           <div className="rounded-[1.5rem] bg-[#f5faf7] p-4 sm:p-5">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-[#9a7a84]">
               Exemplo ilustrativo
@@ -456,6 +483,35 @@ export default function Home() {
             </div>
           </div>
         </div>
+        </div>
+      </section>
+
+      <section className="border-y border-[#e8eeea] bg-white">
+        <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-10">
+          <p className="eq-fade-up text-center text-xs font-semibold uppercase tracking-[0.22em] text-[#9a7a84]">
+            Do dado à ação
+          </p>
+          <ol className="mx-auto mt-5 flex max-w-4xl flex-wrap items-center justify-center gap-2 sm:gap-3">
+            {["Seus dados", "Insight", "Oportunidade", "Mensagem", "WhatsApp"].map(
+              (step, index) => (
+                <li
+                  key={step}
+                  className="eq-fade-up flex items-center gap-2 sm:gap-3"
+                  style={{ animationDelay: `${index * 90}ms` }}
+                >
+                  <span className="rounded-full border border-[#dfe9e3] bg-white px-4 py-2 text-sm font-medium text-[#52645b]">
+                    {step}
+                  </span>
+                  {index < 4 ? (
+                    <span aria-hidden="true" className="text-[#9a7a84]">
+                      →
+                    </span>
+                  ) : null}
+                </li>
+              )
+            )}
+          </ol>
+        </div>
       </section>
 
       <section className="border-y border-[#e8eeea] bg-white/70">
@@ -484,14 +540,15 @@ export default function Home() {
       </section>
 
       <section id="beneficios" className="mx-auto max-w-6xl px-5 py-12 sm:px-8 sm:py-16">
-        <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-[#30463c]">
+        <h2 className="eq-fade-up max-w-2xl text-3xl font-semibold tracking-tight text-[#30463c]">
           O que o EstetiQI resolve no seu dia
         </h2>
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {benefits.map((item) => (
+          {benefits.map((item, index) => (
             <article
               key={item.title}
-              className="rounded-3xl border border-[#e2ebe5] bg-white p-6"
+              className="eq-fade-up rounded-3xl border border-[#e2ebe5] bg-white p-6 transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_50px_rgba(64,91,78,0.10)]"
+              style={{ animationDelay: `${index * 90}ms` }}
             >
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#e4f1e9] text-lg text-[#668978]">
                 {item.icon}
@@ -506,14 +563,15 @@ export default function Home() {
       </section>
 
       <section id="recursos" className="mx-auto max-w-6xl px-5 py-12 sm:px-8 sm:py-16">
-        <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-[#30463c]">
+        <h2 className="eq-fade-up max-w-2xl text-3xl font-semibold tracking-tight text-[#30463c]">
           Feito para a rotina do seu negócio
         </h2>
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map((item) => (
+          {features.map((item, index) => (
             <article
               key={item.title}
-              className="rounded-3xl border border-[#e2ebe5] bg-white p-6"
+              className="eq-fade-up rounded-3xl border border-[#e2ebe5] bg-white p-6 transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_50px_rgba(64,91,78,0.10)]"
+              style={{ animationDelay: `${index * 70}ms` }}
             >
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#e4f1e9] text-lg text-[#668978]">
                 {item.icon}

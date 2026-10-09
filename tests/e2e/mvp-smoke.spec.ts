@@ -118,7 +118,8 @@ test("manifesto PWA e telas principais cabem no mobile", async ({ page }) => {
     .evaluateAll((links) =>
       links.map((link) => (link as HTMLAnchorElement).getAttribute("href"))
     );
-  // No celular, Assistente IA e Automações ficam no menu "Mais opções".
+  // No celular, a navegação completa (inclusive Assistente IA e Automações)
+  // fica no menu dedicado "Abrir navegação", separada das ações da conta (⋮).
   expect(primaryNavigationHrefs).toEqual([
     "/app",
     "/app/agenda",
@@ -152,7 +153,9 @@ test("manifesto PWA e telas principais cabem no mobile", async ({ page }) => {
   expect(navigationDimensions.content).toBeLessThanOrEqual(
     navigationDimensions.viewport
   );
-  await page.getByRole("button", { name: "Mais opções" }).click();
+  // A navegação completa (5 grupos) fica no menu dedicado do celular,
+  // separada das ações da conta (⋮).
+  await page.getByRole("button", { name: "Abrir navegação" }).click();
   await expect(
     page.getByRole("menuitem", { name: "Profissionais" })
   ).toBeVisible();
@@ -165,16 +168,25 @@ test("manifesto PWA e telas principais cabem no mobile", async ({ page }) => {
   await expect(
     page.getByRole("menuitem", { name: "Automações" })
   ).toBeVisible();
-  await expect(page.getByRole("menuitem", { name: "Sair" })).toBeVisible();
 
   // Clique fora e Escape fecham o menu; navegar por um item também.
   await page.getByRole("heading").first().click({ force: true });
   await expect(page.getByRole("menu")).toHaveCount(0);
-  await page.getByRole("button", { name: "Mais opções" }).click();
+  await page.getByRole("button", { name: "Abrir navegação" }).click();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menu")).toHaveCount(0);
-  await page.getByRole("button", { name: "Mais opções" }).click();
+  await page.getByRole("button", { name: "Abrir navegação" }).click();
   await page.getByRole("menuitem", { name: "Automações" }).click();
   await expect(page).toHaveURL(/\/app\/automacoes/);
   await expect(page.getByRole("menu")).toHaveCount(0);
+
+  // O menu da conta (⋮) contém apenas as ações secundárias: Suporte e Sair.
+  await page.getByRole("button", { name: "Mais opções" }).click();
+  await expect(
+    page.getByRole("menuitem", { name: "Ajuda e suporte" })
+  ).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Sair" })).toBeVisible();
+  await expect(
+    page.getByRole("menuitem", { name: "Profissionais" })
+  ).toHaveCount(0);
 });

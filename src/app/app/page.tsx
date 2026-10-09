@@ -73,6 +73,12 @@ type ReturningClient = {
   opportunity_status: string | null;
 };
 
+type PublicCard = {
+  published: boolean;
+  slug: string | null;
+  suggestedSlug: string;
+};
+
 const cardClass = "rounded-2xl border border-[#e4ebe7] bg-white shadow-sm";
 const mutedClass = "text-sm text-[#78867f]";
 
@@ -113,15 +119,17 @@ function MetricCard({
   label,
   value,
   detail,
+  href,
   accent = false,
 }: {
   label: string;
   value: string;
   detail: string;
+  href?: string;
   accent?: boolean;
 }) {
-  return (
-    <article className={`${cardClass} p-5 sm:p-6`}>
+  const body = (
+    <>
       <p className="text-sm font-medium text-[#78867f]">{label}</p>
       <p
         className={`mt-3 text-2xl font-semibold tracking-tight ${
@@ -131,7 +139,23 @@ function MetricCard({
         {value}
       </p>
       <p className="mt-2 text-xs leading-5 text-[#8a9891]">{detail}</p>
-    </article>
+      {href && (
+        <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-[#527765]">
+          Ver <span aria-hidden="true">→</span>
+        </span>
+      )}
+    </>
+  );
+
+  return href ? (
+    <Link
+      href={href}
+      className={`${cardClass} block p-5 transition hover:border-[#cfe6da] hover:shadow-md sm:p-6`}
+    >
+      {body}
+    </Link>
+  ) : (
+    <article className={`${cardClass} p-5 sm:p-6`}>{body}</article>
   );
 }
 
@@ -154,6 +178,9 @@ export default function AppPage() {
   const [messageLoadingId, setMessageLoadingId] = useState<string | null>(null);
   const [messageActionId, setMessageActionId] = useState<string | null>(null);
   const [messageFeedback, setMessageFeedback] = useState<Record<string, string>>({});
+  const [card, setCard] = useState<PublicCard | null>(null);
+  const [cardLoading, setCardLoading] = useState(true);
+  const [cardError, setCardError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -239,6 +266,41 @@ export default function AppPage() {
       active = false;
     };
   }, [notifyError]);
+
+  // O cartão digital é carregado em separado do restante do painel: uma falha
+  // aqui não deve marcar o dashboard como incompleto nem exibir um endereço
+  // público antes de confirmar que o cartão está publicado.
+  useEffect(() => {
+    let active = true;
+
+    fetch("/api/organization/public-card")
+      .then(async (response) => {
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data || typeof data !== "object") {
+          throw new Error("Cartão indisponível.");
+        }
+        return data as PublicCard;
+      })
+      .then((data) => {
+        if (!active) return;
+        setCard(data);
+        setCardError("");
+      })
+      .catch(() => {
+        if (!active) return;
+        setCard(null);
+        setCardError(
+          "Não foi possível carregar o cartão digital agora."
+        );
+      })
+      .finally(() => {
+        if (active) setCardLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function loadReturningClients() {
     setLoadingReturning(true);
@@ -402,55 +464,72 @@ export default function AppPage() {
           </p>
         </header>
 
-        <section className={`${cardClass} mt-6 p-5 sm:p-6`}>
-          <h2 className="text-lg font-semibold text-[#30463c]">
-            O que merece sua atenção?
-          </h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <article className="rounded-xl bg-[#f7faf8] p-4">
-              <p className="text-sm text-[#78867f]">Atendimentos de hoje</p>
-              <p className="mt-1 text-2xl font-semibold text-[#30463c]">
-                {loading ? "—" : todayAppointments.length}
-              </p>
-              <Link
-                href="/app/agenda"
-                className="mt-3 inline-flex min-h-10 items-center font-semibold text-[#527765] hover:underline"
+        <section
+          className={`${cardClass} mt-6 border-[#cfe6da] ring-1 ring-[#e6f2ec]`}
+        >
+          <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+            <div className="flex items-start gap-4">
+              <span
+                aria-hidden="true"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#e3f0e8] text-lg text-[#527765]"
               >
-                Ver agenda
-              </Link>
-            </article>
-            <article className="rounded-xl bg-[#f7faf8] p-4">
-              <p className="text-sm text-[#78867f]">Clientes com oportunidade de retorno</p>
-              <p className="mt-1 text-2xl font-semibold text-[#30463c]">
-                {intelligenceError
-                  ? "—"
-                  : opportunities.filter((item) => item.type === "client_return").length}
-              </p>
-              <a
-                href="#return-opportunities"
-                className="mt-3 inline-flex min-h-10 items-center font-semibold text-[#527765] hover:underline"
-              >
-                Ver oportunidades
-              </a>
-            </article>
-            <article className="rounded-xl bg-[#f7faf8] p-4">
-              <p className="text-sm text-[#78867f]">Recomendações para revisar</p>
-              <p className="mt-1 text-2xl font-semibold text-[#30463c]">
-                {intelligenceError ? "—" : pendingActions.length}
-              </p>
-              <Link
-                href="/app/inteligencia"
-                className="mt-3 inline-flex min-h-10 items-center font-semibold text-[#527765] hover:underline"
-              >
-                Revisar ações
-              </Link>
-            </article>
+                ▤
+              </span>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#6f927f]">
+                  Cartão digital
+                </p>
+                <h2 className="mt-1 text-lg font-semibold text-[#30463c]">
+                  Seu cartão digital
+                </h2>
+                <p className="mt-1 max-w-xl text-sm leading-6 text-[#78867f]">
+                  {cardLoading
+                    ? "Carregando o seu cartão..."
+                    : cardError
+                      ? "Não foi possível carregar o cartão digital agora."
+                      : card?.published && card.slug
+                        ? "Seu cartão está no ar. Compartilhe o link e receba agendamentos online."
+                        : "Crie um link público para as clientes agendarem sozinhas, sem precisar de login."}
+                </p>
+              </div>
+            </div>
+
+            {!cardLoading && (
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                {card?.published && card.slug ? (
+                  <>
+                    <a
+                      href={`/agendar/${card.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#527765] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#456957]"
+                    >
+                      Ver cartão público
+                    </a>
+                    <Link
+                      href="/app/configuracoes#cartao-digital"
+                      className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#dce5e0] px-5 py-3 text-sm font-semibold text-[#30463c] transition hover:bg-[#f7faf8]"
+                    >
+                      Editar cartão
+                    </Link>
+                  </>
+                ) : (
+                  <Link
+                    href="/app/configuracoes#cartao-digital"
+                    className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#527765] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#456957]"
+                  >
+                    {cardError ? "Abrir configurações" : "Criar meu cartão"}
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
         </section>
 
         <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             label="Faturamento deste mês"
+            href="/app/financeiro"
             value={loading ? "—" : revenue === undefined ? "Indisponível" : money(revenue)}
             detail={
               revenueChange === null || revenueChange === undefined
@@ -461,6 +540,7 @@ export default function AppPage() {
           />
           <MetricCard
             label="Atendimentos de hoje"
+            href="/app/agenda"
             value={loading ? "—" : String(todayAppointments.length)}
             detail={
               loading
@@ -472,11 +552,13 @@ export default function AppPage() {
           />
           <MetricCard
             label="Clientes ativos"
+            href="/app/clientes"
             value={loading ? "—" : String(activeClientCount)}
             detail="Disponíveis no CRM e para novos agendamentos"
           />
           <MetricCard
             label="Ações para revisar"
+            href="/app/inteligencia"
             value={intelligenceError ? "—" : String(pendingActions.length)}
             detail={
               intelligenceError

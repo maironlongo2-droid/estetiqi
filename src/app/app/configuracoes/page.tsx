@@ -30,6 +30,8 @@ export default function ConfiguracoesPage() {
   const [cardBio, setCardBio] = useState("");
   const [cardInstagram, setCardInstagram] = useState("");
   const [savingCard, setSavingCard] = useState(false);
+  const [cardError, setCardError] = useState("");
+  const [cardReloadKey, setCardReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -59,15 +61,34 @@ export default function ConfiguracoesPage() {
     };
   }, [notifyError]);
 
-  // O cartão digital é opcional: uma falha ao carregá-lo não deve bloquear as
-  // demais configurações da página.
+  // O cartão digital é carregado em um efeito próprio. Uma falha não bloqueia o
+  // restante da página, mas é exibida ao usuário em vez de ser silenciada, para
+  // que o cartão nunca pareça "vazio" sem explicação. `cardReloadKey` permite
+  // reexecutar a busca a partir do botão "Tentar novamente".
   useEffect(() => {
     let active = true;
 
     fetch("/api/organization/public-card")
-      .then((response) => response.json())
+      .then((response) =>
+        response
+          .json()
+          .catch(() => null)
+          .then((card) => {
+            if (!response.ok) {
+              throw new Error(
+                typeof card?.error === "string"
+                  ? card.error
+                  : "Não foi possível carregar o cartão digital."
+              );
+            }
+            if (!card || typeof card !== "object") {
+              throw new Error("Não foi possível carregar o cartão digital.");
+            }
+            return card;
+          })
+      )
       .then((card) => {
-        if (!active || !card || typeof card !== "object") return;
+        if (!active) return;
         setCardPublished(Boolean(card.published));
         setCardSlug(typeof card.slug === "string" ? card.slug : "");
         setCardSuggestedSlug(
@@ -78,9 +99,15 @@ export default function ConfiguracoesPage() {
         setCardInstagram(
           typeof card.instagram === "string" ? card.instagram : ""
         );
+        setCardError("");
       })
-      .catch(() => {
-        /* Cartão digital indisponível: segue mostrando o restante da página. */
+      .catch((error) => {
+        if (!active) return;
+        setCardError(
+          error instanceof Error
+            ? error.message
+            : "Não foi possível carregar o cartão digital."
+        );
       })
       .finally(() => {
         if (active) setCardLoading(false);
@@ -89,7 +116,19 @@ export default function ConfiguracoesPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [cardReloadKey]);
+
+  // Ao chegar pela navegação com o atalho "#cartao-digital", posiciona a página
+  // na seção do cartão depois que os dados terminam de carregar.
+  useEffect(() => {
+    if (loading || cardLoading) return;
+    if (window.location.hash !== "#cartao-digital") return;
+
+    const section = document.getElementById("cartao-digital");
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [loading, cardLoading]);
 
   // O nome do usuário vem do Clerk (fonte da verdade). O estado local (draft) só
   // passa a existir após o usuário editar o campo; até lá o valor exibido é o do
@@ -300,7 +339,10 @@ export default function ConfiguracoesPage() {
           </form>
         </section>
 
-        <section className="mb-6 rounded-3xl border border-[#dfe9e3] bg-white p-6 shadow-[0_20px_60px_rgba(64,91,78,0.08)]">
+        <section
+          id="cartao-digital"
+          className="mb-6 scroll-mt-24 rounded-3xl border border-[#dfe9e3] bg-white p-6 shadow-[0_20px_60px_rgba(64,91,78,0.08)]"
+        >
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-[#30463c]">
@@ -324,6 +366,28 @@ export default function ConfiguracoesPage() {
 
           {cardLoading ? (
             <p className="mt-5 text-sm text-[#8a9891]">Carregando...</p>
+          ) : cardError ? (
+            <div className="mt-5 rounded-2xl border border-[#f0d6dc] bg-[#fdf5f7] p-4">
+              <p role="alert" className="text-sm font-medium text-[#a87483]">
+                {cardError}
+              </p>
+              <p className="mt-1 text-sm leading-6 text-[#78867f]">
+                O cartão digital não pôde ser carregado agora. Tente novamente;
+                se o problema continuar, fale com o suporte pelo menu
+                &quot;Ajuda e suporte&quot;.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setCardLoading(true);
+                  setCardError("");
+                  setCardReloadKey((key) => key + 1);
+                }}
+                className="mt-3 inline-flex min-h-10 items-center rounded-xl border border-[#dfe9e3] bg-white px-4 py-2 text-sm font-semibold text-[#405149] transition hover:bg-[#f4f7f5]"
+              >
+                Tentar novamente
+              </button>
+            </div>
           ) : (
             <form onSubmit={handlePublicCardSubmit} className="mt-5 space-y-5">
               <label className="block">

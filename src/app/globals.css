@@ -42,6 +42,57 @@ body {
   }
 }
 
+/* Animações de apresentação da landing page: movimento leve e performático,
+   sem dependências externas. O bloco prefers-reduced-motion acima neutraliza a
+   duração destas animações, então quem prefere menos movimento vê o estado
+   final estático (o conteúdo nunca fica escondido). */
+@keyframes eq-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes eq-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes eq-drift {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(5%, -7%) scale(1.08);
+  }
+}
+
+.eq-fade-up {
+  animation: eq-fade-up 0.7s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.eq-float {
+  animation: eq-float 6.5s ease-in-out infinite;
+}
+
+.eq-float-slow {
+  animation: eq-float 9s ease-in-out infinite;
+}
+
+.eq-drift {
+  animation: eq-drift 16s ease-in-out infinite;
+}
+
 /* Altura mínima do shell do app compatível com a viewport dinâmica do mobile.
    100vh é usado como fallback seguro; navegadores com suporte a dvh usam a
    altura dinâmica para evitar excesso de altura (scroll/overscroll). */

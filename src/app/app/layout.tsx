@@ -26,32 +26,106 @@ export default function AppLayout({
   // a exibição do atalho para a central de suporte; a autorização real é
   // validada no servidor pelas APIs de /api/admin/support/*.
   const [isSupportAdmin, setIsSupportAdmin] = useState(false);
-  // O menu só conta como aberto na página em que foi aberto: navegar o fecha.
-  const [menuOpenPath, setMenuOpenPath] = useState<string | null>(null);
-  const menuOpen = menuOpenPath === pathname;
+  // Cada menu (grupo do topo, navegação do celular ou "Mais opções") só conta
+  // como aberto na página em que foi aberto: navegar o fecha automaticamente.
+  const [openMenu, setOpenMenu] = useState<{
+    path: string;
+    key: string;
+  } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const setMenuOpen = (open: boolean) => setMenuOpenPath(open ? pathname : null);
-  const settingsActive =
-    pathname.startsWith("/app/profissionais") ||
-    pathname.startsWith("/app/procedimentos") ||
-    pathname.startsWith("/app/calculadora") ||
-    pathname.startsWith("/app/configuracoes") ||
-    pathname.startsWith("/app/suporte");
-  // No celular, Assistente IA e Automações ficam dentro do menu "Mais".
-  const mobileSecondaryActive =
-    pathname.startsWith("/app/inteligencia") ||
-    pathname.startsWith("/app/automacoes");
 
+  // Estado do menu "Mais opções" (⋮), derivado do menu aberto.
+  const menuOpen = openMenu?.path === pathname && openMenu.key === "more";
+  const setMenuOpen = (open: boolean) =>
+    setOpenMenu(open ? { path: pathname, key: "more" } : null);
+
+  // Grupo do topo atualmente aberto (desktop) e alternância do submenu.
+  const openGroupKey = openMenu?.path === pathname ? openMenu.key : null;
+  const toggleGroup = (key: string) =>
+    setOpenMenu((current) =>
+      current?.path === pathname && current.key === key
+        ? null
+        : { path: pathname, key }
+    );
+  const closeMenu = () => setOpenMenu(null);
+  const anyMenuOpen = openMenu !== null;
+
+  // Um item está ativo na rota atual ou em uma rota filha dela.
+  const isRouteActive = (href: string) => {
+    const base = href.split("#")[0];
+    if (base === "/app") return pathname === "/app";
+    return pathname === base || pathname.startsWith(`${base}/`);
+  };
   // Rótulos de apresentação das ofertas usados no menu e nas telas de /app.
   const procedureLabels = getProcedureLabels(businessType);
 
-  // O menu "Mais" só monta os itens "Assistente IA" e "Automações" quando é
-  // aberto, e no celular esses links ficam ocultos na barra principal
-  // (hidden lg:block). Como o prefetch automático do <Link> só dispara com o
-  // link montado e visível (viewport/hover), as duas rotas ficam "frias" até o
-  // primeiro toque. Pré-carregamos uma única vez na montagem do layout para o
-  // primeiro toque no menu "Mais" responder sem espera. (O Next.js desativa o
-  // prefetch em desenvolvimento; o ganho aparece em produção.)
+  // Navegação organizada por grupos de uso. O grupo "Crescimento" já reserva o
+  // espaço do futuro módulo Comunicação Inteligente, exibido como "em breve"
+  // (sem link), para que a navegação cresça sem reestruturação.
+  type NavItem = { href: string | null; label: string; soon?: boolean };
+  type NavGroup = { key: string; label: string; items: NavItem[] };
+  const navGroups: NavGroup[] = [
+    {
+      key: "overview",
+      label: "Visão geral",
+      items: [{ href: "/app", label: "Início" }],
+    },
+    {
+      key: "care",
+      label: "Atendimento",
+      items: [
+        { href: "/app/agenda", label: "Agenda" },
+        { href: "/app/clientes", label: "Clientes" },
+      ],
+    },
+    {
+      key: "finance",
+      label: "Financeiro",
+      items: [
+        { href: "/app/financeiro", label: "Financeiro" },
+        { href: "/app/calculadora", label: "Calculadora de preços" },
+      ],
+    },
+    {
+      key: "growth",
+      label: "Crescimento",
+      items: [
+        { href: "/app/inteligencia", label: "Assistente IA" },
+        { href: "/app/automacoes", label: "Automações" },
+        { href: null, label: "Comunicação inteligente", soon: true },
+      ],
+    },
+    {
+      key: "business",
+      label: "Meu negócio",
+      items: [
+        { href: "/app/configuracoes#cartao-digital", label: "Cartão digital" },
+        { href: "/app/profissionais", label: "Profissionais" },
+        { href: "/app/procedimentos", label: procedureLabels.plural },
+        { href: "/app/configuracoes", label: "Configurações" },
+      ],
+    },
+  ];
+
+  // Destaque do botão de navegação do celular: ativo quando a rota atual
+  // pertence a algum grupo da navegação principal.
+  const mobileNavActive = navGroups.some((group) =>
+    group.items.some((item) => (item.href ? isRouteActive(item.href) : false))
+  );
+  // Destaque do menu da conta (⋮): pertence à área de suporte.
+  const supportActive = pathname.startsWith("/app/suporte");
+  // Menu de navegação do celular (grupos), separado das ações da conta (⋮).
+  const navOpen = openMenu?.path === pathname && openMenu.key === "nav";
+  const setNavOpen = (open: boolean) =>
+    setOpenMenu(open ? { path: pathname, key: "nav" } : null);
+
+  // O menu de navegação do celular só monta os itens "Assistente IA" e
+  // "Automações" quando é aberto, e esses links não ficam na barra principal do
+  // celular. Como o prefetch automático do <Link> só dispara com o link montado
+  // e visível (viewport/hover), as duas rotas ficam "frias" até o primeiro
+  // toque. Pré-carregamos uma única vez na montagem do layout para o primeiro
+  // toque no menu responder sem espera. (O Next.js desativa o prefetch em
+  // desenvolvimento; o ganho aparece em produção.)
   const prefetchedMenuRoutes = useRef(false);
   useEffect(() => {
     if (prefetchedMenuRoutes.current) return;
@@ -83,15 +157,15 @@ export default function AppLayout({
   }, []);
 
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!anyMenuOpen) return;
 
     function closeOnOutsidePress(event: MouseEvent | TouchEvent) {
       const target = event.target as Node;
       if (menuRef.current?.contains(target)) return;
-      setMenuOpenPath(null);
+      setOpenMenu(null);
     }
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setMenuOpenPath(null);
+      if (event.key === "Escape") setOpenMenu(null);
     }
 
     document.addEventListener("mousedown", closeOnOutsidePress);
@@ -102,7 +176,7 @@ export default function AppLayout({
       document.removeEventListener("touchstart", closeOnOutsidePress);
       document.removeEventListener("keydown", closeOnEscape);
     };
-  }, [menuOpen]);
+  }, [anyMenuOpen]);
 
   // A organização é carregada uma única vez por sessão do layout e reutilizada
   // durante a navegação interna do /app, evitando uma chamada extra (com auth +
@@ -180,70 +254,189 @@ export default function AppLayout({
             </div>
           </Link>
 
-          <div className="flex min-w-0 items-center justify-end gap-2 lg:gap-5">
+          <div
+            ref={menuRef}
+            className="flex min-w-0 items-center justify-end gap-2 lg:gap-5"
+          >
             <nav
               aria-label="Navegação principal"
               className="hidden min-w-0 flex-1 items-center gap-1 text-sm text-[#66756d] lg:flex lg:flex-initial"
             >
-              {[
-                { href: "/app", label: "Início", active: pathname === "/app" },
-                {
-                  href: "/app/clientes",
-                  label: "Clientes",
-                  active: pathname.startsWith("/app/clientes"),
-                },
-                {
-                  href: "/app/agenda",
-                  label: "Agenda",
-                  active: pathname.startsWith("/app/agenda"),
-                },
-                {
-                  href: "/app/financeiro",
-                  label: "Financeiro",
-                  active: pathname.startsWith("/app/financeiro"),
-                },
-                {
-                  href: "/app/inteligencia",
-                  label: "Assistente IA",
-                  active: pathname.startsWith("/app/inteligencia"),
-                  desktopOnly: true,
-                },
-                {
-                  href: "/app/automacoes",
-                  label: "Automações",
-                  active: pathname.startsWith("/app/automacoes"),
-                  desktopOnly: true,
-                },
-              ].map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={item.active ? "page" : undefined}
-                  className={`min-w-0 rounded-lg px-1 py-2 text-center text-xs font-medium leading-tight transition hover:bg-[#f4f7f5] hover:text-[#30463c] sm:px-2 lg:shrink-0 lg:px-3 lg:text-sm ${
-                    item.desktopOnly ? "hidden lg:block" : ""
-                  } ${
-                    item.active
-                      ? "bg-[#edf3ef] font-semibold text-[#30463c]"
-                      : ""
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              ))}
+              {navGroups.map((group) => {
+                const groupActive = group.items.some((item) =>
+                  item.href ? isRouteActive(item.href) : false
+                );
+                const singleItem =
+                  group.items.length === 1 ? group.items[0] : undefined;
+
+                if (singleItem && singleItem.href) {
+                  const active = isRouteActive(singleItem.href);
+                  return (
+                    <Link
+                      key={group.key}
+                      href={singleItem.href}
+                      aria-current={active ? "page" : undefined}
+                      className={`min-w-0 rounded-lg px-2 py-2 text-center text-xs font-medium leading-tight transition hover:bg-[#f4f7f5] hover:text-[#30463c] sm:px-2 lg:shrink-0 lg:px-3 lg:text-sm ${
+                        active
+                          ? "bg-[#edf3ef] font-semibold text-[#30463c]"
+                          : ""
+                      }`}
+                    >
+                      {singleItem.label}
+                    </Link>
+                  );
+                }
+
+                const open = openGroupKey === group.key;
+                return (
+                  <div key={group.key} className="relative lg:shrink-0">
+                    <button
+                      type="button"
+                      aria-haspopup="menu"
+                      aria-expanded={open}
+                      onClick={() => toggleGroup(group.key)}
+                      className={`flex items-center gap-1 rounded-lg px-2 py-2 text-center text-xs font-medium leading-tight transition hover:bg-[#f4f7f5] hover:text-[#30463c] sm:px-2 lg:px-3 lg:text-sm ${
+                        groupActive
+                          ? "bg-[#edf3ef] font-semibold text-[#30463c]"
+                          : ""
+                      }`}
+                    >
+                      {group.label}
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className={`h-3.5 w-3.5 transition-transform ${
+                          open ? "rotate-180" : ""
+                        }`}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </button>
+
+                    {open && (
+                      <div
+                        role="menu"
+                        aria-label={group.label}
+                        className="absolute left-0 top-11 z-50 w-56 rounded-xl border border-[#e4ebe7] bg-white p-2 shadow-lg"
+                      >
+                        {group.items.map((item) =>
+                          item.href ? (
+                            <Link
+                              key={item.label}
+                              role="menuitem"
+                              href={item.href}
+                              onClick={closeMenu}
+                              aria-current={
+                                isRouteActive(item.href) ? "page" : undefined
+                              }
+                              className="flex min-h-10 items-center rounded-lg px-3 py-2 text-sm font-medium text-[#50655b] hover:bg-[#f4f7f5]"
+                            >
+                              {item.label}
+                            </Link>
+                          ) : (
+                            <span
+                              key={item.label}
+                              aria-disabled="true"
+                              className="flex min-h-10 cursor-not-allowed items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium text-[#8a9891]"
+                            >
+                              {item.label}
+                              <span className="rounded-full bg-[#f1f4f2] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                                em breve
+                              </span>
+                            </span>
+                          )
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </nav>
 
-            <div ref={menuRef} className="relative ml-auto shrink-0">
+            {/* No celular, a navegação principal (5 grupos) fica em um menu
+                dedicado, separado das ações da conta (⋮). */}
+            <div className="relative shrink-0 lg:hidden">
+              <button
+                type="button"
+                aria-label="Abrir navegação"
+                aria-haspopup="menu"
+                aria-expanded={navOpen}
+                onClick={() => setNavOpen(!navOpen)}
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#dfe9e3] text-[#66756d] transition hover:bg-[#f4f7f5] ${
+                  mobileNavActive ? "bg-[#edf3ef] text-[#30463c]" : ""
+                }`}
+              >
+                <svg
+                  aria-hidden="true"
+                  className="h-5 w-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M4 7h16M4 12h16M4 17h16" />
+                </svg>
+              </button>
+
+              {navOpen && (
+                <div
+                  role="menu"
+                  aria-label="Menu de navegação"
+                  className="absolute right-0 top-12 z-50 max-h-[min(80vh,34rem)] w-64 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-[#e4ebe7] bg-white p-2 shadow-lg"
+                >
+                  {navGroups.map((group) => (
+                    <div key={group.key} className="py-1">
+                      <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8a9891]">
+                        {group.label}
+                      </p>
+                      {group.items.map((item) =>
+                        item.href ? (
+                          <Link
+                            key={item.label}
+                            role="menuitem"
+                            href={item.href}
+                            onClick={closeMenu}
+                            aria-current={
+                              isRouteActive(item.href) ? "page" : undefined
+                            }
+                            className="flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-medium text-[#50655b] hover:bg-[#f4f7f5]"
+                          >
+                            {item.label}
+                          </Link>
+                        ) : (
+                          <span
+                            key={item.label}
+                            aria-disabled="true"
+                            className="flex min-h-11 cursor-not-allowed items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium text-[#8a9891]"
+                          >
+                            {item.label}
+                            <span className="rounded-full bg-[#f1f4f2] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                              em breve
+                            </span>
+                          </span>
+                        )
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="relative ml-auto shrink-0">
               <button
                 type="button"
                 aria-label="Mais opções"
                 aria-expanded={menuOpen}
                 onClick={() => setMenuOpen(!menuOpen)}
                 className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#dfe9e3] text-xl leading-none text-[#66756d] transition hover:bg-[#f4f7f5] ${
-                  settingsActive ? "bg-[#edf3ef] text-[#30463c]" : ""
-                } ${
-                  mobileSecondaryActive
-                    ? "max-lg:bg-[#edf3ef] max-lg:text-[#30463c]"
-                    : ""
+                  supportActive ? "bg-[#edf3ef] text-[#30463c]" : ""
                 }`}
               >
                 ⋮
@@ -253,41 +446,8 @@ export default function AppLayout({
                 <div
                   role="menu"
                   aria-label="Mais opções"
-                  className="absolute right-0 top-12 z-50 w-56 max-w-[calc(100vw-2rem)] rounded-xl border border-[#e4ebe7] bg-white p-2 shadow-lg"
+                  className="absolute right-0 top-12 z-50 max-h-[min(80vh,34rem)] w-60 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-[#e4ebe7] bg-white p-2 shadow-lg"
                 >
-                  {[
-                    {
-                      href: "/app/inteligencia",
-                      label: "Assistente IA",
-                      mobileOnly: true,
-                    },
-                    {
-                      href: "/app/automacoes",
-                      label: "Automações",
-                      mobileOnly: true,
-                    },
-                    { href: "/app/profissionais", label: "Profissionais" },
-                    {
-                      href: "/app/procedimentos",
-                      label: procedureLabels.plural,
-                    },
-                    { href: "/app/calculadora", label: "Calculadora de preços" },
-                    { href: "/app/configuracoes", label: "Configurações" },
-                  ].map((item) => (
-                    <Link
-                      key={item.href}
-                      role="menuitem"
-                      href={item.href}
-                      onClick={() => setMenuOpen(false)}
-                      aria-current={pathname.startsWith(item.href) ? "page" : undefined}
-                      className={`flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-medium text-[#50655b] hover:bg-[#f4f7f5] ${
-                        item.mobileOnly ? "lg:hidden" : ""
-                      }`}
-                    >
-                      {item.label}
-                    </Link>
-                  ))}
-                  <div className="my-1 border-t border-[#e4ebe7]" />
                   <Link
                     role="menuitem"
                     href="/app/suporte"

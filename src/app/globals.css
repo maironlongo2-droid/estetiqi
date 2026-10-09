@@ -15,6 +15,10 @@
 
 html {
   background: var(--background);
+  /* Rolagem suave para âncoras internas (ex.: botão "Agendar online" do cartão
+     digital). O bloco prefers-reduced-motion abaixo zera isso quando o usuário
+     pede menos movimento. */
+  scroll-behavior: smooth;
 }
 
 body {

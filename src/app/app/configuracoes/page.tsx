@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useToast } from "../toast";
+import { prepareImage } from "@/lib/images/downscale";
 
 // Evento consumido por src/app/app/layout.tsx para atualizar o nome do negócio
 // exibido no header sem refazer a chamada de carga nem remover o cache.
@@ -32,6 +33,9 @@ export default function ConfiguracoesPage() {
   const [savingCard, setSavingCard] = useState(false);
   const [cardError, setCardError] = useState("");
   const [cardReloadKey, setCardReloadKey] = useState(0);
+  const [cardHasLogo, setCardHasLogo] = useState(false);
+  const [cardLogoVersion, setCardLogoVersion] = useState<number | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -99,6 +103,10 @@ export default function ConfiguracoesPage() {
         setCardInstagram(
           typeof card.instagram === "string" ? card.instagram : ""
         );
+        setCardHasLogo(Boolean(card.hasLogo));
+        setCardLogoVersion(
+          typeof card.logoVersion === "number" ? card.logoVersion : null
+        );
         setCardError("");
       })
       .catch((error) => {
@@ -135,6 +143,75 @@ export default function ConfiguracoesPage() {
   // Clerk, sem precisar sincronizar estado dentro de um efeito.
   const firstName = firstNameDraft ?? user?.firstName ?? "";
   const lastName = lastNameDraft ?? user?.lastName ?? "";
+
+  async function handleLogoFile(file: File | null) {
+    if (!file || !canEditOrganization) return;
+
+    setUploadingLogo(true);
+    try {
+      const blob = await prepareImage(file);
+      const form = new FormData();
+      form.append("file", blob, "logo");
+
+      const response = await fetch("/api/organization/logo", {
+        method: "PUT",
+        body: form,
+      });
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          typeof data?.error === "string"
+            ? data.error
+            : "Não foi possível enviar a logo."
+        );
+      }
+
+      setCardHasLogo(true);
+      setCardLogoVersion(Date.now());
+      notifySuccess("Logo do negócio atualizada.");
+    } catch (error) {
+      notifyError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível enviar a logo."
+      );
+    } finally {
+      setUploadingLogo(false);
+    }
+  }
+
+  async function handleLogoRemove() {
+    if (!canEditOrganization) return;
+
+    setUploadingLogo(true);
+    try {
+      const response = await fetch("/api/organization/logo", {
+        method: "DELETE",
+      });
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          typeof data?.error === "string"
+            ? data.error
+            : "Não foi possível remover a logo."
+        );
+      }
+
+      setCardHasLogo(false);
+      setCardLogoVersion(null);
+      notifySuccess("Logo removida.");
+    } catch (error) {
+      notifyError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível remover a logo."
+      );
+    } finally {
+      setUploadingLogo(false);
+    }
+  }
 
   async function handleOrganizationSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -390,6 +467,69 @@ export default function ConfiguracoesPage() {
             </div>
           ) : (
             <form onSubmit={handlePublicCardSubmit} className="mt-5 space-y-5">
+              <div>
+                <span className="mb-2 block text-sm font-medium text-[#405149]">
+                  Logo do negócio
+                </span>
+                <div className="flex flex-wrap items-center gap-4">
+                  {cardHasLogo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={`/api/organization/logo${
+                        cardLogoVersion ? `?v=${cardLogoVersion}` : ""
+                      }`}
+                      alt="Logo do negócio"
+                      className="h-16 w-16 rounded-2xl border border-[#dfe9e3] bg-white object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-dashed border-[#dfe9e3] text-center text-[11px] text-[#8a9891]">
+                      Sem logo
+                    </span>
+                  )}
+
+                  {canEditOrganization ? (
+                    <div className="flex flex-wrap gap-2">
+                      <label
+                        className={`inline-flex min-h-11 cursor-pointer items-center rounded-xl border border-[#dfe9e3] px-4 py-2 text-sm font-medium text-[#405149] transition hover:bg-[#f4f7f5] ${
+                          uploadingLogo ? "cursor-progress opacity-60" : ""
+                        }`}
+                      >
+                        {uploadingLogo
+                          ? "Enviando..."
+                          : cardHasLogo
+                            ? "Trocar imagem"
+                            : "Adicionar imagem"}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="hidden"
+                          disabled={uploadingLogo}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0] ?? null;
+                            event.target.value = "";
+                            void handleLogoFile(file);
+                          }}
+                        />
+                      </label>
+                      {cardHasLogo ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleLogoRemove()}
+                          disabled={uploadingLogo}
+                          className="min-h-11 rounded-xl border border-[#e8ceca] px-4 py-2 text-sm font-medium text-[#8a5149] transition hover:bg-[#fdf5f7] disabled:opacity-50"
+                        >
+                          Remover
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+                <span className="mt-2 block text-xs text-[#8a9891]">
+                  JPG, PNG ou WebP, até 4 MB. A imagem é reduzida automaticamente
+                  e aparece no cartão digital.
+                </span>
+              </div>
+
               <label className="block">
                 <span className="mb-2 block text-sm font-medium text-[#405149]">
                   Endereço do cartão

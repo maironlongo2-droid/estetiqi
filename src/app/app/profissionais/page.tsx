@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useToast } from "../toast";
 import { useProcedureLabels } from "../procedure-labels";
+import { prepareImage } from "@/lib/images/downscale";
 
 type Procedure = { id: string; name: string };
 type WeeklyInterval = {
@@ -24,6 +25,8 @@ type Professional = {
   email: string | null;
   active: boolean;
   procedure_ids: string[];
+  has_photo: boolean;
+  photo_updated_at: string | null;
   weekly: Array<{
     id: string;
     weekday: number;
@@ -85,6 +88,7 @@ export default function ProfessionalsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [updatingProfessionalId, setUpdatingProfessionalId] = useState<string | null>(null);
+  const [uploadingPhotoId, setUploadingPhotoId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -297,6 +301,81 @@ export default function ProfessionalsPage() {
     }
   }
 
+  async function uploadPhoto(professional: Professional, file: File | null) {
+    if (!file) return;
+    setError("");
+    setNotice("");
+    setUploadingPhotoId(professional.id);
+    try {
+      const blob = await prepareImage(file);
+      const form = new FormData();
+      form.append("file", blob, "photo");
+
+      const response = await fetch(
+        `/api/professionals/${professional.id}/photo`,
+        { method: "PUT", body: form }
+      );
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.error || "Não foi possível enviar a foto.");
+      }
+
+      setProfessionals((current) =>
+        current.map((item) =>
+          item.id === professional.id
+            ? {
+                ...item,
+                has_photo: true,
+                photo_updated_at: new Date().toISOString(),
+              }
+            : item
+        )
+      );
+      setNotice(`Foto de ${professional.name} atualizada.`);
+    } catch (uploadError) {
+      setError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : "Não foi possível enviar a foto."
+      );
+    } finally {
+      setUploadingPhotoId(null);
+    }
+  }
+
+  async function removePhoto(professional: Professional) {
+    setError("");
+    setNotice("");
+    setUploadingPhotoId(professional.id);
+    try {
+      const response = await fetch(
+        `/api/professionals/${professional.id}/photo`,
+        { method: "DELETE" }
+      );
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.error || "Não foi possível remover a foto.");
+      }
+
+      setProfessionals((current) =>
+        current.map((item) =>
+          item.id === professional.id
+            ? { ...item, has_photo: false, photo_updated_at: null }
+            : item
+        )
+      );
+      setNotice(`Foto de ${professional.name} removida.`);
+    } catch (removeError) {
+      setError(
+        removeError instanceof Error
+          ? removeError.message
+          : "Não foi possível remover a foto."
+      );
+    } finally {
+      setUploadingPhotoId(null);
+    }
+  }
+
   async function loadProfessionalHistory(professionalId: string) {
     setHistoryLoadingId(professionalId);
     setHistoryError("");
@@ -424,6 +503,9 @@ export default function ProfessionalsPage() {
   const visibleProfessionals = professionals.filter(
     (professional) => professional.active === (statusFilter === "active")
   );
+  const editingProfessional = editingId
+    ? professionals.find((item) => item.id === editingId) ?? null
+    : null;
 
   return (
     <main className="app-main-min-h bg-[#fbfaf8] px-4 py-7 text-[#26352f] sm:px-6 sm:py-9 lg:px-8">
@@ -450,6 +532,69 @@ export default function ProfessionalsPage() {
               Inativar remove a profissional dos novos agendamentos sem apagar atendimentos anteriores.
             </p>
             <div className="mt-4 space-y-3">
+              {editingProfessional ? (
+                <div>
+                  <h3 className="text-sm font-semibold text-[#52635b]">
+                    Foto da profissional
+                  </h3>
+                  <div className="mt-2 flex items-center gap-3">
+                    {editingProfessional.has_photo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={`/api/professionals/${editingProfessional.id}/photo${
+                          editingProfessional.photo_updated_at
+                            ? `?v=${encodeURIComponent(
+                                editingProfessional.photo_updated_at
+                              )}`
+                            : ""
+                        }`}
+                        alt=""
+                        className="h-16 w-16 shrink-0 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span
+                        aria-hidden="true"
+                        className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#eef3f0] text-lg font-semibold text-[#527765]"
+                      >
+                        {editingProfessional.name.trim().charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      <label className="inline-flex min-h-10 cursor-pointer items-center rounded-lg border border-[#dfe9e3] px-3 py-2 text-xs font-semibold text-[#405149] transition hover:bg-[#f4f7f5]">
+                        {uploadingPhotoId === editingProfessional.id
+                          ? "Enviando..."
+                          : editingProfessional.has_photo
+                            ? "Trocar foto"
+                            : "Adicionar foto"}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="hidden"
+                          disabled={uploadingPhotoId === editingProfessional.id}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0] ?? null;
+                            event.target.value = "";
+                            void uploadPhoto(editingProfessional, file);
+                          }}
+                        />
+                      </label>
+                      {editingProfessional.has_photo ? (
+                        <button
+                          type="button"
+                          onClick={() => void removePhoto(editingProfessional)}
+                          disabled={uploadingPhotoId === editingProfessional.id}
+                          className="min-h-10 rounded-lg border border-[#e8ceca] px-3 py-2 text-xs font-semibold text-[#8a5149] transition hover:bg-[#fdf5f7] disabled:opacity-50"
+                        >
+                          Remover
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                  <p className="mt-1 text-xs text-[#78867f]">
+                    JPG, PNG ou WebP, até 4 MB. A foto aparece no cartão digital.
+                  </p>
+                </div>
+              ) : null}
               <h3 className="border-t border-[#eef2ef] pt-4 text-sm font-semibold text-[#52635b]">
                 Dados de contato
               </h3>
@@ -555,14 +700,37 @@ export default function ProfessionalsPage() {
               return (
                 <article key={professional.id} className="rounded-2xl border border-[#e4ebe7] bg-white p-5 sm:p-6">
                   <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h2 className="font-semibold text-[#30463c]">{professional.name}</h2>
-                        <span className={`rounded-full px-2 py-1 text-xs ${professional.active ? "bg-[#edf7ef] text-[#477152]" : "bg-[#f1f3f2] text-[#66756d]"}`}>
-                          {professional.active ? "Ativo" : "Inativo"}
+                    <div className="flex items-center gap-3">
+                      {professional.has_photo ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={`/api/professionals/${professional.id}/photo${
+                            professional.photo_updated_at
+                              ? `?v=${encodeURIComponent(
+                                  professional.photo_updated_at
+                                )}`
+                              : ""
+                          }`}
+                          alt=""
+                          className="h-12 w-12 shrink-0 rounded-full object-cover"
+                        />
+                      ) : (
+                        <span
+                          aria-hidden="true"
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#eef3f0] text-sm font-semibold text-[#527765]"
+                        >
+                          {professional.name.trim().charAt(0).toUpperCase()}
                         </span>
+                      )}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h2 className="font-semibold text-[#30463c]">{professional.name}</h2>
+                          <span className={`rounded-full px-2 py-1 text-xs ${professional.active ? "bg-[#edf7ef] text-[#477152]" : "bg-[#f1f3f2] text-[#66756d]"}`}>
+                            {professional.active ? "Ativo" : "Inativo"}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm text-[#78867f]">{professional.phone || "Sem telefone"}{professional.email ? ` · ${professional.email}` : ""}</p>
                       </div>
-                      <p className="mt-1 text-sm text-[#78867f]">{professional.phone || "Sem telefone"}{professional.email ? ` · ${professional.email}` : ""}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button onClick={() => editProfessional(professional)} className="min-h-10 rounded-lg border border-[#dce5e0] px-3 py-2 text-xs font-semibold">Editar dados</button>

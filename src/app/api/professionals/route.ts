@@ -19,6 +19,8 @@ export async function GET() {
         p.active,
         p.created_at,
         p.updated_at,
+        (p.photo_image IS NOT NULL) AS has_photo,
+        p.photo_updated_at,
         COALESCE(
           ARRAY_AGG(active_procedure.id)
             FILTER (WHERE active_procedure.id IS NOT NULL),

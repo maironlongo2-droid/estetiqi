@@ -85,9 +85,20 @@ export default async function PublicBookingPage({
                 </p>
               ) : null}
             </div>
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#dceee4]">
-              <BrandMark className="h-6 w-6" />
-            </span>
+            {organization.hasLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`/api/public/${organization.slug}/logo${
+                  organization.logoVersion ? `?v=${organization.logoVersion}` : ""
+                }`}
+                alt={`Logo de ${organization.name}`}
+                className="h-16 w-16 rounded-2xl border border-[#e2ebe5] bg-white object-cover"
+              />
+            ) : (
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#dceee4]">
+                <BrandMark className="h-6 w-6" />
+              </span>
+            )}
           </div>
 
           {organization.bio ? (
@@ -128,9 +139,20 @@ export default async function PublicBookingPage({
           )}
         </div>
 
-        <p className="mt-8 text-center text-xs tracking-wider text-[#8a9892]">
-          Agendamento online via EstetiQI
-        </p>
+        <footer className="mt-8 space-y-2 text-center">
+          <p className="text-xs tracking-wider text-[#8a9892]">
+            Agendamento online via EstetiQI
+          </p>
+          <p className="text-xs text-[#8a9892]">
+            Dúvidas sobre a plataforma? Fale com a gente:{" "}
+            <a
+              href="mailto:contato@estetiqi.com.br"
+              className="font-medium text-[#496458] underline-offset-2 transition hover:underline"
+            >
+              contato@estetiqi.com.br
+            </a>
+          </p>
+        </footer>
       </div>
     </main>
   );

@@ -15,6 +15,8 @@ export type PublicProfessionalOption = {
   id: string;
   name: string;
   procedureIds: string[];
+  hasPhoto: boolean;
+  photoVersion: number | null;
 };
 
 type Slot = { startsAt: string; endsAt: string };
@@ -63,6 +65,41 @@ function formatPrice(value: number | null): string | null {
   }).format(value);
 }
 
+// Rótulos do calendário (semana começando no domingo, como no Brasil).
+const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+function monthLabel(month: string): string {
+  const [year, monthNumber] = month.split("-").map(Number);
+  return new Intl.DateTimeFormat("pt-BR", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year, monthNumber - 1, 1)));
+}
+
+function addMonths(month: string, delta: number): string {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const next = new Date(Date.UTC(year, monthNumber - 1 + delta, 1));
+  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(
+    2,
+    "0"
+  )}`;
+}
+
+// Células do calendário: null para os espaços vazios antes do primeiro dia.
+function calendarCells(month: string): Array<string | null> {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const firstWeekday = new Date(Date.UTC(year, monthNumber - 1, 1)).getUTCDay();
+  const daysInMonth = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+
+  const cells: Array<string | null> = [];
+  for (let index = 0; index < firstWeekday; index += 1) cells.push(null);
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    cells.push(`${month}-${String(day).padStart(2, "0")}`);
+  }
+  return cells;
+}
+
 export function PublicBookingForm({
   slug,
   procedures,
@@ -80,6 +117,11 @@ export function PublicBookingForm({
   const [selected, setSelected] = useState<string[]>([]);
   const [professionalId, setProfessionalId] = useState("");
   const [date, setDate] = useState(() => todayInTimeZone());
+  const [month, setMonth] = useState(() => todayInTimeZone().slice(0, 7));
+  const [monthState, setMonthState] = useState<{
+    key: string;
+    dates: string[];
+  }>({ key: "", dates: [] });
   const [slotState, setSlotState] = useState<{ key: string; slots: Slot[] }>({
     key: "",
     slots: [],
@@ -197,6 +239,59 @@ export function PublicBookingForm({
       active = false;
     };
   }, [availabilityQuery, slug]);
+
+  // Dias do mês com ao menos um horário livre. Alimenta o calendário, que mostra
+  // em cinza e desabilita os dias sem disponibilidade e as datas passadas.
+  const monthQuery = useMemo(() => {
+    if (!effectiveProfessionalId || selected.length === 0 || !month) {
+      return null;
+    }
+
+    return new URLSearchParams({
+      professionalId: effectiveProfessionalId,
+      procedureIds: selected.join(","),
+      month,
+    }).toString();
+  }, [month, effectiveProfessionalId, selected]);
+
+  const availableDates = useMemo(
+    () => (monthQuery && monthState.key === monthQuery ? monthState.dates : []),
+    [monthQuery, monthState]
+  );
+  const loadingMonth = Boolean(monthQuery) && monthState.key !== monthQuery;
+  const availableDateSet = useMemo(
+    () => new Set(availableDates),
+    [availableDates]
+  );
+  const today = todayInTimeZone();
+  const currentMonth = today.slice(0, 7);
+  const monthCells = useMemo(() => calendarCells(month), [month]);
+
+  useEffect(() => {
+    if (!monthQuery) return;
+
+    let active = true;
+    const query = monthQuery;
+
+    fetch(
+      `/api/public/${encodeURIComponent(slug)}/availability/month?${query}`
+    )
+      .then((response) => response.json().then((data) => ({ response, data })))
+      .then(({ response, data }) => {
+        if (!active) return;
+        setMonthState({
+          key: query,
+          dates: response.ok && Array.isArray(data?.dates) ? data.dates : [],
+        });
+      })
+      .catch(() => {
+        if (active) setMonthState({ key: query, dates: [] });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [monthQuery, slug]);
 
   const toggleProcedure = useCallback((procedureId: string) => {
     setError(null);
@@ -428,12 +523,37 @@ export function PublicBookingForm({
                     key={professional.id}
                     type="button"
                     onClick={() => setProfessionalId(professional.id)}
-                    className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                    className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition ${
                       active
                         ? "border-[#0f766e] bg-[#0f766e] text-white"
                         : "border-[#d5e2da] text-[#30463c] hover:bg-[#f1f6f3]"
                     }`}
                   >
+                    {professional.hasPhoto ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={`/api/public/${encodeURIComponent(
+                          slug
+                        )}/professionals/${professional.id}/photo${
+                          professional.photoVersion
+                            ? `?v=${professional.photoVersion}`
+                            : ""
+                        }`}
+                        alt=""
+                        className="h-7 w-7 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span
+                        aria-hidden="true"
+                        className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
+                          active
+                            ? "bg-white/25 text-white"
+                            : "bg-[#eef3f0] text-[#527765]"
+                        }`}
+                      >
+                        {professional.name.trim().charAt(0).toUpperCase()}
+                      </span>
+                    )}
                     {professional.name}
                   </button>
                 );
@@ -448,13 +568,86 @@ export function PublicBookingForm({
           <legend className="text-lg font-semibold text-[#30463c]">
             3. Escolha o dia e o horário
           </legend>
-          <input
-            type="date"
-            value={date}
-            min={todayInTimeZone()}
-            onChange={(event) => setDate(event.target.value)}
-            className="mt-4 rounded-2xl border border-[#d5e2da] px-4 py-3 text-sm text-[#30463c]"
-          />
+          <div className="mt-4 rounded-2xl border border-[#d5e2da] p-3 sm:p-4">
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setMonth((current) => addMonths(current, -1))}
+                disabled={month <= currentMonth}
+                aria-label="Mês anterior"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[#d5e2da] text-lg leading-none text-[#30463c] transition hover:bg-[#f1f6f3] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                ‹
+              </button>
+              <span className="text-sm font-semibold capitalize text-[#30463c]">
+                {monthLabel(month)}
+              </span>
+              <button
+                type="button"
+                onClick={() => setMonth((current) => addMonths(current, 1))}
+                aria-label="Próximo mês"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[#d5e2da] text-lg leading-none text-[#30463c] transition hover:bg-[#f1f6f3]"
+              >
+                ›
+              </button>
+            </div>
+
+            <div className="mt-3 grid grid-cols-7 gap-1 text-center">
+              {WEEKDAY_LABELS.map((label) => (
+                <span
+                  key={label}
+                  className="py-1 text-[11px] font-semibold uppercase tracking-wide text-[#8a9891]"
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+
+            {loadingMonth ? (
+              <p className="mt-2 text-sm text-[#6d7d75]">
+                Carregando dias disponíveis…
+              </p>
+            ) : (
+              <div className="mt-1 grid grid-cols-7 gap-1">
+                {monthCells.map((cell, index) => {
+                  if (!cell) {
+                    return <span key={`empty-${index}`} aria-hidden="true" />;
+                  }
+
+                  const isPast = cell < today;
+                  const isAvailable = availableDateSet.has(cell);
+                  const disabled = isPast || !isAvailable;
+                  const isSelected = date === cell;
+
+                  return (
+                    <button
+                      key={cell}
+                      type="button"
+                      onClick={() => setDate(cell)}
+                      disabled={disabled}
+                      aria-pressed={isSelected}
+                      aria-label={`Dia ${Number(cell.slice(8, 10))}`}
+                      className={`aspect-square rounded-lg text-sm transition ${
+                        isSelected
+                          ? "bg-[#0f766e] font-semibold text-white"
+                          : disabled
+                            ? "cursor-not-allowed bg-[#f3f4f3] text-[#c2cac5]"
+                            : "font-medium text-[#30463c] hover:bg-[#eaf3ee]"
+                      }`}
+                    >
+                      {Number(cell.slice(8, 10))}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {!loadingMonth && availableDates.length === 0 ? (
+              <p className="mt-3 text-xs text-[#8a9891]">
+                Nenhum dia com horário livre neste mês. Tente outro mês.
+              </p>
+            ) : null}
+          </div>
           <div className="mt-4">
             {loadingSlots ? (
               <p className="text-sm text-[#6d7d75]">Carregando horários…</p>

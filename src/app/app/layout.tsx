@@ -50,6 +50,78 @@ export default function AppLayout({
   const closeMenu = () => setOpenMenu(null);
   const anyMenuOpen = openMenu !== null;
 
+  // Comportamento de hover do menu superior (notebook/desktop). Só é aplicado em
+  // dispositivos com ponteiro de precisão (mouse/trackpad); no celular o clique
+  // continua sendo o único mecanismo, preservando a navegação móvel.
+  const [canHoverGroup, setCanHoverGroup] = useState(false);
+  // Pequeno atraso ao sair evita que o submenu pisque ao cruzar o vão entre o
+  // botão e os itens, ou ao passar diretamente de um grupo para outro.
+  const hoverCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const query = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const update = () => setCanHoverGroup(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (hoverCloseTimer.current) clearTimeout(hoverCloseTimer.current);
+    };
+  }, []);
+
+  // Abre o submenu ao passar o mouse e cancela qualquer fechamento pendente,
+  // para o submenu acompanhar o cursor sem piscar na troca de grupo.
+  const openGroupOnHover = (key: string) => {
+    if (!canHoverGroup) return;
+    if (hoverCloseTimer.current) {
+      clearTimeout(hoverCloseTimer.current);
+      hoverCloseTimer.current = null;
+    }
+    setOpenMenu({ path: pathname, key });
+  };
+  // Fecha o submenu ao sair da área do grupo (botão + itens), com leve atraso.
+  const closeGroupOnHover = () => {
+    if (!canHoverGroup) return;
+    if (hoverCloseTimer.current) clearTimeout(hoverCloseTimer.current);
+    hoverCloseTimer.current = setTimeout(() => {
+      hoverCloseTimer.current = null;
+      setOpenMenu(null);
+    }, 200);
+  };
+  // No teclado, o foco revela o submenu; no toque, o clique comanda.
+  const openGroupOnFocus = (key: string) => {
+    if (!canHoverGroup) return;
+    setOpenMenu({ path: pathname, key });
+  };
+  // Fecha quando o foco sai do grupo (Tab), evitando submenu preso aberto.
+  const closeGroupOnBlur = (event: React.FocusEvent<HTMLDivElement>) => {
+    if (!canHoverGroup) return;
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    if (hoverCloseTimer.current) {
+      clearTimeout(hoverCloseTimer.current);
+      hoverCloseTimer.current = null;
+    }
+    setOpenMenu(null);
+  };
+  // Clique no grupo: em dispositivos com ponteiro o submenu já é revelado por
+  // hover/foco, então o clique apenas o mantém aberto (fechar: afastar o mouse,
+  // Escape ou clicar fora). Em dispositivos sem hover (toque), alterna como antes.
+  const handleGroupClick = (key: string) => {
+    if (!canHoverGroup) {
+      toggleGroup(key);
+      return;
+    }
+    setOpenMenu((current) =>
+      current?.path === pathname && current.key === key
+        ? current
+        : { path: pathname, key }
+    );
+  };
+
   // Um item está ativo na rota atual ou em uma rota filha dela.
   const isRouteActive = (href: string) => {
     const base = href.split("#")[0];
@@ -289,12 +361,19 @@ export default function AppLayout({
 
                 const open = openGroupKey === group.key;
                 return (
-                  <div key={group.key} className="relative lg:shrink-0">
+                  <div
+                    key={group.key}
+                    className="relative lg:shrink-0"
+                    onMouseEnter={() => openGroupOnHover(group.key)}
+                    onMouseLeave={closeGroupOnHover}
+                    onFocus={() => openGroupOnFocus(group.key)}
+                    onBlur={closeGroupOnBlur}
+                  >
                     <button
                       type="button"
                       aria-haspopup="menu"
                       aria-expanded={open}
-                      onClick={() => toggleGroup(group.key)}
+                      onClick={() => handleGroupClick(group.key)}
                       className={`flex items-center gap-1 rounded-lg px-2 py-2 text-center text-xs font-medium leading-tight transition hover:bg-[#f4f7f5] hover:text-[#30463c] sm:px-2 lg:px-3 lg:text-sm ${
                         groupActive
                           ? "bg-[#edf3ef] font-semibold text-[#30463c]"
@@ -322,7 +401,7 @@ export default function AppLayout({
                       <div
                         role="menu"
                         aria-label={group.label}
-                        className="absolute left-0 top-11 z-50 w-56 rounded-xl border border-[#e4ebe7] bg-white p-2 shadow-lg"
+                        className="absolute left-0 top-full z-50 w-56 max-w-[calc(100vw-1rem)] rounded-xl border border-[#e4ebe7] bg-white p-2 shadow-lg"
                       >
                         {group.items.map((item) =>
                           item.href ? (

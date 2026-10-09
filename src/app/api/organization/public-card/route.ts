@@ -20,6 +20,8 @@ type PublicCardRow = {
   public_headline: string | null;
   public_bio: string | null;
   public_instagram: string | null;
+  has_logo: boolean;
+  logo_updated_at: string | null;
 };
 
 function toConfig(row: PublicCardRow) {
@@ -32,6 +34,10 @@ function toConfig(row: PublicCardRow) {
     headline: row.public_headline,
     bio: row.public_bio,
     instagram: row.public_instagram,
+    hasLogo: Boolean(row.has_logo),
+    logoVersion: row.logo_updated_at
+      ? new Date(row.logo_updated_at).getTime()
+      : null,
   };
 }
 
@@ -49,7 +55,9 @@ export async function GET() {
         public_published,
         public_headline,
         public_bio,
-        public_instagram
+        public_instagram,
+        (logo_image IS NOT NULL) AS has_logo,
+        logo_updated_at
       FROM organizations
       WHERE id = ${currentUser.organization.id}
       LIMIT 1
@@ -143,7 +151,9 @@ export async function PUT(request: Request) {
           public_published,
           public_headline,
           public_bio,
-          public_instagram
+          public_instagram,
+          (logo_image IS NOT NULL) AS has_logo,
+          logo_updated_at
       `;
     }
 

@@ -15,6 +15,8 @@ export type PublicOrganization = {
   city: string | null;
   state: string | null;
   businessType: string | null;
+  hasLogo: boolean;
+  logoVersion: number | null;
 };
 
 export type PublicProcedure = {
@@ -29,6 +31,8 @@ export type PublicProfessional = {
   id: string;
   name: string;
   procedureIds: string[];
+  hasPhoto: boolean;
+  photoVersion: number | null;
 };
 
 // Resolve a organização publicada a partir do endereço público. Cartões não
@@ -47,7 +51,9 @@ export async function getPublishedOrganizationBySlug(
       business_phone,
       city,
       state,
-      business_type
+      business_type,
+      (logo_image IS NOT NULL) AS has_logo,
+      logo_updated_at
     FROM organizations
     WHERE LOWER(public_slug) = LOWER(${slug})
       AND public_published = TRUE
@@ -68,6 +74,10 @@ export async function getPublishedOrganizationBySlug(
     city: row.city,
     state: row.state,
     businessType: row.business_type,
+    hasLogo: Boolean(row.has_logo),
+    logoVersion: row.logo_updated_at
+      ? new Date(row.logo_updated_at).getTime()
+      : null,
   };
 }
 
@@ -111,6 +121,8 @@ export async function getPublicProfessionals(
     SELECT
       p.id,
       p.name,
+      (p.photo_image IS NOT NULL) AS has_photo,
+      p.photo_updated_at,
       COALESCE(
         ARRAY_AGG(active_procedure.id)
           FILTER (WHERE active_procedure.id IS NOT NULL),
@@ -134,5 +146,9 @@ export async function getPublicProfessionals(
     id: row.id,
     name: row.name,
     procedureIds: ((row.procedure_ids as string[]) || []).filter(Boolean),
+    hasPhoto: Boolean(row.has_photo),
+    photoVersion: row.photo_updated_at
+      ? new Date(row.photo_updated_at).getTime()
+      : null,
   }));
 }

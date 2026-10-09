@@ -1,7 +1,7 @@
 -- 030: fotos do negócio (logo) e das profissionais no cartão digital.
 -- Incremental e idempotente: apenas adiciona colunas de imagem binária (BYTEA)
 -- nas tabelas existentes `organizations` e `professionals`. Não remove, não
--- recria e não apaga dados; não altera foreign keys, RBAC nem o isolamento por
+-- recria e não apaga dados. Não altera foreign keys, RBAC nem o isolamento por
 -- organização.
 --
 -- As imagens são armazenadas no próprio PostgreSQL/Neon, que já é o

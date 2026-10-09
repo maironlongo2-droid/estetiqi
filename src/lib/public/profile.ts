@@ -11,6 +11,8 @@ export type PublicOrganization = {
   headline: string | null;
   bio: string | null;
   instagram: string | null;
+  whatsapp: string | null;
+  mapsUrl: string | null;
   businessPhone: string | null;
   city: string | null;
   state: string | null;
@@ -30,6 +32,7 @@ export type PublicProcedure = {
 export type PublicProfessional = {
   id: string;
   name: string;
+  specialty: string | null;
   procedureIds: string[];
   hasPhoto: boolean;
   photoVersion: number | null;
@@ -48,6 +51,8 @@ export async function getPublishedOrganizationBySlug(
       public_headline,
       public_bio,
       public_instagram,
+      public_whatsapp,
+      public_maps_url,
       business_phone,
       city,
       state,
@@ -70,6 +75,8 @@ export async function getPublishedOrganizationBySlug(
     headline: row.public_headline,
     bio: row.public_bio,
     instagram: row.public_instagram,
+    whatsapp: row.public_whatsapp,
+    mapsUrl: row.public_maps_url,
     businessPhone: row.business_phone,
     city: row.city,
     state: row.state,
@@ -121,6 +128,7 @@ export async function getPublicProfessionals(
     SELECT
       p.id,
       p.name,
+      p.specialty,
       (p.photo_image IS NOT NULL) AS has_photo,
       p.photo_updated_at,
       COALESCE(
@@ -145,6 +153,7 @@ export async function getPublicProfessionals(
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
+    specialty: row.specialty,
     procedureIds: ((row.procedure_ids as string[]) || []).filter(Boolean),
     hasPhoto: Boolean(row.has_photo),
     photoVersion: row.photo_updated_at

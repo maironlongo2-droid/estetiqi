@@ -16,6 +16,7 @@ export async function GET() {
         p.name,
         p.phone,
         p.email,
+        p.specialty,
         p.active,
         p.created_at,
         p.updated_at,
@@ -85,7 +86,8 @@ export async function POST(request: Request) {
       return Response.json({ error: "INVALID_DATA", details: parsed.error.flatten() }, { status: 400 });
     }
 
-    const { name, phone, email, procedureIds = [], active = true } = parsed.data;
+    const { name, phone, email, specialty, procedureIds = [], active = true } =
+      parsed.data;
     const organizationId = currentUser.organization.id;
 
     if (procedureIds.length > 0) {
@@ -103,15 +105,16 @@ export async function POST(request: Request) {
 
     const results = await sql`
       WITH created AS (
-        INSERT INTO professionals (organization_id, name, phone, email, active)
+        INSERT INTO professionals (organization_id, name, phone, email, active, specialty)
         VALUES (
           ${organizationId},
           ${name},
           ${phone || null},
           ${email || null},
-          ${active}
+          ${active},
+          ${specialty || null}
         )
-        RETURNING id, name, phone, email, active, created_at, updated_at
+        RETURNING id, name, phone, email, specialty, active, created_at, updated_at
       ),
       assigned AS (
         INSERT INTO professional_procedures (

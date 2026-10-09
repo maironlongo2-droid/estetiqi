@@ -4,6 +4,11 @@ import { isUniqueViolation } from "@/lib/db/pg-errors";
 import { requireCurrentUser } from "@/lib/auth/require-current-user";
 import { hasPermission } from "@/lib/auth/authorization";
 import { isValidPublicSlug, normalizeSlug } from "@/lib/public/slug";
+import {
+  googleMapsUrl,
+  instagramUrl,
+  normalizeWhatsapp,
+} from "@/lib/public/contact-links";
 
 const updateSchema = z.object({
   published: z.boolean(),
@@ -11,6 +16,8 @@ const updateSchema = z.object({
   headline: z.string().trim().max(160).optional().or(z.literal("")),
   bio: z.string().trim().max(600).optional().or(z.literal("")),
   instagram: z.string().trim().max(120).optional().or(z.literal("")),
+  whatsapp: z.string().trim().max(30).optional().or(z.literal("")),
+  mapsUrl: z.string().trim().max(500).optional().or(z.literal("")),
 });
 
 type PublicCardRow = {
@@ -20,6 +27,8 @@ type PublicCardRow = {
   public_headline: string | null;
   public_bio: string | null;
   public_instagram: string | null;
+  public_whatsapp: string | null;
+  public_maps_url: string | null;
   has_logo: boolean;
   logo_updated_at: string | null;
 };
@@ -34,6 +43,8 @@ function toConfig(row: PublicCardRow) {
     headline: row.public_headline,
     bio: row.public_bio,
     instagram: row.public_instagram,
+    whatsapp: row.public_whatsapp,
+    mapsUrl: row.public_maps_url,
     hasLogo: Boolean(row.has_logo),
     logoVersion: row.logo_updated_at
       ? new Date(row.logo_updated_at).getTime()
@@ -56,6 +67,8 @@ export async function GET() {
         public_headline,
         public_bio,
         public_instagram,
+        public_whatsapp,
+        public_maps_url,
         (logo_image IS NOT NULL) AS has_logo,
         logo_updated_at
       FROM organizations
@@ -128,6 +141,36 @@ export async function PUT(request: Request) {
     const nextHeadline = parsed.data.headline || null;
     const nextBio = parsed.data.bio || null;
     const nextInstagram = parsed.data.instagram || null;
+    const nextWhatsapp = parsed.data.whatsapp || null;
+    const nextMapsUrl = parsed.data.mapsUrl || null;
+
+    // Validacao no servidor (nunca confiar apenas no navegador): rejeita valores
+    // que nao gerariam um link publico valido e seguro. Campos vazios sao
+    // permitidos e simplesmente nao aparecem no cartao.
+    if (nextInstagram && !instagramUrl(nextInstagram)) {
+      return Response.json(
+        {
+          error:
+            "Informe um Instagram valido (ex.: @seuinsta ou https://instagram.com/seuinsta).",
+        },
+        { status: 400 }
+      );
+    }
+    if (nextWhatsapp && !normalizeWhatsapp(nextWhatsapp)) {
+      return Response.json(
+        { error: "Informe um WhatsApp valido com DDD (ex.: (11) 99999-9999)." },
+        { status: 400 }
+      );
+    }
+    if (nextMapsUrl && !googleMapsUrl(nextMapsUrl)) {
+      return Response.json(
+        {
+          error:
+            "Use um link de compartilhamento do Google Maps (ex.: https://maps.app.goo.gl/... ou https://www.google.com/maps/...).",
+        },
+        { status: 400 }
+      );
+    }
 
     // O índice único parcial `uq_organizations_public_slug` é a garantia final
     // contra duas organizações publicando o mesmo endereço. A consulta de
@@ -143,6 +186,8 @@ export async function PUT(request: Request) {
           public_headline = ${published ? nextHeadline : null},
           public_bio = ${published ? nextBio : null},
           public_instagram = ${published ? nextInstagram : null},
+          public_whatsapp = ${published ? nextWhatsapp : null},
+          public_maps_url = ${published ? nextMapsUrl : null},
           updated_at = NOW()
         WHERE id = ${organizationId}
         RETURNING
@@ -152,6 +197,8 @@ export async function PUT(request: Request) {
           public_headline,
           public_bio,
           public_instagram,
+          public_whatsapp,
+          public_maps_url,
           (logo_image IS NOT NULL) AS has_logo,
           logo_updated_at
       `;

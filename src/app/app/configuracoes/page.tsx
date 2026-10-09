@@ -4,6 +4,11 @@ import { FormEvent, useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useToast } from "../toast";
 import { prepareImage } from "@/lib/images/downscale";
+import {
+  googleMapsUrl,
+  instagramUrl,
+  normalizeWhatsapp,
+} from "@/lib/public/contact-links";
 
 // Evento consumido por src/app/app/layout.tsx para atualizar o nome do negócio
 // exibido no header sem refazer a chamada de carga nem remover o cache.
@@ -30,6 +35,8 @@ export default function ConfiguracoesPage() {
   const [cardHeadline, setCardHeadline] = useState("");
   const [cardBio, setCardBio] = useState("");
   const [cardInstagram, setCardInstagram] = useState("");
+  const [cardWhatsapp, setCardWhatsapp] = useState("");
+  const [cardMapsUrl, setCardMapsUrl] = useState("");
   const [savingCard, setSavingCard] = useState(false);
   const [cardError, setCardError] = useState("");
   const [cardReloadKey, setCardReloadKey] = useState(0);
@@ -103,6 +110,10 @@ export default function ConfiguracoesPage() {
         setCardInstagram(
           typeof card.instagram === "string" ? card.instagram : ""
         );
+        setCardWhatsapp(
+          typeof card.whatsapp === "string" ? card.whatsapp : ""
+        );
+        setCardMapsUrl(typeof card.mapsUrl === "string" ? card.mapsUrl : "");
         setCardHasLogo(Boolean(card.hasLogo));
         setCardLogoVersion(
           typeof card.logoVersion === "number" ? card.logoVersion : null
@@ -296,6 +307,25 @@ export default function ConfiguracoesPage() {
     event.preventDefault();
     if (savingCard || !canEditOrganization) return;
 
+    // Validacao no navegador apenas para dar retorno rapido; o servidor valida
+    // novamente e e a fonte da verdade.
+    if (cardInstagram.trim() && !instagramUrl(cardInstagram)) {
+      notifyError(
+        "Informe um Instagram válido (ex.: @seuinsta ou https://instagram.com/seuinsta)."
+      );
+      return;
+    }
+    if (cardWhatsapp.trim() && !normalizeWhatsapp(cardWhatsapp)) {
+      notifyError("Informe um WhatsApp válido com DDD (ex.: (11) 99999-9999).");
+      return;
+    }
+    if (cardMapsUrl.trim() && !googleMapsUrl(cardMapsUrl)) {
+      notifyError(
+        "Use um link de compartilhamento do Google Maps (ex.: https://maps.app.goo.gl/... ou https://www.google.com/maps/...)."
+      );
+      return;
+    }
+
     setSavingCard(true);
 
     try {
@@ -308,6 +338,8 @@ export default function ConfiguracoesPage() {
           headline: cardHeadline,
           bio: cardBio,
           instagram: cardInstagram,
+          whatsapp: cardWhatsapp,
+          mapsUrl: cardMapsUrl,
         }),
       });
 
@@ -328,6 +360,8 @@ export default function ConfiguracoesPage() {
       setCardInstagram(
         typeof data?.instagram === "string" ? data.instagram : ""
       );
+      setCardWhatsapp(typeof data?.whatsapp === "string" ? data.whatsapp : "");
+      setCardMapsUrl(typeof data?.mapsUrl === "string" ? data.mapsUrl : "");
 
       notifySuccess(
         data?.published
@@ -589,6 +623,45 @@ export default function ConfiguracoesPage() {
                   placeholder="@seuinsta"
                   className="w-full rounded-xl border border-[#dfe9e3] px-4 py-3 outline-none focus:border-[#7a9f8d] disabled:cursor-not-allowed disabled:bg-[#f4f7f5] disabled:text-[#8a9891]"
                 />
+                <span className="mt-1 block text-xs text-[#8a9891]">
+                  Pode informar @usuario ou o endereço completo do perfil.
+                </span>
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-[#405149]">
+                  WhatsApp comercial
+                </span>
+                <input
+                  value={cardWhatsapp}
+                  onChange={(event) => setCardWhatsapp(event.target.value)}
+                  disabled={!canEditOrganization}
+                  inputMode="tel"
+                  placeholder="(11) 99999-9999"
+                  className="w-full rounded-xl border border-[#dfe9e3] px-4 py-3 outline-none focus:border-[#7a9f8d] disabled:cursor-not-allowed disabled:bg-[#f4f7f5] disabled:text-[#8a9891]"
+                />
+                <span className="mt-1 block text-xs text-[#8a9891]">
+                  Informe com DDD. Um ícone de WhatsApp aparece no cartão quando
+                  o número for válido.
+                </span>
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-[#405149]">
+                  Localização no Google Maps
+                </span>
+                <input
+                  value={cardMapsUrl}
+                  onChange={(event) => setCardMapsUrl(event.target.value)}
+                  disabled={!canEditOrganization}
+                  placeholder="https://maps.app.goo.gl/..."
+                  className="w-full rounded-xl border border-[#dfe9e3] px-4 py-3 outline-none focus:border-[#7a9f8d] disabled:cursor-not-allowed disabled:bg-[#f4f7f5] disabled:text-[#8a9891]"
+                />
+                <span className="mt-1 block text-xs text-[#8a9891]">
+                  Cole o link de compartilhamento do seu estabelecimento no
+                  Google Maps. Se preferir, o endereço do negócio (cidade/estado)
+                  é usado para exibir o mapa.
+                </span>
               </label>
               {canEditOrganization ? (
                 <>

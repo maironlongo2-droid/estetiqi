@@ -4,6 +4,11 @@ import { FormEvent, useEffect, useState } from "react";
 import { useToast } from "../toast";
 import { useProcedureLabels } from "../procedure-labels";
 import { prepareImage } from "@/lib/images/downscale";
+import {
+  SPECIALTY_MAX_LENGTH,
+  SPECIALTY_OPTIONS,
+  SPECIALTY_OTHER,
+} from "@/lib/business/specialties";
 
 type Procedure = { id: string; name: string };
 type WeeklyInterval = {
@@ -23,6 +28,7 @@ type Professional = {
   name: string;
   phone: string | null;
   email: string | null;
+  specialty: string | null;
   active: boolean;
   procedure_ids: string[];
   has_photo: boolean;
@@ -95,6 +101,8 @@ export default function ProfessionalsPage() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [specialtyChoice, setSpecialtyChoice] = useState("");
+  const [specialtyCustom, setSpecialtyCustom] = useState("");
   const [active, setActive] = useState(true);
   const [procedureIds, setProcedureIds] = useState<string[]>([]);
   const [availabilityId, setAvailabilityId] = useState<string | null>(null);
@@ -176,6 +184,8 @@ export default function ProfessionalsPage() {
     setName("");
     setPhone("");
     setEmail("");
+    setSpecialtyChoice("");
+    setSpecialtyCustom("");
     setActive(true);
     setProcedureIds([]);
   }
@@ -195,6 +205,10 @@ export default function ProfessionalsPage() {
             name,
             phone,
             email,
+            specialty:
+              specialtyChoice === SPECIALTY_OTHER
+                ? specialtyCustom.trim()
+                : specialtyChoice,
             active,
             procedureIds,
           }),
@@ -219,6 +233,16 @@ export default function ProfessionalsPage() {
     setName(professional.name);
     setPhone(professional.phone ?? "");
     setEmail(professional.email ?? "");
+    const specialty = professional.specialty ?? "";
+    // Um valor que não está na lista de opções iniciais é tratado como
+    // "Outra", reexibindo a especialidade personalizada no campo de texto.
+    if (specialty && !SPECIALTY_OPTIONS.includes(specialty)) {
+      setSpecialtyChoice(SPECIALTY_OTHER);
+      setSpecialtyCustom(specialty);
+    } else {
+      setSpecialtyChoice(specialty);
+      setSpecialtyCustom("");
+    }
     setActive(professional.active);
     setProcedureIds(professional.procedure_ids ?? []);
     setNotice("");
@@ -610,6 +634,28 @@ export default function ProfessionalsPage() {
                 E-mail
                 <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-1 w-full rounded-xl border border-[#dfe9e3] p-3" />
               </label>
+              <label className="block text-sm text-[#52635b]">
+                Profissão ou especialidade principal
+                <select value={specialtyChoice} onChange={(event) => setSpecialtyChoice(event.target.value)} className="mt-1 w-full rounded-xl border border-[#dfe9e3] p-3">
+                  <option value="">Não informar</option>
+                  {SPECIALTY_OPTIONS.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                  <option value={SPECIALTY_OTHER}>{SPECIALTY_OTHER}</option>
+                </select>
+              </label>
+              {specialtyChoice === SPECIALTY_OTHER ? (
+                <label className="block text-sm text-[#52635b]">
+                  Especialidade personalizada
+                  <input
+                    value={specialtyCustom}
+                    onChange={(event) => setSpecialtyCustom(event.target.value)}
+                    maxLength={SPECIALTY_MAX_LENGTH}
+                    placeholder="Ex.: Podóloga"
+                    className="mt-1 w-full rounded-xl border border-[#dfe9e3] p-3"
+                  />
+                </label>
+              ) : null}
               <h3 className="border-t border-[#eef2ef] pt-4 text-sm font-semibold text-[#52635b]">
                 {labels.plural} realizados
               </h3>
@@ -729,6 +775,9 @@ export default function ProfessionalsPage() {
                             {professional.active ? "Ativo" : "Inativo"}
                           </span>
                         </div>
+                        {professional.specialty ? (
+                          <p className="mt-0.5 text-xs font-medium text-[#527765]">{professional.specialty}</p>
+                        ) : null}
                         <p className="mt-1 text-sm text-[#78867f]">{professional.phone || "Sem telefone"}{professional.email ? ` · ${professional.email}` : ""}</p>
                       </div>
                     </div>

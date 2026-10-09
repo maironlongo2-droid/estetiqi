@@ -9,6 +9,7 @@ export const professionalSchema = z.object({
   name: z.string().trim().min(2).max(120),
   phone: z.string().trim().max(30).optional().or(z.literal("")),
   email: z.string().trim().email().max(255).optional().or(z.literal("")),
+  specialty: z.string().trim().max(80).optional().or(z.literal("")),
   active: z.boolean().optional(),
   procedureIds: procedureIdsSchema.optional(),
 });

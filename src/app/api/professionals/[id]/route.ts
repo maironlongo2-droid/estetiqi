@@ -19,7 +19,7 @@ export async function PATCH(
       return Response.json({ error: "INVALID_DATA", details: parsed.error.flatten() }, { status: 400 });
     }
 
-    const { name, phone, email, active, procedureIds } = parsed.data;
+    const { name, phone, email, specialty, active, procedureIds } = parsed.data;
     const organizationId = currentUser.organization.id;
 
     if (procedureIds) {
@@ -53,11 +53,12 @@ export async function PATCH(
           name = COALESCE(${name ?? null}, name),
           phone = CASE WHEN ${phone !== undefined} THEN ${phone || null} ELSE phone END,
           email = CASE WHEN ${email !== undefined} THEN ${email || null} ELSE email END,
+          specialty = CASE WHEN ${specialty !== undefined} THEN ${specialty || null} ELSE specialty END,
           active = COALESCE(${active ?? null}, active),
           updated_at = NOW()
         WHERE id = ${id}
           AND organization_id = ${organizationId}
-        RETURNING id, name, phone, email, active, created_at, updated_at
+        RETURNING id, name, phone, email, specialty, active, created_at, updated_at
       `,
     ];
 

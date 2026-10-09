@@ -14,6 +14,7 @@ export type PublicProcedureOption = {
 export type PublicProfessionalOption = {
   id: string;
   name: string;
+  specialty: string | null;
   procedureIds: string[];
   hasPhoto: boolean;
   photoVersion: number | null;
@@ -554,7 +555,18 @@ export function PublicBookingForm({
                         {professional.name.trim().charAt(0).toUpperCase()}
                       </span>
                     )}
-                    {professional.name}
+                    <span className="flex flex-col items-start leading-tight">
+                      <span>{professional.name}</span>
+                      {professional.specialty ? (
+                        <span
+                          className={`text-xs font-normal ${
+                            active ? "text-white/80" : "text-[#6d7d75]"
+                          }`}
+                        >
+                          {professional.specialty}
+                        </span>
+                      ) : null}
+                    </span>
                   </button>
                 );
               })}

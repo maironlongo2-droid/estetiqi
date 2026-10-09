@@ -16,6 +16,10 @@ export default function AppLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [organizationName, setOrganizationName] = useState("EstetiQi");
+  // Indica se o usuário logado é o administrador da plataforma. Controla apenas
+  // a exibição do atalho para a central de suporte; a autorização real é
+  // validada no servidor pelas APIs de /api/admin/support/*.
+  const [isSupportAdmin, setIsSupportAdmin] = useState(false);
   // O menu só conta como aberto na página em que foi aberto: navegar o fecha.
   const [menuOpenPath, setMenuOpenPath] = useState<string | null>(null);
   const menuOpen = menuOpenPath === pathname;
@@ -46,6 +50,28 @@ export default function AppLayout({
     router.prefetch("/app/inteligencia");
     router.prefetch("/app/automacoes");
   }, [router]);
+
+  // Consulta uma única vez por sessão do layout se o usuário pode acessar a
+  // central de suporte. Sem allowlist configurada no servidor, a resposta é
+  // sempre { admin: false } e nenhum atalho aparece.
+  useEffect(() => {
+    let active = true;
+
+    fetch("/api/admin/support/access")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (active && data?.admin === true) {
+          setIsSupportAdmin(true);
+        }
+      })
+      .catch(() => {
+        // O atalho é opcional: uma falha não afeta o restante do app.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -269,6 +295,17 @@ export default function AppLayout({
                     </svg>
                     Ajuda e suporte
                   </Link>
+
+                  {isSupportAdmin && (
+                    <Link
+                      role="menuitem"
+                      href="/admin/suporte"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-[#50655b] hover:bg-[#f4f7f5]"
+                    >
+                      Central de suporte (EstetiQi)
+                    </Link>
+                  )}
 
                   <div className="my-1 border-t border-[#e4ebe7]" />
                   <button

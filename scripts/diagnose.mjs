@@ -77,6 +77,8 @@ function checkApiStructure() {
     const protectedRoute =
       source.includes("requireCurrentUser") ||
       source.includes("requireAuth") ||
+      source.includes("requireSupportAdmin") ||
+      source.includes("isCurrentUserSupportAdmin") ||
       source.includes("auth()");
 
     if (!protectedRoute && !file.includes("/health/")) {

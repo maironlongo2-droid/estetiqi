@@ -24,16 +24,26 @@ export async function GET() {
     // organização obtida da sessão autenticada.
     const requests = await sql`
       SELECT
-        id,
-        category,
-        subject,
-        status,
-        created_at,
-        updated_at
-      FROM support_requests
-      WHERE organization_id = ${currentUser.organization.id}
-        AND user_id = ${currentUser.user.id}
-      ORDER BY created_at DESC
+        s.id,
+        s.category,
+        s.subject,
+        s.status,
+        s.created_at,
+        s.updated_at,
+        (
+          SELECT COUNT(*)::int
+          FROM support_messages m
+          WHERE m.request_id = s.id AND m.author_type = 'support'
+        ) AS support_messages,
+        (
+          SELECT COUNT(*)::int
+          FROM support_messages m
+          WHERE m.request_id = s.id
+        ) AS messages
+      FROM support_requests s
+      WHERE s.organization_id = ${currentUser.organization.id}
+        AND s.user_id = ${currentUser.user.id}
+      ORDER BY s.updated_at DESC
       LIMIT 50
     `;
 

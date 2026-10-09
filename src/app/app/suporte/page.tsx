@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import {
   SUPPORT_CATEGORIES,
@@ -13,6 +14,8 @@ type SupportRequestSummary = {
   subject: string;
   status: string;
   created_at: string;
+  support_messages: number;
+  messages: number;
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -113,7 +116,11 @@ export default function SuportePage() {
       const created = data?.request;
       if (created) {
         setRequests((current) => [
-          created as SupportRequestSummary,
+          {
+            ...(created as SupportRequestSummary),
+            support_messages: 0,
+            messages: 0,
+          },
           ...current,
         ]);
       }
@@ -279,24 +286,35 @@ export default function SuportePage() {
           ) : (
             <ul className="divide-y divide-[#e4ebe7]">
               {requests.map((request) => (
-                <li
-                  key={request.id}
-                  className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-[#30463c]">
-                      {request.subject}
-                    </p>
-                    <p className="mt-1 text-xs text-[#8a9891]">
-                      {SUPPORT_CATEGORY_LABELS[request.category] ??
-                        "Solicitação"}
-                      {" · "}
-                      {new Date(request.created_at).toLocaleDateString("pt-BR")}
-                    </p>
-                  </div>
-                  <span className="mt-1 inline-flex w-fit shrink-0 rounded-full bg-[#edf3ef] px-3 py-1 text-xs font-medium text-[#50655b] sm:mt-0">
-                    {STATUS_LABELS[request.status] ?? request.status}
-                  </span>
+                <li key={request.id}>
+                  <Link
+                    href={`/app/suporte/${request.id}`}
+                    className="flex flex-col gap-1 p-4 transition hover:bg-[#f4f7f5] sm:flex-row sm:items-center sm:justify-between sm:p-5"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium text-[#30463c]">
+                        {request.subject}
+                      </p>
+                      <p className="mt-1 text-xs text-[#8a9891]">
+                        {SUPPORT_CATEGORY_LABELS[request.category] ??
+                          "Solicitação"}
+                        {" · "}
+                        {new Date(request.created_at).toLocaleDateString(
+                          "pt-BR"
+                        )}
+                      </p>
+                      {request.support_messages > 0 && (
+                        <p className="mt-1 text-xs font-medium text-[#477152]">
+                          {request.support_messages === 1
+                            ? "1 resposta do suporte"
+                            : `${request.support_messages} respostas do suporte`}
+                        </p>
+                      )}
+                    </div>
+                    <span className="mt-1 inline-flex w-fit shrink-0 rounded-full bg-[#edf3ef] px-3 py-1 text-xs font-medium text-[#50655b] sm:mt-0">
+                      {STATUS_LABELS[request.status] ?? request.status}
+                    </span>
+                  </Link>
                 </li>
               ))}
             </ul>

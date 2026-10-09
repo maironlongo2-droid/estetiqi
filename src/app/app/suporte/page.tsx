@@ -145,13 +145,61 @@ export default function SuportePage() {
       <div className="mx-auto max-w-3xl px-4 py-7 sm:px-6 sm:py-9 lg:px-8">
         <header className="mb-7">
           <h1 className="text-3xl font-semibold tracking-tight text-[#30463c]">
-            Ajuda e suporte
+            Estamos aqui para ajudar!
           </h1>
           <p className="mt-2 text-sm leading-6 text-[#78867f]">
-            Precisa de ajuda com o EstetiQI? Consulte as opções abaixo ou envie
-            uma solicitação para nossa equipe.
+            O EstetiQI está em constante evolução, e queremos ouvir você. Este
+            espaço foi criado para que você possa tirar dúvidas, relatar
+            problemas e compartilhar sugestões para melhorar sua experiência com
+            a plataforma.
           </p>
         </header>
+
+        <section className="mb-6 rounded-3xl border border-[#dfe9e3] bg-white p-6 shadow-[0_20px_60px_rgba(64,91,78,0.08)]">
+          <h2 className="text-lg font-semibold text-[#30463c]">
+            Como podemos ajudar?
+          </h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <article className="rounded-2xl border border-[#e4ebe7] bg-[#f8faf9] p-4">
+              <span className="text-2xl" aria-hidden="true">
+                ❓
+              </span>
+              <h3 className="mt-2 text-sm font-semibold text-[#30463c]">
+                Tenho uma dúvida
+              </h3>
+              <p className="mt-1 text-sm leading-6 text-[#78867f]">
+                Precisa de ajuda para utilizar algum recurso do EstetiQI? Conte
+                o que você precisa.
+              </p>
+            </article>
+
+            <article className="rounded-2xl border border-[#e4ebe7] bg-[#f8faf9] p-4">
+              <span className="text-2xl" aria-hidden="true">
+                💡
+              </span>
+              <h3 className="mt-2 text-sm font-semibold text-[#30463c]">
+                Quero dar uma sugestão
+              </h3>
+              <p className="mt-1 text-sm leading-6 text-[#78867f]">
+                Sua opinião é importante. Compartilhe ideias e melhorias que
+                gostaria de ver na plataforma.
+              </p>
+            </article>
+
+            <article className="rounded-2xl border border-[#e4ebe7] bg-[#f8faf9] p-4">
+              <span className="text-2xl" aria-hidden="true">
+                🐛
+              </span>
+              <h3 className="mt-2 text-sm font-semibold text-[#30463c]">
+                Encontrei um problema
+              </h3>
+              <p className="mt-1 text-sm leading-6 text-[#78867f]">
+                Algo não funcionou como deveria? Explique o que aconteceu para
+                que possamos analisar.
+              </p>
+            </article>
+          </div>
+        </section>
 
         <section className="mb-6 rounded-3xl border border-[#dfe9e3] bg-white p-6 shadow-[0_20px_60px_rgba(64,91,78,0.08)]">
           <h2 className="text-lg font-semibold text-[#30463c]">
@@ -173,8 +221,8 @@ export default function SuportePage() {
             Enviar uma solicitação
           </h2>
           <p className="mt-2 text-sm leading-6 text-[#78867f]">
-            Descreva a sua dúvida ou o problema. Não inclua senhas, dados de
-            cartão nem informações desnecessárias das suas clientes.
+            Descreva a sua dúvida, sugestão ou problema. Não inclua senhas, dados
+            de cartão nem informações pessoais desnecessárias de terceiros.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-5 space-y-5">
@@ -218,7 +266,7 @@ export default function SuportePage() {
 
             <label className="block" htmlFor="support-description">
               <span className="mb-2 block text-sm font-medium text-[#405149]">
-                Descrição do problema
+                Descrição
               </span>
               <textarea
                 id="support-description"
@@ -232,8 +280,8 @@ export default function SuportePage() {
                 className="w-full rounded-xl border border-[#dfe9e3] px-4 py-3 outline-none focus:border-[#7a9f8d]"
               />
               <span className="mt-1 block text-xs text-[#8a9891]">
-                Evite incluir informações pessoais das suas clientes que não
-                sejam necessárias.
+                Evite incluir informações pessoais de terceiros que não sejam
+                necessárias.
               </span>
             </label>
 
@@ -268,10 +316,12 @@ export default function SuportePage() {
         <section className="mt-6 overflow-hidden rounded-3xl border border-[#e4ebe7] bg-white">
           <div className="border-b border-[#e4ebe7] px-6 py-4">
             <h2 className="text-lg font-semibold text-[#30463c]">
-              Suas solicitações
+              Acompanhe suas solicitações
             </h2>
             <p className="mt-1 text-sm text-[#78867f]">
-              Acompanhe os pedidos que você já enviou.
+              Depois de enviar uma mensagem, você poderá acompanhar o andamento
+              da solicitação e consultar nossas respostas diretamente nesta
+              área, sem precisar procurar um contato externo.
             </p>
           </div>
 
@@ -320,6 +370,10 @@ export default function SuportePage() {
             </ul>
           )}
         </section>
+        <p className="mt-6 text-center text-xs leading-6 text-[#8a9891]">
+          Sua experiência importa. Estamos construindo o EstetiQI para ajudar
+          você a organizar melhor seu negócio e atender seus clientes.
+        </p>
       </div>
     </main>
   );

@@ -44,3 +44,12 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Ajuda e suporte
+
+- **Landing page:** contato publico no rodape com link `mailto:contato@estetiqi.com.br`.
+- **No app:** a opcao "Ajuda e suporte", no menu de tres pontinhos (botao "Mais opcoes"), abre `/app/suporte`.
+- **Formulario:** categoria, assunto e descricao. A solicitacao e validada no cliente e no servidor e so confirma sucesso depois de persistida.
+- **Persistencia:** tabela `support_requests` (migration `026_support_requests.sql`), gravada com a organizacao e o usuario da sessao autenticada (Clerk). Cada usuario enxerga apenas as proprias solicitacoes; o isolamento entre organizacoes e preservado.
+- **Notificacao do responsavel (opcional):** defina `SUPPORT_NOTIFICATION_WEBHOOK_URL` (ex.: um webhook do Activepieces, ja usado no projeto, Slack, Discord ou Zapier) para receber um `POST` JSON a cada nova solicitacao e reencaminha-la para `suporte@estetiqi.com.br`. Sem essa variavel, nada e enviado, a solicitacao continua salva e a interface nao afirma que um e-mail foi enviado. Nao ha provedor de e-mail/SMTP configurado no projeto.
+- **Consulta pelo responsavel:** rode `node scripts-list-support-requests.mjs` (usa `DATABASE_URL` do `.env.local`) ou consulte a tabela `support_requests` diretamente no banco. Nao ha API publica nem painel global de solicitacoes.

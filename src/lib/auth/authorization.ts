@@ -8,7 +8,8 @@ export type Resource =
   | "users"
   | "organization"
   | "finance"
-  | "intelligence";
+  | "intelligence"
+  | "support";
 
 export type Action = "read" | "create" | "update" | "delete";
 
@@ -21,6 +22,7 @@ const rolePermissions: Record<Role, Record<Resource, readonly Action[]>> = {
     organization: ["read", "update", "delete"],
     finance: ["read", "create", "update", "delete"],
     intelligence: ["read", "create", "update", "delete"],
+    support: ["read", "create"],
   },
 
   admin: {
@@ -31,6 +33,7 @@ const rolePermissions: Record<Role, Record<Resource, readonly Action[]>> = {
     organization: ["read"],
     finance: ["read", "create", "update"],
     intelligence: ["read", "create", "update"],
+    support: ["read", "create"],
   },
 
   member: {
@@ -41,6 +44,7 @@ const rolePermissions: Record<Role, Record<Resource, readonly Action[]>> = {
     organization: ["read"],
     finance: ["read"],
     intelligence: ["read"],
+    support: ["read", "create"],
   },
 };
 

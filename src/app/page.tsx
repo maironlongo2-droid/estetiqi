@@ -710,6 +710,16 @@ export default function Home() {
         <p className="mx-auto mt-8 max-w-6xl text-center text-xs tracking-wider text-[#8a9892]">
           EstetiQI · Gestão para profissionais de estética
         </p>
+        <p className="mx-auto mt-2 max-w-6xl text-center text-xs text-[#8a9892]">
+          Contato:{" "}
+          <a
+            href="mailto:contato@estetiqi.com.br"
+            className="font-medium text-[#496458] underline-offset-2 transition hover:underline"
+          >
+            contato@estetiqi.com.br
+          </a>
+        </p>
+
       </footer>
     </main>
   );

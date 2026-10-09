@@ -25,7 +25,8 @@ export default function AppLayout({
     pathname.startsWith("/app/profissionais") ||
     pathname.startsWith("/app/procedimentos") ||
     pathname.startsWith("/app/calculadora") ||
-    pathname.startsWith("/app/configuracoes");
+    pathname.startsWith("/app/configuracoes") ||
+    pathname.startsWith("/app/suporte");
   // No celular, Assistente IA e Automações ficam dentro do menu "Mais".
   const mobileSecondaryActive =
     pathname.startsWith("/app/inteligencia") ||
@@ -244,6 +245,31 @@ export default function AppLayout({
                       {item.label}
                     </Link>
                   ))}
+                  <div className="my-1 border-t border-[#e4ebe7]" />
+                  <Link
+                    role="menuitem"
+                    href="/app/suporte"
+                    onClick={() => setMenuOpen(false)}
+                    aria-current={pathname.startsWith("/app/suporte") ? "page" : undefined}
+                    className="flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-[#50655b] hover:bg-[#f4f7f5]"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      className="h-4 w-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M9.6 9.4a2.4 2.4 0 1 1 3.7 2.1c-.8.5-1.3 1-1.3 1.8v.2" />
+                      <path d="M12 16.4h.01" />
+                    </svg>
+                    Ajuda e suporte
+                  </Link>
+
                   <div className="my-1 border-t border-[#e4ebe7]" />
                   <button
                     type="button"

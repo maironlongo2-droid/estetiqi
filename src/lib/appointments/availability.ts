@@ -47,6 +47,13 @@ function localDateAndMinutes(value: Date) {
   return { date, minutes };
 }
 
+// Data (no fuso da agenda) correspondente a um instante. Permite casar um
+// horário escolhido no fluxo público com a lista de horários ofertados sem
+// duplicar a regra de fuso horário.
+export function localDateInSaoPaulo(value: Date) {
+  return localDateAndMinutes(value).date;
+}
+
 function overlaps(start: number, end: number, otherStart: number, otherEnd: number) {
   return start < otherEnd && end > otherStart;
 }

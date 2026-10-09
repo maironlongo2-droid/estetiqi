@@ -22,6 +22,15 @@ export default function ConfiguracoesPage() {
   const [lastNameDraft, setLastNameDraft] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
 
+  const [cardLoading, setCardLoading] = useState(true);
+  const [cardPublished, setCardPublished] = useState(false);
+  const [cardSlug, setCardSlug] = useState("");
+  const [cardSuggestedSlug, setCardSuggestedSlug] = useState("");
+  const [cardHeadline, setCardHeadline] = useState("");
+  const [cardBio, setCardBio] = useState("");
+  const [cardInstagram, setCardInstagram] = useState("");
+  const [savingCard, setSavingCard] = useState(false);
+
   useEffect(() => {
     let active = true;
 
@@ -49,6 +58,38 @@ export default function ConfiguracoesPage() {
       active = false;
     };
   }, [notifyError]);
+
+  // O cartão digital é opcional: uma falha ao carregá-lo não deve bloquear as
+  // demais configurações da página.
+  useEffect(() => {
+    let active = true;
+
+    fetch("/api/organization/public-card")
+      .then((response) => response.json())
+      .then((card) => {
+        if (!active || !card || typeof card !== "object") return;
+        setCardPublished(Boolean(card.published));
+        setCardSlug(typeof card.slug === "string" ? card.slug : "");
+        setCardSuggestedSlug(
+          typeof card.suggestedSlug === "string" ? card.suggestedSlug : ""
+        );
+        setCardHeadline(typeof card.headline === "string" ? card.headline : "");
+        setCardBio(typeof card.bio === "string" ? card.bio : "");
+        setCardInstagram(
+          typeof card.instagram === "string" ? card.instagram : ""
+        );
+      })
+      .catch(() => {
+        /* Cartão digital indisponível: segue mostrando o restante da página. */
+      })
+      .finally(() => {
+        if (active) setCardLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // O nome do usuário vem do Clerk (fonte da verdade). O estado local (draft) só
   // passa a existir após o usuário editar o campo; até lá o valor exibido é o do
@@ -135,6 +176,69 @@ export default function ConfiguracoesPage() {
     }
   }
 
+  async function handlePublicCardSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (savingCard || !canEditOrganization) return;
+
+    setSavingCard(true);
+
+    try {
+      const response = await fetch("/api/organization/public-card", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          published: cardPublished,
+          slug: cardSlug,
+          headline: cardHeadline,
+          bio: cardBio,
+          instagram: cardInstagram,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          typeof data?.error === "string"
+            ? data.error
+            : "Não foi possível salvar o cartão digital."
+        );
+      }
+
+      setCardPublished(Boolean(data?.published));
+      setCardSlug(typeof data?.slug === "string" ? data.slug : cardSlug);
+      setCardHeadline(typeof data?.headline === "string" ? data.headline : "");
+      setCardBio(typeof data?.bio === "string" ? data.bio : "");
+      setCardInstagram(
+        typeof data?.instagram === "string" ? data.instagram : ""
+      );
+
+      notifySuccess(
+        data?.published
+          ? "Cartão digital publicado."
+          : "Cartão digital despublicado."
+      );
+    } catch (error) {
+      notifyError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível salvar o cartão digital."
+      );
+    } finally {
+      setSavingCard(false);
+    }
+  }
+
+  async function handleCopyCardLink() {
+    const link = `${window.location.origin}/agendar/${cardSlug}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      notifySuccess("Link copiado.");
+    } catch {
+      notifyError("Não foi possível copiar o link.");
+    }
+  }
+
   if (loading) {
     return (
       <main className="app-main-min-h bg-[#fbfaf8] px-6 py-12">
@@ -194,6 +298,145 @@ export default function ConfiguracoesPage() {
               </p>
             )}
           </form>
+        </section>
+
+        <section className="mb-6 rounded-3xl border border-[#dfe9e3] bg-white p-6 shadow-[0_20px_60px_rgba(64,91,78,0.08)]">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-[#30463c]">
+                Cartão digital
+              </h2>
+              <p className="mt-1 text-sm text-[#78867f]">
+                Compartilhe um link para suas clientes agendarem sozinhas, sem
+                precisar de login.
+              </p>
+            </div>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-medium ${
+                cardPublished
+                  ? "bg-[#e3f0e8] text-[#527765]"
+                  : "bg-[#eef1f0] text-[#6d7d75]"
+              }`}
+            >
+              {cardPublished ? "Publicado" : "Não publicado"}
+            </span>
+          </div>
+
+          {cardLoading ? (
+            <p className="mt-5 text-sm text-[#8a9891]">Carregando...</p>
+          ) : (
+            <form onSubmit={handlePublicCardSubmit} className="mt-5 space-y-5">
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-[#405149]">
+                  Endereço do cartão
+                </span>
+                <div className="flex items-center gap-2 rounded-xl border border-[#dfe9e3] px-4 py-3 focus-within:border-[#7a9f8d]">
+                  <span className="text-sm text-[#8a9891]">/agendar/</span>
+                  <input
+                    value={cardSlug}
+                    onChange={(event) => setCardSlug(event.target.value)}
+                    disabled={!canEditOrganization}
+                    placeholder={cardSuggestedSlug || "seu-negocio"}
+                    className="w-full bg-transparent text-sm outline-none disabled:cursor-not-allowed"
+                  />
+                </div>
+                <span className="mt-1 block text-xs text-[#8a9891]">
+                  Use letras minúsculas, números e hífen.
+                </span>
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-[#405149]">
+                  Chamada curta
+                </span>
+                <input
+                  value={cardHeadline}
+                  onChange={(event) => setCardHeadline(event.target.value)}
+                  disabled={!canEditOrganization}
+                  maxLength={160}
+                  placeholder="Ex.: Cuidados que realçam sua beleza natural"
+                  className="w-full rounded-xl border border-[#dfe9e3] px-4 py-3 outline-none focus:border-[#7a9f8d] disabled:cursor-not-allowed disabled:bg-[#f4f7f5] disabled:text-[#8a9891]"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-[#405149]">
+                  Sobre
+                </span>
+                <textarea
+                  value={cardBio}
+                  onChange={(event) => setCardBio(event.target.value)}
+                  disabled={!canEditOrganization}
+                  maxLength={600}
+                  rows={3}
+                  placeholder="Conte em poucas palavras o que você faz e como atende."
+                  className="w-full rounded-xl border border-[#dfe9e3] px-4 py-3 outline-none focus:border-[#7a9f8d] disabled:cursor-not-allowed disabled:bg-[#f4f7f5] disabled:text-[#8a9891]"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-[#405149]">
+                  Instagram
+                </span>
+                <input
+                  value={cardInstagram}
+                  onChange={(event) => setCardInstagram(event.target.value)}
+                  disabled={!canEditOrganization}
+                  placeholder="@seuinsta"
+                  className="w-full rounded-xl border border-[#dfe9e3] px-4 py-3 outline-none focus:border-[#7a9f8d] disabled:cursor-not-allowed disabled:bg-[#f4f7f5] disabled:text-[#8a9891]"
+                />
+              </label>
+              {canEditOrganization ? (
+                <>
+                  <label className="flex items-center gap-3 text-sm text-[#405149]">
+                    <input
+                      type="checkbox"
+                      checked={cardPublished}
+                      onChange={(event) =>
+                        setCardPublished(event.target.checked)
+                      }
+                      className="h-4 w-4"
+                    />
+                    Publicar o cartão e permitir agendamento online
+                  </label>
+
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="submit"
+                      disabled={savingCard}
+                      className="min-h-11 rounded-xl bg-[#527765] px-5 py-3 font-medium text-white transition hover:bg-[#456957] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {savingCard ? "Salvando..." : "Salvar"}
+                    </button>
+
+                    {cardPublished && cardSlug ? (
+                      <>
+                        <a
+                          href={`/agendar/${cardSlug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex min-h-11 items-center rounded-xl border border-[#dfe9e3] px-5 py-3 font-medium text-[#405149] transition hover:bg-[#f4f7f5]"
+                        >
+                          Ver página
+                        </a>
+                        <button
+                          type="button"
+                          onClick={handleCopyCardLink}
+                          className="min-h-11 rounded-xl border border-[#dfe9e3] px-5 py-3 font-medium text-[#405149] transition hover:bg-[#f4f7f5]"
+                        >
+                          Copiar link
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-[#8a9891]">
+                  Apenas o responsável pelo negócio pode publicar o cartão.
+                </p>
+              )}
+            </form>
+          )}
         </section>
 
         <section className="rounded-3xl border border-[#dfe9e3] bg-white p-6 shadow-[0_20px_60px_rgba(64,91,78,0.08)]">

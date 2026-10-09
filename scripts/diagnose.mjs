@@ -81,13 +81,27 @@ function checkApiStructure() {
       source.includes("isCurrentUserSupportAdmin") ||
       source.includes("auth()");
 
-    if (!protectedRoute && !file.includes("/health/")) {
-      unprotected++;
-      console.log(`[AVISO] API sem proteção detectada: ${relative(".", file)}`);
+    const relativePath = relative(".", file).split("\\").join("/");
+
+    // Rotas públicas são intencionais (cartão digital e agendamento online):
+    // não usam Clerk, mas precisam aplicar rate limit por IP e derivar a
+    // organização do próprio slug, nunca de dados enviados pelo cliente.
+    const intentionallyPublic = relativePath.startsWith("src/app/api/public/");
+    const hasRateLimit =
+      source.includes("@/lib/security/rate-limit") &&
+      source.includes("rateLimit(");
+
+    if (!protectedRoute && !relativePath.includes("/health/")) {
+      if (intentionallyPublic && hasRateLimit) {
+        console.log(`[OK] API pública com rate limit: ${relativePath}`);
+      } else {
+        unprotected++;
+        console.log(`[AVISO] API sem proteção detectável: ${relativePath}`);
+      }
     }
 
     console.log(
-      `${relative(".", file)} -> ${
+      `${relativePath} -> ${
         found.length ? found.join(", ") : "NENHUM HANDLER"
       }`,
     );

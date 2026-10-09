@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { requireCurrentUser } from "@/lib/auth/require-current-user";
 import { hasPermission } from "@/lib/auth/authorization";
-import { sql } from "@/lib/db/client";
 import { getAvailableAppointmentSlots } from "@/lib/appointments/availability";
+import { resolveBookableSelection } from "@/lib/appointments/bookable";
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 const uuidSchema = z.string().uuid();
@@ -48,53 +48,27 @@ export async function GET(request: Request) {
     }
 
     const organizationId = currentUser.organization.id;
-    const [professional, procedures, assignments] = await Promise.all([
-      sql`
-        SELECT id
-        FROM professionals
-        WHERE id = ${professionalId}
-          AND organization_id = ${organizationId}
-          AND active = TRUE
-        LIMIT 1
-      `,
-      sql`
-        SELECT id, duration_minutes
-        FROM procedures
-        WHERE organization_id = ${organizationId}
-          AND status = 'active'
-          AND id = ANY(${procedureIds}::uuid[])
-      `,
-      sql`
-        SELECT procedure_id
-        FROM professional_procedures
-        WHERE organization_id = ${organizationId}
-          AND professional_id = ${professionalId}
-          AND procedure_id = ANY(${procedureIds}::uuid[])
-      `,
-    ]);
+    const selection = await resolveBookableSelection({
+      organizationId,
+      professionalId,
+      procedureIds,
+    });
 
-    if (!professional.length || procedures.length !== procedureIds.length) {
-      return Response.json({ error: "PROFESSIONAL_OR_PROCEDURE_NOT_FOUND" }, { status: 404 });
-    }
-    if (assignments.length !== procedureIds.length) {
-      return Response.json({ error: "PROCEDURE_NOT_ASSIGNED" }, { status: 409 });
-    }
-
-    // A agenda tem de reservar a soma das durações de todos os procedimentos.
-    const hasEveryDuration = procedures.every(
-      (procedure) => typeof procedure.duration_minutes === "number" && procedure.duration_minutes > 0
-    );
-    if (!hasEveryDuration) {
+    if (!selection.ok) {
+      if (selection.code === "PROCEDURE_DURATION_REQUIRED") {
+        return Response.json(
+          { error: "PROCEDURE_DURATION_REQUIRED", slots: [] },
+          { status: selection.status }
+        );
+      }
       return Response.json(
-        { error: "PROCEDURE_DURATION_REQUIRED", slots: [] },
-        { status: 409 }
+        { error: selection.code },
+        { status: selection.status }
       );
     }
 
-    const durationMinutes = procedures.reduce(
-      (total, procedure) => total + procedure.duration_minutes,
-      0
-    );
+    // A agenda tem de reservar a soma das durações de todos os procedimentos.
+    const durationMinutes = selection.durationMinutes;
 
     const slots = await getAvailableAppointmentSlots({
       organizationId,

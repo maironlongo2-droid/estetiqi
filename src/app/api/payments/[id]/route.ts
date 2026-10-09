@@ -3,15 +3,19 @@ import { sql } from "@/lib/db/client";
 import { requireCurrentUser } from "@/lib/auth/require-current-user";
 import { hasPermission } from "@/lib/auth/authorization";
 
-const paymentUpdateSchema = z.object({
-  amount: z.number().min(0),
-  paymentMethod: z
-    .enum(["pix", "credito", "debito", "dinheiro"])
-    .optional(),
-  status: z.enum(["pending", "paid", "cancelled", "refunded"]).optional(),
-  paidAt: z.string().datetime().optional().or(z.literal("")),
-  notes: z.string().trim().max(2000).optional().or(z.literal("")),
-});
+const paymentUpdateSchema = z
+  .object({
+    amount: z.number().min(0).optional(),
+    paymentMethod: z
+      .enum(["pix", "credito", "debito", "dinheiro"])
+      .optional(),
+    status: z.enum(["pending", "paid", "cancelled", "refunded"]).optional(),
+    paidAt: z.string().datetime().optional().or(z.literal("")),
+    notes: z.string().trim().max(2000).optional().or(z.literal("")),
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Nenhum campo para atualizar.",
+  });
 
 export async function PATCH(
   request: Request,
@@ -20,7 +24,7 @@ export async function PATCH(
   try {
     const currentUser = await requireCurrentUser();
 
-    if (!hasPermission(currentUser.role, "finance", "create")) {
+    if (!hasPermission(currentUser.role, "finance", "update")) {
       return Response.json(
         { error: "Você não tem permissão para editar pagamentos." },
         { status: 403 },
@@ -30,18 +34,26 @@ export async function PATCH(
     const { id } = await params;
 
     const existingPayment = await sql`
-      SELECT id, organization_id, appointment_id
+      SELECT
+        id,
+        organization_id,
+        appointment_id,
+        client_id,
+        amount,
+        payment_method,
+        status,
+        paid_at,
+        notes
       FROM payments
       WHERE id = ${id}
+        AND organization_id = ${currentUser.organization.id}
       LIMIT 1
     `;
 
+    // A consulta já é limitada à organização: pagamento inexistente ou de
+    // outra organização resulta em 404, sem revelar dados de terceiros.
     if (existingPayment.length === 0) {
       return Response.json({ error: "PAYMENT_NOT_FOUND" }, { status: 404 });
-    }
-
-    if (existingPayment[0].organization_id !== currentUser.organization.id) {
-      return Response.json({ error: "UNAUTHORIZED" }, { status: 403 });
     }
 
     const body = await request.json();
@@ -55,15 +67,38 @@ export async function PATCH(
     }
 
     const data = parsed.data;
+    const current = existingPayment[0];
+
+    // PATCH parcial: campos omitidos preservam o valor atual.
+    const nextAmount =
+      data.amount !== undefined ? data.amount : Number(current.amount);
+    const nextPaymentMethod =
+      data.paymentMethod !== undefined
+        ? data.paymentMethod
+        : current.payment_method;
+    const nextStatus = data.status !== undefined ? data.status : current.status;
+    const nextNotes =
+      data.notes !== undefined ? data.notes || null : current.notes;
+
+    // paid_at acompanha o status resultante: só existe quando o pagamento está
+    // pago; ao voltar para pago, preserva a data anterior ou marca agora.
+    const nextPaidAt =
+      data.paidAt !== undefined && data.paidAt !== ""
+        ? new Date(data.paidAt)
+        : nextStatus === "paid"
+          ? current.paid_at
+            ? new Date(current.paid_at)
+            : new Date()
+          : null;
 
     const result = await sql`
       UPDATE payments
       SET
-        amount = ${data.amount},
-        payment_method = ${data.paymentMethod ?? null},
-        status = ${data.status ?? "paid"},
-        paid_at = ${data.paidAt ? new Date(data.paidAt) : data.status === "paid" ? new Date() : null},
-        notes = ${data.notes ?? null},
+        amount = ${nextAmount},
+        payment_method = ${nextPaymentMethod},
+        status = ${nextStatus},
+        paid_at = ${nextPaidAt},
+        notes = ${nextNotes},
         updated_at = NOW()
       WHERE id = ${id}
       RETURNING
@@ -101,8 +136,10 @@ export async function PATCH(
         'payment.updated',
         'system',
         ${JSON.stringify({
-          amount: data.amount,
-          paymentMethod: data.paymentMethod ?? null,
+          previousStatus: current.status,
+          newStatus: updated.status,
+          amount: Number(updated.amount),
+          paymentMethod: updated.payment_method ?? null,
         })}::jsonb
       )
     `;
@@ -142,15 +179,12 @@ export async function DELETE(
       SELECT id, organization_id, appointment_id, client_id
       FROM payments
       WHERE id = ${id}
+        AND organization_id = ${currentUser.organization.id}
       LIMIT 1
     `;
 
     if (existingPayment.length === 0) {
       return Response.json({ error: "PAYMENT_NOT_FOUND" }, { status: 404 });
-    }
-
-    if (existingPayment[0].organization_id !== currentUser.organization.id) {
-      return Response.json({ error: "UNAUTHORIZED" }, { status: 403 });
     }
 
     await sql`

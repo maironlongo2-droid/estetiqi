@@ -52,6 +52,7 @@ export default function AutomacoesPage() {
   const [inactiveDays, setInactiveDays] = useState("60");
   const [openId, setOpenId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Record<string, string>>({});
+  const [notices, setNotices] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(
@@ -129,8 +130,14 @@ export default function AutomacoesPage() {
     setBusyId(candidate.id);
     try {
       const opportunityId = await ensureOpportunityId(candidate);
-      const message = await requestSuggestedMessage(opportunityId);
+      const { message, fallback } = await requestSuggestedMessage(opportunityId);
       setMessages((current) => ({ ...current, [candidate.id]: message }));
+      setNotices((current) => ({
+        ...current,
+        [candidate.id]: fallback
+          ? "A IA está indisponível agora. Usamos uma sugestão-padrão — revise antes de enviar."
+          : "",
+      }));
     } catch (error) {
       notifyError(
         error instanceof Error ? error.message : "Não foi possível preparar a mensagem."
@@ -283,6 +290,12 @@ export default function AutomacoesPage() {
                               className="mt-1 w-full rounded-xl border border-[#dce5e0] p-3"
                             />
                           </div>
+                        )}
+
+                        {notices[candidate.id] && (
+                          <p role="status" className="text-sm text-[#52635b]">
+                            {notices[candidate.id]}
+                          </p>
                         )}
 
                         <div className="flex flex-col gap-2 sm:flex-row">

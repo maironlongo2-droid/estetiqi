@@ -1,6 +1,7 @@
 import { hasPermission } from "@/lib/auth/authorization";
 import { requireCurrentUser } from "@/lib/auth/require-current-user";
 import { generateAI } from "@/lib/ai/gemini";
+import { buildDefaultReturnMessage } from "@/lib/ai/return-message";
 import { sql } from "@/lib/db/client";
 
 function cleanPromptValue(value: unknown, maxLength = 180) {
@@ -143,37 +144,40 @@ ${history || "Não há histórico adicional."}
 A mensagem deve convidar a cliente a conversar sobre o retorno, sem afirmar que o sistema enviou qualquer coisa.
 `;
 
-    const message = await generateAI(prompt);
-    if (!message || message.length > 500) {
-      console.error(
-        "Generate return message error: Gemini returned an invalid message length.",
-        message ? message.length : 0,
-      );
-      return Response.json(
-        { error: "A IA não retornou uma mensagem curta utilizável. Tente novamente." },
-        { status: 502 }
-      );
+    // Mensagem-padrão montada com os dados reais da cliente. É usada
+    // quando a IA não está disponível ou falha, para que o fluxo de revisão
+    // e abertura do WhatsApp nunca fique bloqueado.
+    const fallbackMessage = buildDefaultReturnMessage({
+      name: opportunity.client_name,
+      lastProcedureName: opportunity.last_procedure_name,
+    });
+
+    let message = "";
+    try {
+      message = await generateAI(prompt);
+    } catch (error) {
+      // Gemini indisponível (chave ausente) ou falha de rede/serviço.
+      console.error("Generate return message error:", error);
     }
 
-    return Response.json({ message });
+    if (!message || message.length > 500) {
+      console.error(
+        "Generate return message fallback: a IA não retornou uma mensagem utilizável.",
+        message ? message.length : 0,
+      );
+      return Response.json({ message: fallbackMessage, fallback: true });
+    }
+
+    return Response.json({ message, fallback: false });
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHENTICATED") {
       return Response.json({ error: "Não autenticado." }, { status: 401 });
-    }
-    if (error instanceof Error && error.message === "GEMINI_API_KEY não configurada.") {
-      return Response.json(
-        {
-          error:
-            "A geração de mensagens não está configurada neste ambiente. Peça ao responsável pelo EstetiQI para habilitar o serviço.",
-        },
-        { status: 503 }
-      );
     }
 
     console.error("Generate return message error:", error);
     return Response.json(
       { error: "Não foi possível gerar a mensagem agora. Tente novamente." },
-      { status: 502 }
+      { status: 500 }
     );
   }
 }

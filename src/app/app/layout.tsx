@@ -30,6 +30,21 @@ export default function AppLayout({
     pathname.startsWith("/app/inteligencia") ||
     pathname.startsWith("/app/automacoes");
 
+  // O menu "Mais" só monta os itens "Assistente IA" e "Automações" quando é
+  // aberto, e no celular esses links ficam ocultos na barra principal
+  // (hidden lg:block). Como o prefetch automático do <Link> só dispara com o
+  // link montado e visível (viewport/hover), as duas rotas ficam "frias" até o
+  // primeiro toque. Pré-carregamos uma única vez na montagem do layout para o
+  // primeiro toque no menu "Mais" responder sem espera. (O Next.js desativa o
+  // prefetch em desenvolvimento; o ganho aparece em produção.)
+  const prefetchedMenuRoutes = useRef(false);
+  useEffect(() => {
+    if (prefetchedMenuRoutes.current) return;
+    prefetchedMenuRoutes.current = true;
+    router.prefetch("/app/inteligencia");
+    router.prefetch("/app/automacoes");
+  }, [router]);
+
   useEffect(() => {
     if (!menuOpen) return;
 
@@ -52,16 +67,32 @@ export default function AppLayout({
     };
   }, [menuOpen]);
 
+  // A organização é carregada uma única vez por sessão do layout e reutilizada
+  // durante a navegação interna do /app, evitando uma chamada extra (com auth +
+  // consulta ao banco) a cada troca de rota. Enquanto o onboarding estiver
+  // pendente, revalidamos ao sair da tela de onboarding para confirmar se o
+  // cadastro foi concluído (mantém o nome atualizado e o redirect correto).
+  const organizationCache = useRef<{
+    loaded: boolean;
+    onboardingPending: boolean;
+  }>({ loaded: false, onboardingPending: false });
+
   useEffect(() => {
+    const cache = organizationCache.current;
+    const needsOnboardingCheck =
+      cache.onboardingPending && pathname !== "/app/onboarding";
+
+    if (cache.loaded && !needsOnboardingCheck) return;
+
     fetch("/api/organization")
       .then((response) => response.json())
       .then((data) => {
+        cache.loaded = true;
+        cache.onboardingPending = data?.onboarding_completed === false;
+
         if (data?.name) setOrganizationName(data.name);
 
-        if (
-          data?.onboarding_completed === false &&
-          pathname !== "/app/onboarding"
-        ) {
+        if (cache.onboardingPending && pathname !== "/app/onboarding") {
           router.replace("/app/onboarding");
         }
       })

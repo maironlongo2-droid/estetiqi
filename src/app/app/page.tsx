@@ -289,11 +289,18 @@ export default function AppPage() {
     setMessageLoadingId(opportunityId);
     setMessageFeedback((current) => ({ ...current, [opportunityId]: "" }));
     try {
-      const message = await requestSuggestedMessage(opportunityId);
+      const { message, fallback } = await requestSuggestedMessage(opportunityId);
       setReturnMessages((current) => ({
         ...current,
         [opportunityId]: message,
       }));
+      if (fallback) {
+        setMessageFeedback((current) => ({
+          ...current,
+          [opportunityId]:
+            "A IA está indisponível agora. Usamos uma sugestão-padrão com base no histórico — revise antes de enviar.",
+        }));
+      }
     } catch (error) {
       setMessageFeedback((current) => ({
         ...current,

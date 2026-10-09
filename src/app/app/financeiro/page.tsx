@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useToast } from "../toast";
 
 type Payment = {
@@ -41,14 +41,47 @@ function date(value: string | null) {
   });
 }
 
+const paymentStatusLabels: Record<string, string> = {
+  pending: "Pendente",
+  paid: "Pago",
+  cancelled: "Cancelado",
+  refunded: "Estornado",
+};
+
+const editablePaymentStatuses = [
+  "pending",
+  "paid",
+  "cancelled",
+  "refunded",
+] as const;
+
+function paymentStatusLabel(status: string) {
+  return paymentStatusLabels[status] ?? status;
+}
+
+function paymentStatusBadgeClass(status: string) {
+  if (status === "paid") {
+    return "rounded-lg bg-[#edf7ef] px-2 py-1 text-xs font-medium text-[#477152]";
+  }
+
+  if (status === "pending") {
+    return "rounded-lg bg-[#fff7e8] px-2 py-1 text-xs font-medium text-[#8a641d]";
+  }
+
+  return "rounded-lg bg-[#f4f4f2] px-2 py-1 text-xs font-medium text-[#78867f]";
+}
+
 export default function FinanceiroPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
-  const { notifyError } = useToast();
+  const { notifyError, notifySuccess } = useToast();
   const [error, setError] = useState("");
   const [period, setPeriod] = useState<"today" | "7days" | "month" | "all">("month");
+  // Espelha a permissão finance:update (RBAC: owner e admin).
+  const [canManagePayments, setCanManagePayments] = useState(false);
+  const [statusSavingId, setStatusSavingId] = useState<string | null>(null);
 
-  async function loadPayments() {
+  const loadPayments = useCallback(async () => {
     setLoading(true);
     setError("");
 
@@ -73,7 +106,7 @@ export default function FinanceiroPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [notifyError]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -81,7 +114,86 @@ export default function FinanceiroPage() {
     }, 0);
 
     return () => window.clearTimeout(timer);
+  }, [loadPayments]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadRole() {
+      try {
+        const response = await fetch("/api/auth/context");
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+
+        if (!active) return;
+
+        setCanManagePayments(data.role === "owner" || data.role === "admin");
+      } catch {
+        // Sem permissão confirmada, o controle de status permanece oculto.
+      }
+    }
+
+    loadRole();
+
+    return () => {
+      active = false;
+    };
   }, []);
+
+  async function changePaymentStatus(payment: Payment, nextStatus: string) {
+    if (nextStatus === payment.status) return;
+
+    const confirmed = window.confirm(
+      `Alterar o status do pagamento de ${payment.client_name} de "${paymentStatusLabel(
+        payment.status
+      )}" para "${paymentStatusLabel(nextStatus)}"?`
+    );
+
+    if (!confirmed) return;
+
+    setStatusSavingId(payment.id);
+
+    try {
+      const response = await fetch(`/api/payments/${payment.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || "Não foi possível atualizar o pagamento."
+        );
+      }
+
+      setPayments((current) =>
+        current.map((item) =>
+          item.id === payment.id
+            ? {
+                ...item,
+                amount: Number(data.amount),
+                payment_method: data.payment_method ?? null,
+                status: data.status,
+                paid_at: data.paid_at ?? null,
+              }
+            : item
+        )
+      );
+      notifySuccess("Status do pagamento atualizado.");
+    } catch (err) {
+      notifyError(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível atualizar o pagamento."
+      );
+    } finally {
+      setStatusSavingId(null);
+    }
+  }
 
   const periodStart = (() => {
     if (period === "all") return null;
@@ -276,6 +388,7 @@ export default function FinanceiroPage() {
                     <th className="px-6 py-4">Valor</th>
                     <th className="px-6 py-4">Data</th>
                     <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4">Ações</th>
                   </tr>
                 </thead>
 
@@ -309,17 +422,31 @@ export default function FinanceiroPage() {
                       </td>
 
                       <td className="px-6 py-4">
-                        <span
-                          className={
-                            payment.status === "paid"
-                              ? "rounded-lg bg-[#edf7ef] px-2 py-1 text-xs font-medium text-[#477152]"
-                              : "rounded-lg bg-[#f4f4f2] px-2 py-1 text-xs text-[#78867f]"
-                          }
-                        >
-                          {payment.status === "paid"
-                            ? "Pago"
-                            : payment.status}
+                        <span className={paymentStatusBadgeClass(payment.status)}>
+                          {paymentStatusLabel(payment.status)}
                         </span>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {canManagePayments ? (
+                          <select
+                            aria-label={`Alterar status do pagamento de ${payment.client_name}`}
+                            value={payment.status}
+                            disabled={statusSavingId === payment.id}
+                            onChange={(event) =>
+                              void changePaymentStatus(payment, event.target.value)
+                            }
+                            className="min-h-9 rounded-lg border border-[#dce5e0] bg-white px-2 py-1 text-sm text-[#30463c] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {editablePaymentStatuses.map((status) => (
+                              <option key={status} value={status}>
+                                {paymentStatusLabel(status)}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="text-xs text-[#9aa59f]">—</span>
+                        )}
                       </td>
                     </tr>
                   ))}

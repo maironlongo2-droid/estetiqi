@@ -1,3 +1,4 @@
+import { buildDefaultReturnMessage } from "@/lib/ai/return-message";
 import { normalizePhone } from "@/lib/normalization/brazil";
 
 export function buildWhatsAppUrl(client: {
@@ -13,11 +14,12 @@ export function buildWhatsAppUrl(client: {
     return null;
   }
 
-  const firstName = client.name.trim().split(/\s+/)[0] || "tudo bem";
-  const procedureName = client.lastProcedureName || "seu procedimento";
   const message =
     client.message?.trim() ||
-    `Oi, ${firstName}! Tudo bem? Gostaria de conversar sobre seu retorno para ${procedureName} e verificar um horário que funcione para você.`;
+    buildDefaultReturnMessage({
+      name: client.name,
+      lastProcedureName: client.lastProcedureName,
+    });
 
   return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 }

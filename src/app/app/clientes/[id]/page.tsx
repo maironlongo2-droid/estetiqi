@@ -44,6 +44,8 @@ type Profile = {
     id: string;
     event_type: string;
     source: string;
+    appointment_id: string | null;
+    payment_id: string | null;
     data: Record<string, unknown> | null;
     created_at: string;
   }>;
@@ -122,11 +124,94 @@ function eventLabel(type: string) {
     "payment.pending": "Pagamento pendente",
     "payment.cancelled": "Pagamento cancelado",
     "payment.refunded": "Pagamento estornado",
+    "payment.updated": "Pagamento atualizado",
     "appointment.created": "Agendamento criado",
-    "appointment.completed": "Agendamento concluído",
+    "appointment.scheduled": "Agendamento registrado",
+    "appointment.confirmed": "Agendamento confirmado",
+    "appointment.completed": "Atendimento concluído",
+    "appointment.cancelled": "Atendimento cancelado",
+    "appointment.no_show": "Cliente não compareceu",
+    "appointment.updated": "Atendimento atualizado",
   };
 
-  return labels[type] ?? type;
+  // Tipos não reconhecidos (inclui eventos legados) recebem um rótulo genérico
+  // para não expor códigos técnicos crus na ficha da cliente.
+  return labels[type] ?? "Evento registrado";
+}
+
+function paymentMethodLabel(method: string) {
+  const labels: Record<string, string> = {
+    pix: "Pix",
+    credito: "Crédito",
+    debito: "Débito",
+    dinheiro: "Dinheiro",
+  };
+
+  return labels[method] ?? method;
+}
+
+function eventSourceLabel(source: string) {
+  // A origem padrão ("system") é técnica e não agrega valor para a profissional.
+  if (!source || source === "system") return null;
+
+  const labels: Record<string, string> = {
+    user: "Equipe",
+    import: "Importação",
+    automation: "Automação",
+    ai: "EstetiQI IA",
+  };
+
+  return labels[source] ?? source;
+}
+
+// Monta uma linha legível com os dados relevantes disponíveis no evento,
+// correlacionando com os atendimentos e pagamentos já carregados na ficha.
+function eventDetails(
+  event: Profile["events"][number],
+  appointmentsById: Map<string, Profile["appointments"][number]>,
+  paymentsById: Map<string, Profile["payments"][number]>
+) {
+  const data = event.data ?? {};
+  const details: string[] = [];
+
+  const appointment = event.appointment_id
+    ? appointmentsById.get(event.appointment_id)
+    : undefined;
+  const payment = event.payment_id
+    ? paymentsById.get(event.payment_id)
+    : undefined;
+
+  const procedureName =
+    appointment?.procedure_name ?? payment?.procedure_name ?? null;
+  if (procedureName) details.push(procedureName);
+
+  const professionalName =
+    appointment?.professional_name ??
+    (typeof data.professionalName === "string" ? data.professionalName : null);
+  if (professionalName) details.push(professionalName);
+
+  const previousStatus =
+    typeof data.previousStatus === "string" ? data.previousStatus : null;
+  const newStatus =
+    typeof data.newStatus === "string" ? data.newStatus : null;
+  if (previousStatus && newStatus) {
+    const label = event.event_type.startsWith("payment.")
+      ? paymentStatus
+      : appointmentStatus;
+    details.push(`${label(previousStatus)} → ${label(newStatus)}`);
+  }
+
+  if (typeof data.amount === "number") {
+    details.push(formatMoney(data.amount));
+  } else if (typeof data.price === "number") {
+    details.push(formatMoney(data.price));
+  }
+
+  if (typeof data.paymentMethod === "string" && data.paymentMethod) {
+    details.push(paymentMethodLabel(data.paymentMethod));
+  }
+
+  return details;
 }
 
 export default function ClientProfilePage() {
@@ -198,6 +283,15 @@ export default function ClientProfilePage() {
     phone: client.phone,
     lastProcedureName: totals.last_procedure,
   });
+
+  // Correlaciona os eventos com os atendimentos e pagamentos já carregados,
+  // sem consultas extras, para enriquecer a linha do tempo.
+  const appointmentsById = new Map(
+    appointments.map((appointment) => [appointment.id, appointment])
+  );
+  const paymentsById = new Map(
+    payments.map((payment) => [payment.id, payment])
+  );
 
   return (
     <main className="app-min-h bg-[#fbfaf8] text-[#26352f]">
@@ -437,7 +531,7 @@ export default function ClientProfilePage() {
 
                         {payment.payment_method && (
                           <p className="mt-1 text-xs text-[#9aa59f]">
-                            {payment.payment_method}
+                            {paymentMethodLabel(payment.payment_method)}
                           </p>
                         )}
                       </div>
@@ -472,26 +566,43 @@ export default function ClientProfilePage() {
             </p>
           ) : (
             <div className="divide-y divide-[#e4ebe7]">
-              {events.map((event) => (
-                <div
-                  key={event.id}
-                  className="flex items-center justify-between gap-4 p-5"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-[#50655b]">
-                      {eventLabel(event.event_type)}
-                    </p>
+              {events.map((event) => {
+                const details = eventDetails(
+                  event,
+                  appointmentsById,
+                  paymentsById
+                );
+                const sourceLabel = eventSourceLabel(event.source);
 
-                    <p className="mt-1 text-xs text-[#9aa59f]">
-                      Origem: {event.source}
-                    </p>
+                return (
+                  <div
+                    key={event.id}
+                    className="flex items-start justify-between gap-4 p-5"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-[#50655b]">
+                        {eventLabel(event.event_type)}
+                      </p>
+
+                      {details.length > 0 && (
+                        <p className="mt-1 text-xs text-[#78867f]">
+                          {details.join(" · ")}
+                        </p>
+                      )}
+
+                      {sourceLabel && (
+                        <p className="mt-1 text-xs text-[#9aa59f]">
+                          Origem: {sourceLabel}
+                        </p>
+                      )}
+                    </div>
+
+                    <time className="shrink-0 text-xs text-[#8a9891]">
+                      {formatDateTime(event.created_at)}
+                    </time>
                   </div>
-
-                  <time className="shrink-0 text-xs text-[#8a9891]">
-                    {formatDateTime(event.created_at)}
-                  </time>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>

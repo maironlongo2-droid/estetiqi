@@ -28,6 +28,20 @@ body {
   outline-offset: 2px;
 }
 
+/* Respeita a preferência do sistema por menos movimento: zera a duração das
+   transições e animações, preservando os estados visuais finais. Evita
+   movimento perceptível sem depender de ajustes em cada componente. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Altura mínima do shell do app compatível com a viewport dinâmica do mobile.
    100vh é usado como fallback seguro; navegadores com suporte a dvh usam a
    altura dinâmica para evitar excesso de altura (scroll/overscroll). */

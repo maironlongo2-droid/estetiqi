@@ -91,6 +91,7 @@ export default function InteligenciaPage() {
   const [suggestedMessages, setSuggestedMessages] = useState<Record<string, string>>({});
   const [messageLoadingId, setMessageLoadingId] = useState<string | null>(null);
   const [messageError, setMessageError] = useState("");
+  const [messageFallback, setMessageFallback] = useState<Record<string, boolean>>({});
   const [whatsappFeedback, setWhatsappFeedback] = useState("");
   const [clientHistory, setClientHistory] = useState<ClientHistory | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -299,11 +300,12 @@ export default function InteligenciaPage() {
     setMessageLoadingId(opportunityId);
     setMessageError("");
     try {
-      const message = await requestSuggestedMessage(opportunityId);
+      const { message, fallback } = await requestSuggestedMessage(opportunityId);
       setSuggestedMessages((current) => ({
         ...current,
         [opportunityId]: message,
       }));
+      setMessageFallback((current) => ({ ...current, [opportunityId]: fallback }));
     } catch (error) {
       setMessageError(
         error instanceof Error ? error.message : "Não foi possível gerar a mensagem."
@@ -689,6 +691,11 @@ export default function InteligenciaPage() {
                       </button>
                       {messageError && (
                         <p role="alert" className="mt-2 text-sm text-red-700">{messageError}</p>
+                      )}
+                      {selectedMessage && messageFallback[selectedOpportunity.id] && (
+                        <p role="status" className="mt-2 text-sm text-[#52635b]">
+                          A IA está indisponível agora. Preparamos uma sugestão-padrão com base no histórico real — revise antes de enviar.
+                        </p>
                       )}
                     </div>
                     {selectedWhatsappUrl ? (

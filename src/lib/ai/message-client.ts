@@ -1,9 +1,18 @@
 type MessageResponse = {
   message?: unknown;
+  fallback?: unknown;
   error?: unknown;
 };
 
-export async function requestSuggestedMessage(opportunityId: string) {
+export type SuggestedMessage = {
+  message: string;
+  /** true quando a mensagem é a sugestão-padrão usada com a IA indisponível. */
+  fallback: boolean;
+};
+
+export async function requestSuggestedMessage(
+  opportunityId: string
+): Promise<SuggestedMessage> {
   const response = await fetch(
     `/api/ai/opportunities/${opportunityId}/message`,
     { method: "POST" }
@@ -36,5 +45,8 @@ export async function requestSuggestedMessage(opportunityId: string) {
     throw new Error("A IA não retornou uma mensagem curta utilizável. Tente novamente.");
   }
 
-  return data.message.trim();
+  return {
+    message: data.message.trim(),
+    fallback: data.fallback === true,
+  };
 }

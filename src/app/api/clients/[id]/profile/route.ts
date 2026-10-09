@@ -94,6 +94,8 @@ export async function GET(
         id,
         event_type,
         source,
+        appointment_id,
+        payment_id,
         data,
         created_at
       FROM customer_events

@@ -74,37 +74,29 @@ async function fetchAgendaAppointments(
 ): Promise<Appointment[]> {
   const query = new URLSearchParams();
   if (statusFilter) query.set("status", statusFilter);
-  const dates = upcoming
-    ? Array.from({ length: 14 }, (_, index) => {
-        const baseDate = new Date(`${selectedDate}T12:00:00-03:00`);
-        baseDate.setDate(baseDate.getDate() + index);
-        return brasilDateString(baseDate);
-      })
-    : [selectedDate];
-  const appointmentResponses = await Promise.all(
-    dates.map((date) => {
-      const dateQuery = new URLSearchParams(query);
-      dateQuery.set("date", date);
-      return fetch(`/api/appointments?${dateQuery.toString()}`);
-    })
-  );
-  const appointmentsData = await Promise.all(
-    appointmentResponses.map((response) => response.json())
-  );
-
-  const failedAppointmentIndex = appointmentResponses.findIndex(
-    (response) => !response.ok
-  );
-  if (failedAppointmentIndex !== -1) {
-    const failedData = appointmentsData[failedAppointmentIndex];
-    throw new Error(failedData.error || "Não foi possível carregar a agenda.");
+  // Visão "Próximos": uma única consulta cobrindo selectedDate..selectedDate+13,
+  // equivalente à união das 14 consultas diárias anteriores.
+  // Visão "Dia": mantém a consulta única por data (comportamento original).
+  if (upcoming) {
+    const lastDate = new Date(`${selectedDate}T12:00:00-03:00`);
+    lastDate.setDate(lastDate.getDate() + 13);
+    query.set("from", selectedDate);
+    query.set("to", brasilDateString(lastDate));
+  } else {
+    query.set("date", selectedDate);
   }
 
-  return appointmentsData
-    .flatMap(
-      (appointmentsForDate: { appointments?: Appointment[] }) =>
-        appointmentsForDate.appointments || []
-    )
+  const response = await fetch(`/api/appointments?${query.toString()}`);
+  const appointmentsData: { appointments?: Appointment[]; error?: string } =
+    await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      appointmentsData.error || "Não foi possível carregar a agenda."
+    );
+  }
+
+  return (appointmentsData.appointments || [])
     .map(
       (
         appointment: Omit<Appointment, "price"> & {
@@ -138,6 +130,18 @@ async function fetchFormSupportData(): Promise<FormSupport> {
     proceduresResponse.json(),
     professionalsResponse.json(),
   ]);
+
+  if (!clientsResponse.ok) {
+    throw new Error(
+      clientsData.error || "Não foi possível carregar clientes."
+    );
+  }
+
+  if (!proceduresResponse.ok) {
+    throw new Error(
+      proceduresData.error || "Não foi possível carregar procedimentos."
+    );
+  }
 
   if (!professionalsResponse.ok) {
     throw new Error(
@@ -351,6 +355,8 @@ export default function AgendaPage() {
   const [availabilityError, setAvailabilityError] = useState("");
   const [loading, setLoading] = useState(true);
   const [formDataLoading, setFormDataLoading] = useState(true);
+  const [formSupportError, setFormSupportError] = useState("");
+  const [formSupportAttempt, setFormSupportAttempt] = useState(0);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const { notifyError } = useToast();
@@ -510,15 +516,16 @@ export default function AgendaPage() {
         setClients(support.clients);
         setProcedures(support.procedures);
         setProfessionals(support.professionals);
+        setFormSupportError("");
       })
       .catch((err: unknown) => {
-        if (active) {
-          notifyError(
-            err instanceof Error
-              ? err.message
-              : "Não foi possível carregar dados do agendamento."
-          );
-        }
+        if (!active) return;
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Não foi possível carregar dados do agendamento.";
+        setFormSupportError(message);
+        notifyError(message);
       })
       .finally(() => {
         if (active) setFormDataLoading(false);
@@ -526,7 +533,15 @@ export default function AgendaPage() {
     return () => {
       active = false;
     };
-  }, [isLoaded, user, notifyError]);
+  }, [isLoaded, user, notifyError, formSupportAttempt]);
+
+  // Reexecuta o carregamento dos dados do formulário quando uma das APIs falha,
+  // reutilizando o estado de carregamento existente.
+  function retryFormSupportData() {
+    setFormDataLoading(true);
+    setFormSupportError("");
+    setFormSupportAttempt((current) => current + 1);
+  }
 
   // Pagamentos: carregam sem bloquear a agenda nem a preparação do formulário.
   useEffect(() => {
@@ -1029,6 +1044,23 @@ export default function AgendaPage() {
           </button>
         </header>
 
+        {formSupportError && (
+          <div
+            role="alert"
+            className="mt-6 flex flex-col gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <span>{formSupportError}</span>
+            <button
+              type="button"
+              onClick={retryFormSupportData}
+              disabled={formDataLoading}
+              className="min-h-10 self-start rounded-xl border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-wait disabled:opacity-60 sm:self-auto"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        )}
+
         {!showForm && (
           <section className="mt-6 rounded-2xl border border-[#e4ebe7] bg-white p-4 shadow-sm sm:p-5">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -1391,6 +1423,21 @@ export default function AgendaPage() {
                   const isPaid = paidAppointments.includes(
                     appointment.id
                   );
+                  const isCancelled = ["cancelled", "no_show"].includes(
+                    appointment.status
+                  );
+                  // Um atendimento cancelado/falta com pagamento registrado não
+                  // deve parecer um atendimento ativo e pago.
+                  const paymentBadgeLabel = isPaid
+                    ? isCancelled
+                      ? "Pago — atendimento cancelado"
+                      : "Pago"
+                    : "Pendente";
+                  const paymentBadgeClass = isPaid
+                    ? isCancelled
+                      ? "bg-[#f4f4f2] text-[#78867f]"
+                      : "bg-[#edf7ef] text-[#477152]"
+                    : "bg-[#fff7e8] text-[#8a641d]";
                   const statusChanges = availableStatusChanges(appointment);
                   const primaryAction = primaryAppointmentAction(appointment, isPaid);
 
@@ -1447,14 +1494,10 @@ export default function AgendaPage() {
                             {statusLabel(appointment.status)}
                           </span>
                           <span
-                            aria-label={`Status do pagamento: ${isPaid ? "Pago" : "Pendente"}`}
-                            className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                              isPaid
-                                ? "bg-[#edf7ef] text-[#477152]"
-                                : "bg-[#fff7e8] text-[#8a641d]"
-                            }`}
+                            aria-label={`Status do pagamento: ${paymentBadgeLabel}`}
+                            className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${paymentBadgeClass}`}
                           >
-                            {isPaid ? "Pago" : "Pendente"}
+                            {paymentBadgeLabel}
                           </span>
                         </div>
                       </div>
@@ -1490,7 +1533,7 @@ export default function AgendaPage() {
                           <div
                             role="menu"
                             aria-label={`Ações de ${appointment.client_name}`}
-                            className="absolute right-0 z-20 mt-1 w-64 rounded-xl border border-[#e4ebe7] bg-white p-2 shadow-lg"
+                            className="absolute right-0 z-50 mt-1 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-[#e4ebe7] bg-white p-2 shadow-lg"
                           >
                             {statusChanges
                               .filter((status) => status.value !== primaryAction?.value)

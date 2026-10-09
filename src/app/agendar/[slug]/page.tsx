@@ -149,7 +149,7 @@ export default async function PublicBookingPage({
                   organization.logoVersion ? `?v=${organization.logoVersion}` : ""
                 }`}
                 alt={`Logo de ${organization.name}`}
-                className="h-20 w-20 shrink-0 rounded-3xl border border-[#e2ebe5] bg-white object-contain p-1 sm:h-24 sm:w-24"
+                className="h-20 w-20 shrink-0 rounded-3xl bg-white object-contain p-1 sm:h-24 sm:w-24"
               />
             ) : (
               <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-[#dceee4] sm:h-24 sm:w-24">

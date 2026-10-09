@@ -542,7 +542,7 @@ export function PublicBookingForm({
                             : ""
                         }`}
                         alt={`Foto de ${professional.name}`}
-                        className="h-16 w-16 rounded-full object-cover shadow-sm ring-2 ring-white sm:h-20 sm:w-20"
+                        className="h-16 w-16 rounded-full object-cover sm:h-20 sm:w-20"
                       />
                     ) : (
                       <span

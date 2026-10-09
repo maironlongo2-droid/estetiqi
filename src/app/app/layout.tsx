@@ -297,14 +297,24 @@ export default function AppLayout({
                   </Link>
 
                   {isSupportAdmin && (
-                    <Link
-                      role="menuitem"
-                      href="/admin/suporte"
-                      onClick={() => setMenuOpen(false)}
-                      className="flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-[#50655b] hover:bg-[#f4f7f5]"
-                    >
-                      Central de suporte (EstetiQi)
-                    </Link>
+                    <>
+                      <Link
+                        role="menuitem"
+                        href="/admin/painel"
+                        onClick={() => setMenuOpen(false)}
+                        className="flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-[#50655b] hover:bg-[#f4f7f5]"
+                      >
+                        Painel da plataforma (EstetiQi)
+                      </Link>
+                      <Link
+                        role="menuitem"
+                        href="/admin/suporte"
+                        onClick={() => setMenuOpen(false)}
+                        className="flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-[#50655b] hover:bg-[#f4f7f5]"
+                      >
+                        Central de suporte (EstetiQi)
+                      </Link>
+                    </>
                   )}
 
                   <div className="my-1 border-t border-[#e4ebe7]" />

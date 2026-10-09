@@ -7,6 +7,21 @@ import { getAvailableAppointmentSlots } from "@/lib/appointments/availability";
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 const uuidSchema = z.string().uuid();
 
+// Aceita vários procedimentos (?procedureIds=id1,id2) mantendo compatibilidade
+// com o parâmetro único antigo (?procedureId=id1).
+function parseProcedureIds(params: URLSearchParams) {
+  const listParam = params.get("procedureIds");
+  const raw = listParam
+    ? listParam.split(",")
+    : params.get("procedureId")
+      ? [params.get("procedureId") as string]
+      : [];
+
+  return Array.from(
+    new Set(raw.map((value) => value.trim()).filter(Boolean))
+  );
+}
+
 export async function GET(request: Request) {
   try {
     const currentUser = await requireCurrentUser();
@@ -16,15 +31,15 @@ export async function GET(request: Request) {
 
     const params = new URL(request.url).searchParams;
     const professionalId = params.get("professionalId");
-    const procedureId = params.get("procedureId");
     const date = params.get("date");
+    const procedureIds = parseProcedureIds(params);
 
     if (
       !professionalId ||
-      !procedureId ||
+      procedureIds.length === 0 ||
       !date ||
       !uuidSchema.safeParse(professionalId).success ||
-      !uuidSchema.safeParse(procedureId).success ||
+      !procedureIds.every((id) => uuidSchema.safeParse(id).success) ||
       !datePattern.test(date) ||
       Number.isNaN(Date.parse(`${date}T12:00:00Z`)) ||
       new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date
@@ -33,7 +48,7 @@ export async function GET(request: Request) {
     }
 
     const organizationId = currentUser.organization.id;
-    const [professional, procedure, assignment] = await Promise.all([
+    const [professional, procedures, assignments] = await Promise.all([
       sql`
         SELECT id
         FROM professionals
@@ -45,34 +60,41 @@ export async function GET(request: Request) {
       sql`
         SELECT id, duration_minutes
         FROM procedures
-        WHERE id = ${procedureId}
-          AND organization_id = ${organizationId}
+        WHERE organization_id = ${organizationId}
           AND status = 'active'
-        LIMIT 1
+          AND id = ANY(${procedureIds}::uuid[])
       `,
       sql`
-        SELECT 1
+        SELECT procedure_id
         FROM professional_procedures
         WHERE organization_id = ${organizationId}
           AND professional_id = ${professionalId}
-          AND procedure_id = ${procedureId}
-        LIMIT 1
+          AND procedure_id = ANY(${procedureIds}::uuid[])
       `,
     ]);
 
-    if (!professional.length || !procedure.length) {
+    if (!professional.length || procedures.length !== procedureIds.length) {
       return Response.json({ error: "PROFESSIONAL_OR_PROCEDURE_NOT_FOUND" }, { status: 404 });
     }
-    if (!assignment.length) {
+    if (assignments.length !== procedureIds.length) {
       return Response.json({ error: "PROCEDURE_NOT_ASSIGNED" }, { status: 409 });
     }
-    const durationMinutes = procedure[0].duration_minutes;
-    if (!durationMinutes) {
+
+    // A agenda tem de reservar a soma das durações de todos os procedimentos.
+    const hasEveryDuration = procedures.every(
+      (procedure) => typeof procedure.duration_minutes === "number" && procedure.duration_minutes > 0
+    );
+    if (!hasEveryDuration) {
       return Response.json(
         { error: "PROCEDURE_DURATION_REQUIRED", slots: [] },
         { status: 409 }
       );
     }
+
+    const durationMinutes = procedures.reduce(
+      (total, procedure) => total + procedure.duration_minutes,
+      0
+    );
 
     const slots = await getAvailableAppointmentSlots({
       organizationId,
@@ -89,3 +111,4 @@ export async function GET(request: Request) {
     return Response.json({ error: "Não foi possível consultar horários disponíveis." }, { status: 500 });
   }
 }
+

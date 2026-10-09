@@ -4,6 +4,11 @@ import { hasPermission } from "@/lib/auth/authorization";
 import { sql } from "@/lib/db/client";
 import { updateAppointmentSchema } from "@/lib/validation/appointment";
 import { checkProfessionalAvailability } from "@/lib/appointments/availability";
+import {
+  appointmentProceduresSelect,
+  loadAppointmentProcedures,
+  procedureLinksJson,
+} from "@/lib/appointments/procedures";
 
 export async function GET(
   request: Request,
@@ -31,6 +36,7 @@ export async function GET(
         c.name AS client_name,
         a.procedure_id,
         p.name AS procedure_name,
+        ${appointmentProceduresSelect()} AS procedures,
         a.professional_id,
         a.professional_name,
         a.starts_at,
@@ -159,9 +165,18 @@ export async function PATCH(
     const clientId =
       data.clientId ?? current.client_id;
 
+    const requestedProcedureIds: string[] | undefined =
+      data.procedureIds !== undefined
+        ? Array.from(new Set(data.procedureIds.filter(Boolean)))
+        : data.procedureId !== undefined
+          ? data.procedureId
+            ? [data.procedureId]
+            : []
+          : undefined;
+
     const procedureId =
-      data.procedureId !== undefined
-        ? data.procedureId || null
+      requestedProcedureIds !== undefined
+        ? requestedProcedureIds[0] ?? null
         : current.procedure_id;
 
     const professionalId =
@@ -189,7 +204,7 @@ export async function PATCH(
             )
           : new Date(current.ends_at);
 
-    const price =
+    let price =
       data.price !== undefined
         ? data.price
         : current.price;
@@ -253,6 +268,7 @@ export async function PATCH(
       data.startsAt !== undefined ||
       data.endsAt !== undefined ||
       data.procedureId !== undefined ||
+      data.procedureIds !== undefined ||
       data.professionalId !== undefined;
     const shouldValidateAvailability =
       isActiveAppointment &&
@@ -275,31 +291,55 @@ export async function PATCH(
         );
       }
     }
-    let procedureDurationMinutes: number | null = null;
+    let effectiveProcedureIds: string[] = [];
+    if (requestedProcedureIds !== undefined) {
+      effectiveProcedureIds = requestedProcedureIds;
+    } else if (shouldValidateAvailability) {
+      const links = (await sql`
+        SELECT procedure_id
+        FROM appointment_procedures
+        WHERE organization_id = ${organizationId}
+          AND appointment_id = ${id}
+        ORDER BY position
+      `) as Array<{ procedure_id: string }>;
+      effectiveProcedureIds = links.length
+        ? links.map((link) => link.procedure_id)
+        : current.procedure_id
+          ? [current.procedure_id]
+          : [];
+    }
 
-    if (procedureId && shouldValidateAvailability) {
-      const procedureResult = await sql`
-        SELECT id, duration_minutes
-        FROM procedures
-        WHERE id = ${procedureId}
-          AND organization_id = ${organizationId}
-          AND status = 'active'
-        LIMIT 1
-      `;
+    if (
+      effectiveProcedureIds.length > 0 &&
+      (shouldValidateAvailability || requestedProcedureIds !== undefined)
+    ) {
+      const proceduresResult = await loadAppointmentProcedures(
+        organizationId,
+        effectiveProcedureIds,
+        { requireActive: shouldValidateAvailability }
+      );
 
-      if (procedureResult.length === 0) {
+      if (!proceduresResult.ok) {
         return Response.json(
-          {
-            error: "Procedimento não encontrado ou inativo.",
-          },
-          { status: 404 }
+          { error: proceduresResult.error },
+          { status: proceduresResult.status }
         );
       }
-      procedureDurationMinutes = procedureResult[0].duration_minutes;
-      if (procedureDurationMinutes) {
+
+      // Recalcula a duração total (fim) a partir dos procedimentos válidos.
+      if (proceduresResult.totalDurationMinutes) {
         endsAt = new Date(
-          startsAt.getTime() + procedureDurationMinutes * 60_000
+          startsAt.getTime() + proceduresResult.totalDurationMinutes * 60_000
         );
+      }
+
+      // Ao trocar a lista de procedimentos, o preço total também é
+      // recalculado no servidor.
+      if (
+        requestedProcedureIds !== undefined &&
+        proceduresResult.totalPrice !== null
+      ) {
+        price = proceduresResult.totalPrice;
       }
     }
 
@@ -325,17 +365,16 @@ export async function PATCH(
 
       resolvedProfessionalName = professionalResult[0].name;
 
-      if (procedureId && shouldValidateAvailability) {
-        const assignment = await sql`
-          SELECT 1
+      if (effectiveProcedureIds.length > 0 && shouldValidateAvailability) {
+        const assignments = await sql`
+          SELECT procedure_id
           FROM professional_procedures
           WHERE professional_id = ${professionalId}
-            AND procedure_id = ${procedureId}
             AND organization_id = ${organizationId}
-          LIMIT 1
+            AND procedure_id = ANY(${effectiveProcedureIds}::uuid[])
         `;
 
-        if (assignment.length === 0) {
+        if (assignments.length !== effectiveProcedureIds.length) {
           return Response.json(
             { error: "O profissional não está habilitado para este procedimento." },
             { status: 409 }
@@ -373,54 +412,87 @@ export async function PATCH(
       status === "cancelled" ||
       status === "no_show" ||
       !shouldValidateAvailability;
+    const rewriteLinks = requestedProcedureIds !== undefined;
+    const linksJson = procedureLinksJson(effectiveProcedureIds);
     const updateAppointment = sql`
-      UPDATE appointments
-      SET
-        client_id = ${clientId},
-        procedure_id = ${procedureId},
-        professional_id = ${professionalId},
-        professional_name = ${resolvedProfessionalName},
-        starts_at = ${startsAt.toISOString()},
-        ends_at = ${endsAt.toISOString()},
-        price = ${price ?? null},
-        notes = ${notes},
-        status = ${status},
-        updated_at = NOW()
-      WHERE id = ${id}
-        AND organization_id = ${organizationId}
-        AND (
-          ${bypassConflictCheck}
-          OR NOT EXISTS (
-            SELECT 1
-            FROM appointments existing
-            WHERE existing.organization_id = ${organizationId}
-              AND existing.id <> ${id}
-              AND (
-                existing.professional_id = ${professionalId}
-                OR (
-                  existing.professional_id IS NULL
-                  AND existing.professional_name = ${resolvedProfessionalName}
+      WITH updated AS (
+        UPDATE appointments
+        SET
+          client_id = ${clientId},
+          procedure_id = ${procedureId},
+          professional_id = ${professionalId},
+          professional_name = ${resolvedProfessionalName},
+          starts_at = ${startsAt.toISOString()},
+          ends_at = ${endsAt.toISOString()},
+          price = ${price ?? null},
+          notes = ${notes},
+          status = ${status},
+          updated_at = NOW()
+        WHERE id = ${id}
+          AND organization_id = ${organizationId}
+          AND (
+            ${bypassConflictCheck}
+            OR NOT EXISTS (
+              SELECT 1
+              FROM appointments existing
+              WHERE existing.organization_id = ${organizationId}
+                AND existing.id <> ${id}
+                AND (
+                  existing.professional_id = ${professionalId}
+                  OR (
+                    existing.professional_id IS NULL
+                    AND existing.professional_name = ${resolvedProfessionalName}
+                  )
                 )
-              )
-              AND existing.status NOT IN ('cancelled', 'no_show')
-              AND existing.starts_at < ${endsAt.toISOString()}
-              AND existing.ends_at > ${startsAt.toISOString()}
+                AND existing.status NOT IN ('cancelled', 'no_show')
+                AND existing.starts_at < ${endsAt.toISOString()}
+                AND existing.ends_at > ${startsAt.toISOString()}
+            )
           )
+        RETURNING
+          id,
+          organization_id,
+          client_id,
+          procedure_id,
+          professional_id,
+          professional_name,
+          starts_at,
+          ends_at,
+          price,
+          notes,
+          status,
+          created_at,
+          updated_at
+      ),
+      upserted AS (
+        INSERT INTO appointment_procedures (
+          organization_id,
+          appointment_id,
+          procedure_id,
+          position
         )
-      RETURNING
-        id,
-        organization_id,
-        client_id,
-        procedure_id,
-        professional_id,
-        professional_name,
-        starts_at,
-        ends_at,
-        price,
-        notes,
-        status,
-        created_at,
-        updated_at
+        SELECT
+          updated.organization_id,
+          updated.id,
+          link.procedure_id,
+          link.position
+        FROM updated
+        CROSS JOIN LATERAL jsonb_to_recordset(${linksJson}::jsonb)
+          AS link(procedure_id uuid, position int)
+        WHERE ${rewriteLinks}
+        ON CONFLICT (appointment_id, procedure_id)
+          DO UPDATE SET position = EXCLUDED.position
+        RETURNING appointment_id
+      ),
+      pruned AS (
+        DELETE FROM appointment_procedures link
+        USING updated
+        WHERE link.appointment_id = updated.id
+          AND ${rewriteLinks}
+          AND link.procedure_id <> ALL(${effectiveProcedureIds}::uuid[])
+        RETURNING appointment_id
+      )
+      SELECT * FROM updated
     `;
     const result =
       professionalId && !bypassConflictCheck
@@ -455,6 +527,7 @@ export async function PATCH(
           previousStatus: current.status,
           newStatus: status,
           procedureId,
+          procedureIds: effectiveProcedureIds,
           professionalName: resolvedProfessionalName,
           startsAt: startsAt.toISOString(),
           endsAt: endsAt.toISOString(),

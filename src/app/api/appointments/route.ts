@@ -4,6 +4,12 @@ import { recordCustomerEvent } from "@/lib/events/customer-events";
 import { sql } from "@/lib/db/client";
 import { createAppointmentSchema } from "@/lib/validation/appointment";
 import { checkProfessionalAvailability } from "@/lib/appointments/availability";
+import {
+  appointmentProceduresSelect,
+  loadAppointmentProcedures,
+  normalizeProcedureIds,
+  procedureLinksJson,
+} from "@/lib/appointments/procedures";
 
 // Limite defensivo para a consulta por intervalo (?from&to), em dias inclusivos.
 const MAX_APPOINTMENTS_RANGE_DAYS = 92;
@@ -39,6 +45,7 @@ export async function GET(request: Request) {
           c.name AS client_name,
           a.procedure_id,
           p.name AS procedure_name,
+          ${appointmentProceduresSelect()} AS procedures,
           a.professional_id,
           a.professional_name,
           a.starts_at,
@@ -122,6 +129,7 @@ export async function GET(request: Request) {
           c.name AS client_name,
           a.procedure_id,
           p.name AS procedure_name,
+          ${appointmentProceduresSelect()} AS procedures,
           a.professional_id,
           a.professional_name,
           a.starts_at,
@@ -172,6 +180,7 @@ export async function GET(request: Request) {
         c.name AS client_name,
         a.procedure_id,
         p.name AS procedure_name,
+        ${appointmentProceduresSelect()} AS procedures,
         a.professional_id,
         a.professional_name,
         a.starts_at,
@@ -256,6 +265,7 @@ export async function POST(request: Request) {
     const {
       clientId,
       procedureId,
+      procedureIds,
       professionalId,
       startsAt,
       endsAt,
@@ -282,29 +292,26 @@ export async function POST(request: Request) {
       );
     }
 
-    const normalizedProcedureId = procedureId || null;
+    const normalizedProcedureIds = normalizeProcedureIds({
+      procedureId,
+      procedureIds,
+    });
+    const normalizedProcedureId = normalizedProcedureIds[0] ?? null;
     const normalizedProfessionalId = professionalId || null;
     let normalizedProfessionalName: string | null = null;
 
-    let procedureDurationMinutes: number | null = null;
-    if (normalizedProcedureId) {
-      const procedureResult = await sql`
-        SELECT id, duration_minutes
-        FROM procedures
-        WHERE id = ${normalizedProcedureId}
-          AND organization_id = ${organizationId}
-          AND status = 'active'
-        LIMIT 1
-      `;
-
-      if (procedureResult.length === 0) {
-        return Response.json(
-          { error: "Procedimento não encontrado ou inativo." },
-          { status: 404 }
-        );
-      }
-      procedureDurationMinutes = procedureResult[0].duration_minutes;
+    const proceduresResult = await loadAppointmentProcedures(
+      organizationId,
+      normalizedProcedureIds,
+      { requireActive: true }
+    );
+    if (!proceduresResult.ok) {
+      return Response.json(
+        { error: proceduresResult.error },
+        { status: proceduresResult.status }
+      );
     }
+    const { totalDurationMinutes, totalPrice } = proceduresResult;
 
     if (normalizedProfessionalId) {
       const professionalResult = await sql`
@@ -325,17 +332,16 @@ export async function POST(request: Request) {
 
       normalizedProfessionalName = professionalResult[0].name;
 
-      if (normalizedProcedureId) {
-        const assignment = await sql`
-          SELECT 1
+      if (normalizedProcedureIds.length > 0) {
+        const assignments = await sql`
+          SELECT procedure_id
           FROM professional_procedures
           WHERE professional_id = ${normalizedProfessionalId}
-            AND procedure_id = ${normalizedProcedureId}
             AND organization_id = ${organizationId}
-          LIMIT 1
+            AND procedure_id = ANY(${normalizedProcedureIds}::uuid[])
         `;
 
-        if (assignment.length === 0) {
+        if (assignments.length !== normalizedProcedureIds.length) {
           return Response.json(
             { error: "O profissional não está habilitado para este procedimento." },
             { status: 409 }
@@ -346,9 +352,11 @@ export async function POST(request: Request) {
 
     const start = new Date(startsAt);
     const requestedEnd = new Date(endsAt);
+    // A duração total é sempre recalculada no servidor a partir dos
+    // procedimentos válidos do banco (soma das durações).
     const end =
-      procedureDurationMinutes && !Number.isNaN(start.getTime())
-        ? new Date(start.getTime() + procedureDurationMinutes * 60_000)
+      totalDurationMinutes && !Number.isNaN(start.getTime())
+        ? new Date(start.getTime() + totalDurationMinutes * 60_000)
         : requestedEnd;
 
     if (
@@ -361,6 +369,10 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    // O preço total também é recalculado no servidor. Só recorre ao valor
+    // enviado pelo cliente quando nenhum procedimento possui preço cadastrado.
+    const effectivePrice = totalPrice !== null ? totalPrice : price ?? null;
 
     if (
       normalizedProfessionalId &&
@@ -393,60 +405,81 @@ export async function POST(request: Request) {
       !normalizedProfessionalId ||
       status === "cancelled" ||
       status === "no_show";
+    const linksJson = procedureLinksJson(normalizedProcedureIds);
     const insertStatement = sql`
-      INSERT INTO appointments (
-        organization_id,
-        client_id,
-        procedure_id,
-        professional_id,
-        professional_name,
-        starts_at,
-        ends_at,
-        price,
-        notes,
-        status
-      )
-      SELECT
-        ${organizationId},
-        ${clientId},
-        ${normalizedProcedureId},
-        ${normalizedProfessionalId},
-        ${normalizedProfessionalName},
-        ${start.toISOString()},
-        ${end.toISOString()},
-        ${price ?? null},
-        ${notes || null},
-        ${status ?? "scheduled"}
-      WHERE ${bypassConflictCheck}
-        OR NOT EXISTS (
-          SELECT 1
-          FROM appointments existing
-          WHERE existing.organization_id = ${organizationId}
-            AND (
-              existing.professional_id = ${normalizedProfessionalId}
-              OR (
-                existing.professional_id IS NULL
-                AND existing.professional_name = ${normalizedProfessionalName}
-              )
-            )
-            AND existing.status NOT IN ('cancelled', 'no_show')
-            AND existing.starts_at < ${end.toISOString()}
-            AND existing.ends_at > ${start.toISOString()}
+      WITH inserted AS (
+        INSERT INTO appointments (
+          organization_id,
+          client_id,
+          procedure_id,
+          professional_id,
+          professional_name,
+          starts_at,
+          ends_at,
+          price,
+          notes,
+          status
         )
-      RETURNING
-        id,
-        organization_id,
-        client_id,
-        procedure_id,
-        professional_id,
-        professional_name,
-        starts_at,
-        ends_at,
-        price,
-        notes,
-        status,
-        created_at,
-        updated_at
+        SELECT
+          ${organizationId},
+          ${clientId},
+          ${normalizedProcedureId},
+          ${normalizedProfessionalId},
+          ${normalizedProfessionalName},
+          ${start.toISOString()},
+          ${end.toISOString()},
+          ${effectivePrice},
+          ${notes || null},
+          ${status ?? "scheduled"}
+        WHERE ${bypassConflictCheck}
+          OR NOT EXISTS (
+            SELECT 1
+            FROM appointments existing
+            WHERE existing.organization_id = ${organizationId}
+              AND (
+                existing.professional_id = ${normalizedProfessionalId}
+                OR (
+                  existing.professional_id IS NULL
+                  AND existing.professional_name = ${normalizedProfessionalName}
+                )
+              )
+              AND existing.status NOT IN ('cancelled', 'no_show')
+              AND existing.starts_at < ${end.toISOString()}
+              AND existing.ends_at > ${start.toISOString()}
+          )
+        RETURNING
+          id,
+          organization_id,
+          client_id,
+          procedure_id,
+          professional_id,
+          professional_name,
+          starts_at,
+          ends_at,
+          price,
+          notes,
+          status,
+          created_at,
+          updated_at
+      ),
+      links AS (
+        INSERT INTO appointment_procedures (
+          organization_id,
+          appointment_id,
+          procedure_id,
+          position
+        )
+        SELECT
+          inserted.organization_id,
+          inserted.id,
+          link.procedure_id,
+          link.position
+        FROM inserted
+        CROSS JOIN LATERAL jsonb_to_recordset(${linksJson}::jsonb)
+          AS link(procedure_id uuid, position int)
+        RETURNING appointment_id
+      )
+      SELECT * FROM inserted
     `;
 
     const appointments =
@@ -481,10 +514,11 @@ export async function POST(request: Request) {
       source: "system",
       data: {
         procedureId: normalizedProcedureId,
+        procedureIds: normalizedProcedureIds,
         professionalName: normalizedProfessionalName,
         startsAt: appointment.starts_at,
         endsAt: appointment.ends_at,
-        price: price ?? null,
+        price: effectivePrice,
       },
     });
 

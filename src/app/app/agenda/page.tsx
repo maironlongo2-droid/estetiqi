@@ -6,11 +6,11 @@ import { useUser } from "@clerk/nextjs";
 import { useToast } from "../toast";
 
 // Rascunho do formulário de novo agendamento (apenas nesta sessão do navegador).
-const appointmentDraftPrefix = "estetiqi:agenda:draft:v1";
+const appointmentDraftPrefix = "estetiqi:agenda:draft:v2";
 
 type AppointmentDraft = {
   clientId: string;
-  procedureId: string;
+  procedureIds: string[];
   professionalId: string;
   startsAt: string;
   endsAt: string;
@@ -51,6 +51,12 @@ type Appointment = {
   status: string;
   client_name: string;
   procedure_name: string | null;
+  procedures?: {
+    id: string;
+    name: string | null;
+    price: number | null;
+    durationMinutes: number | null;
+  }[];
   has_payments?: boolean;
 };
 
@@ -297,6 +303,14 @@ function statusLabel(status: string) {
   return appointmentStatusLabels[status] ?? status;
 }
 
+function appointmentProcedureLabel(appointment: Appointment) {
+  const names = (appointment.procedures ?? [])
+    .map((procedure) => procedure.name)
+    .filter((name): name is string => Boolean(name));
+  if (names.length) return names.join(" + ");
+  return appointment.procedure_name || "Procedimento não informado";
+}
+
 function availableStatusChanges(appointment: Appointment) {
   const changes: Array<{ value: string; label: string }> = [];
   const ended = new Date(appointment.ends_at).getTime() <= Date.now();
@@ -345,6 +359,67 @@ function primaryAppointmentAction(appointment: Appointment, isPaid: boolean) {
   return null;
 }
 
+type ProcedureOption = { id: string; name: string };
+
+// Campos de procedimentos do agendamento: múltiplas linhas, com botão de
+// adicionar e remover. As opções de cada linha excluem procedimentos já
+// escolhidos em outras linhas (não permite repetir o mesmo procedimento).
+function ProcedureFields({
+  ids,
+  optionsForIndex,
+  onChange,
+  onAdd,
+  onRemove,
+}: {
+  ids: string[];
+  optionsForIndex: (index: number) => ProcedureOption[];
+  onChange: (index: number, value: string) => void;
+  onAdd: () => void;
+  onRemove: (index: number) => void;
+}) {
+  return (
+    <div className="block text-sm font-medium text-[#50655b]">
+      <span>Procedimentos</span>
+      <div className="mt-2 space-y-2">
+        {ids.map((value, index) => (
+          <div key={index} className="flex items-center gap-2">
+            <select
+              aria-label={index === 0 ? "Procedimento" : `Procedimento ${index + 1}`}
+              value={value}
+              onChange={(event) => onChange(index, event.target.value)}
+              className="w-full rounded-xl border border-[#dce5e0] bg-white p-3"
+            >
+              <option value="">Selecione o procedimento</option>
+              {optionsForIndex(index).map((procedure) => (
+                <option key={procedure.id} value={procedure.id}>
+                  {procedure.name}
+                </option>
+              ))}
+            </select>
+            {ids.length > 1 && (
+              <button
+                type="button"
+                aria-label={`Remover procedimento ${index + 1}`}
+                onClick={() => onRemove(index)}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#dce5e0] text-lg text-[#8a5149] hover:bg-[#fdf5f4]"
+              >
+                ×
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={onAdd}
+        className="mt-2 text-sm font-medium text-[#6f927f] hover:text-[#30463c]"
+      >
+        + Adicionar procedimento
+      </button>
+    </div>
+  );
+}
+
 export default function AgendaPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -378,7 +453,7 @@ export default function AgendaPage() {
   const [editForm, setEditForm] = useState({
     clientId: "",
     professionalId: "",
-    procedureId: "",
+    procedureIds: [""],
     date: "",
     endsDate: "",
     startsAt: "",
@@ -400,7 +475,7 @@ export default function AgendaPage() {
 
   const [form, setForm] = useState({
     clientId: "",
-    procedureId: "",
+    procedureIds: [""],
     professionalId: "",
     startsAt: "",
     endsAt: "",
@@ -451,6 +526,115 @@ export default function AgendaPage() {
       ),
     [procedures, selectedProfessional]
   );
+
+  // Procedimentos escolhidos no formulário de novo agendamento.
+  const selectedProcedureIds = useMemo(
+    () => form.procedureIds.filter(Boolean),
+    [form.procedureIds]
+  );
+  const selectedProcedureIdsKey = selectedProcedureIds.join(",");
+
+  const selectedProcedures = useMemo(
+    () =>
+      selectedProcedureIds
+        .map((id) => procedures.find((procedure) => procedure.id === id))
+        .filter((procedure): procedure is Procedure => Boolean(procedure)),
+    [procedures, selectedProcedureIds]
+  );
+
+  // Totais exibidos ao usuário (duração e preço). O servidor recalcula com os
+  // dados do banco.
+  const formTotals = useMemo(() => {
+    const durationMinutes = selectedProcedures.reduce(
+      (total, procedure) => total + (procedure.duration_minutes ?? 0),
+      0
+    );
+    const price = selectedProcedures.reduce(
+      (total, procedure) => total + (procedure.price ?? 0),
+      0
+    );
+    const hasAnyPrice = selectedProcedures.some(
+      (procedure) => procedure.price !== null
+    );
+    return { durationMinutes, price, hasAnyPrice };
+  }, [selectedProcedures]);
+
+  // Totais do formulário de edição (duração e preço dos procedimentos atuais).
+  const editTotals = useMemo(() => {
+    const selected = editForm.procedureIds
+      .filter(Boolean)
+      .map((id) => {
+        const inList = procedures.find((procedure) => procedure.id === id);
+        if (inList) return inList;
+        const current = editingAppointment?.procedures?.find(
+          (procedure) => procedure.id === id
+        );
+        return current
+          ? {
+              id: current.id,
+              name: current.name ?? "",
+              price: current.price,
+              duration_minutes: current.durationMinutes,
+            }
+          : null;
+      })
+      .filter((procedure): procedure is Procedure => Boolean(procedure));
+
+    const durationMinutes = selected.reduce(
+      (total, procedure) => total + (procedure.duration_minutes ?? 0),
+      0
+    );
+    const price = selected.reduce(
+      (total, procedure) => total + (procedure.price ?? 0),
+      0
+    );
+    const hasAnyPrice = selected.some((procedure) => procedure.price !== null);
+    return { durationMinutes, price, hasAnyPrice };
+  }, [editForm.procedureIds, procedures, editingAppointment]);
+
+  function procedureOptionsForCreate(index: number) {
+    const taken = new Set(
+      form.procedureIds.filter((id, position) => id && position !== index)
+    );
+    return availableProcedures.filter((procedure) => !taken.has(procedure.id));
+  }
+
+  function procedureOptionsForEdit(index: number) {
+    const taken = new Set(
+      editForm.procedureIds.filter(
+        (id, position) => id && position !== index
+      )
+    );
+    const options: ProcedureOption[] = procedures
+      .filter((procedure) => !taken.has(procedure.id))
+      .map((procedure) => ({ id: procedure.id, name: procedure.name }));
+
+    // Mantém os procedimentos atuais que já não estão na lista ativa.
+    for (const id of editForm.procedureIds) {
+      if (!id || taken.has(id)) continue;
+      if (options.some((option) => option.id === id)) continue;
+      const current = editingAppointment?.procedures?.find(
+        (procedure) => procedure.id === id
+      );
+      if (current) {
+        options.unshift({
+          id: current.id,
+          name: current.name ?? "Procedimento atual",
+        });
+      }
+    }
+
+    return options;
+  }
+
+  function recomputeFormPrice(nextIds: string[]) {
+    const total = nextIds
+      .filter(Boolean)
+      .map((id) => procedures.find((procedure) => procedure.id === id))
+      .filter((procedure): procedure is Procedure => Boolean(procedure))
+      .reduce((sum, procedure) => sum + (procedure.price ?? 0), 0);
+    return total;
+  }
 
   async function loadData(date = selectedDate, showUpcoming = upcomingView) {
     await Promise.all([
@@ -566,14 +750,22 @@ export default function AgendaPage() {
   }, [isLoaded, user, notifyError]);
 
   useEffect(() => {
-    if (!showForm || !form.professionalId || !form.procedureId || !appointmentDate) {
+    const procedureIds = selectedProcedureIdsKey
+      ? selectedProcedureIdsKey.split(",")
+      : [];
+    if (
+      !showForm ||
+      !form.professionalId ||
+      procedureIds.length === 0 ||
+      !appointmentDate
+    ) {
       return;
     }
 
     let active = true;
     const query = new URLSearchParams({
       professionalId: form.professionalId,
-      procedureId: form.procedureId,
+      procedureIds: procedureIds.join(","),
       date: appointmentDate,
     });
 
@@ -623,7 +815,7 @@ export default function AgendaPage() {
   }, [
     appointmentDate,
     form.professionalId,
-    form.procedureId,
+    selectedProcedureIdsKey,
     showForm,
   ]);
 
@@ -649,9 +841,17 @@ export default function AgendaPage() {
     if (!parsed) return;
     const draft = parsed;
 
+    const legacyDraft = parsed as Partial<AppointmentDraft> & {
+      procedureId?: string;
+    };
+    const draftProcedureIds = Array.isArray(draft.procedureIds)
+      ? draft.procedureIds
+      : legacyDraft.procedureId
+        ? [legacyDraft.procedureId]
+        : [];
     const nextForm = {
       clientId: draft.clientId ?? "",
-      procedureId: draft.procedureId ?? "",
+      procedureIds: draftProcedureIds.length ? draftProcedureIds : [""],
       professionalId: draft.professionalId ?? "",
       startsAt: draft.startsAt ?? "",
       endsAt: draft.endsAt ?? "",
@@ -675,7 +875,7 @@ export default function AgendaPage() {
     const hasContent =
       form.clientId !== "" ||
       form.professionalId !== "" ||
-      form.procedureId !== "" ||
+      form.procedureIds.some((id) => id !== "") ||
       form.startsAt !== "" ||
       form.endsAt !== "" ||
       form.price !== "" ||
@@ -704,28 +904,46 @@ export default function AgendaPage() {
     setSelectedDate(brasilDateString(date));
   }
 
-  function handleProcedureChange(
-    procedureId: string,
-    nextProfessionalId = form.professionalId
+  function applyProcedureIds(
+    nextIds: string[],
+    nextProfessionalId: string
   ) {
-    const procedure = procedures.find(
-      (item) => item.id === procedureId
-    );
+    const hasAnyPrice = nextIds.some((id) => {
+      const procedure = procedures.find((item) => item.id === id);
+      return procedure?.price !== null && procedure?.price !== undefined;
+    });
 
     setForm((current) => ({
       ...current,
-      procedureId,
+      procedureIds: nextIds,
       startsAt: "",
       endsAt: "",
-      price:
-        procedure?.price !== null &&
-        procedure?.price !== undefined
-          ? String(procedure.price)
-          : current.price,
+      price: hasAnyPrice ? String(recomputeFormPrice(nextIds)) : current.price,
     }));
     setAvailableSlots([]);
     setAvailabilityError("");
-    setAvailabilityLoading(Boolean(nextProfessionalId && procedureId));
+    setAvailabilityLoading(Boolean(nextProfessionalId && nextIds.some((id) => id)));
+  }
+
+  function handleProcedureChange(
+    index: number,
+    procedureId: string,
+    nextProfessionalId = form.professionalId
+  ) {
+    const nextIds = [...form.procedureIds];
+    nextIds[index] = procedureId;
+    applyProcedureIds(nextIds, nextProfessionalId);
+  }
+
+  function addProcedureRow() {
+    applyProcedureIds([...form.procedureIds, ""], form.professionalId);
+  }
+
+  function removeProcedureAt(index: number) {
+    const nextIds = form.procedureIds.filter(
+      (_, position) => position !== index
+    );
+    applyProcedureIds(nextIds.length ? nextIds : [""], form.professionalId);
   }
 
   async function createAppointment(
@@ -743,7 +961,7 @@ export default function AgendaPage() {
         },
         body: JSON.stringify({
           clientId: form.clientId,
-          procedureId: form.procedureId || undefined,
+          procedureIds: selectedProcedureIds,
           professionalId: form.professionalId || undefined,
           startsAt: new Date(form.startsAt).toISOString(),
           endsAt: new Date(form.endsAt).toISOString(),
@@ -762,12 +980,12 @@ export default function AgendaPage() {
       }
 
       const appointmentListDate =
-        form.professionalId && form.procedureId
+        form.professionalId && selectedProcedureIds.length > 0
           ? appointmentDate
           : brasilDateString(new Date(form.startsAt));
       setForm({
         clientId: "",
-        procedureId: "",
+        procedureIds: [""],
         professionalId: "",
         startsAt: "",
         endsAt: "",
@@ -823,11 +1041,16 @@ export default function AgendaPage() {
   function openAppointmentEditor(appointment: Appointment) {
     const start = formatBrazilDateTime(appointment.starts_at);
     const end = formatBrazilDateTime(appointment.ends_at);
+    const procedureIds = appointment.procedures?.length
+      ? appointment.procedures.map((procedure) => procedure.id)
+      : appointment.procedure_id
+        ? [appointment.procedure_id]
+        : [];
     setError("");
     setEditForm({
       clientId: appointment.client_id,
       professionalId: appointment.professional_id ?? "",
-      procedureId: appointment.procedure_id ?? "",
+      procedureIds: procedureIds.length ? procedureIds : [""],
       date: start.date,
       endsDate: end.date,
       startsAt: start.time,
@@ -837,6 +1060,33 @@ export default function AgendaPage() {
       status: appointment.status,
     });
     setEditingAppointment(appointment);
+  }
+
+  function handleEditProcedureChange(index: number, procedureId: string) {
+    setEditForm((current) => {
+      const procedureIds = [...current.procedureIds];
+      procedureIds[index] = procedureId;
+      return { ...current, procedureIds };
+    });
+  }
+
+  function addEditProcedureRow() {
+    setEditForm((current) => ({
+      ...current,
+      procedureIds: [...current.procedureIds, ""],
+    }));
+  }
+
+  function removeEditProcedureAt(index: number) {
+    setEditForm((current) => {
+      const procedureIds = current.procedureIds.filter(
+        (_, position) => position !== index
+      );
+      return {
+        ...current,
+        procedureIds: procedureIds.length ? procedureIds : [""],
+      };
+    });
   }
 
   async function saveAppointmentChanges(event: React.FormEvent<HTMLFormElement>) {
@@ -852,7 +1102,7 @@ export default function AgendaPage() {
         body: JSON.stringify({
           clientId: editForm.clientId,
           professionalId: editForm.professionalId,
-          procedureId: editForm.procedureId,
+          procedureIds: editForm.procedureIds.filter(Boolean),
           startsAt: brazilDateTimeToIso(editForm.date, editForm.startsAt),
           endsAt: brazilDateTimeToIso(editForm.endsDate, editForm.endsAt),
           ...(editForm.price.trim() ? { price: Number(editForm.price) } : {}),
@@ -991,7 +1241,9 @@ export default function AgendaPage() {
   function openNewAppointment() {
     setError("");
     setAppointmentDate(selectedDate);
-    setAvailabilityLoading(Boolean(form.professionalId && form.procedureId));
+    setAvailabilityLoading(
+      Boolean(form.professionalId && form.procedureIds.some((id) => id))
+    );
     setAvailabilityError("");
     setShowForm(true);
   }
@@ -1001,7 +1253,7 @@ export default function AgendaPage() {
     setAvailabilityLoading(false);
     setForm({
       clientId: "",
-      procedureId: "",
+      procedureIds: [""],
       professionalId: "",
       startsAt: "",
       endsAt: "",
@@ -1178,14 +1430,16 @@ export default function AgendaPage() {
                     const professional = professionals.find(
                       (item) => item.id === professionalId
                     );
-                    const procedureId =
-                      form.procedureId &&
+                    const keptIds = form.procedureIds.map((id) =>
+                      id &&
                       professional &&
-                      professional.procedure_ids.includes(form.procedureId)
-                        ? form.procedureId
-                        : "";
-                    handleProcedureChange(procedureId, professionalId);
+                      professional.procedure_ids.includes(id)
+                        ? id
+                        : ""
+                    );
+                    const nextIds = keptIds.some((id) => id) ? keptIds : [""];
                     setForm((current) => ({ ...current, professionalId }));
+                    applyProcedureIds(nextIds, professionalId);
                   }}
                   className="mt-2 w-full rounded-xl border border-[#dce5e0] p-3"
                 >
@@ -1200,30 +1454,39 @@ export default function AgendaPage() {
                 </select>
               </label>
 
-              <label className="block text-sm font-medium text-[#50655b]">
-                Procedimento
-                <select
-                  aria-label="Procedimento"
-                  value={form.procedureId}
-                  onChange={(event) =>
-                    handleProcedureChange(event.target.value)
-                  }
-                  className="mt-2 w-full rounded-xl border border-[#dce5e0] p-3"
-                >
-                  <option value="">Selecione o procedimento</option>
-                  {availableProcedures.map((procedure) => (
-                    <option key={procedure.id} value={procedure.id}>
-                      {procedure.name}
-                    </option>
-                  ))}
-                </select>
-                {selectedProfessional && availableProcedures.length === 0 && (
-                  <span className="mt-2 block text-xs text-[#8a5149]">
-                    Esta profissional ainda não tem procedimentos associados.
-                    Associe os procedimentos em Profissionais.
-                  </span>
-                )}
-              </label>
+              <ProcedureFields
+                ids={form.procedureIds}
+                optionsForIndex={procedureOptionsForCreate}
+                onChange={handleProcedureChange}
+                onAdd={addProcedureRow}
+                onRemove={removeProcedureAt}
+              />
+
+              {selectedProfessional && availableProcedures.length === 0 && (
+                <span className="block text-xs text-[#8a5149] md:col-span-2">
+                  Esta profissional ainda não tem procedimentos associados.
+                  Associe os procedimentos em Profissionais.
+                </span>
+              )}
+
+              {(formTotals.durationMinutes > 0 || formTotals.hasAnyPrice) && (
+                <div className="rounded-xl border border-[#e4ebe7] bg-[#f7faf8] p-3 text-sm md:col-span-2">
+                  <p className="font-medium text-[#30463c]">
+                    Resumo do atendimento
+                  </p>
+                  <p className="mt-1 text-[#50655b]">
+                    {formTotals.durationMinutes > 0 && (
+                      <>Duração total: {formTotals.durationMinutes} min</>
+                    )}
+                    {formTotals.durationMinutes > 0 &&
+                      formTotals.hasAnyPrice &&
+                      " · "}
+                    {formTotals.hasAnyPrice && (
+                      <>Preço total: {formatMoney(formTotals.price)}</>
+                    )}
+                  </p>
+                </div>
+              )}
 
               <label className="block text-sm font-medium text-[#50655b]">
                 Data do atendimento
@@ -1235,7 +1498,11 @@ export default function AgendaPage() {
                     setAppointmentDate(event.target.value);
                     setAvailableSlots([]);
                     setAvailabilityError("");
-                    setAvailabilityLoading(Boolean(form.professionalId && form.procedureId));
+                    setAvailabilityLoading(
+                      Boolean(
+                        form.professionalId && selectedProcedureIds.length > 0
+                      )
+                    );
                     setForm((current) => ({
                       ...current,
                       startsAt: "",
@@ -1248,7 +1515,7 @@ export default function AgendaPage() {
 
               <div className="block text-sm font-medium text-[#50655b] md:col-span-2">
                 <span>Horário disponível</span>
-                {!form.professionalId || !form.procedureId ? (
+                {!form.professionalId || selectedProcedureIds.length === 0 ? (
                   <span className="mt-2 block text-xs text-[#78867f]">
                     Selecione o profissional e o procedimento para ver os horários disponíveis.
                   </span>
@@ -1456,7 +1723,7 @@ export default function AgendaPage() {
                               {appointment.client_name}
                             </Link>
                             <p className="mt-1 text-sm font-medium text-[#50655b]">
-                              {appointment.procedure_name || "Procedimento não informado"}
+                              {appointmentProcedureLabel(appointment)}
                             </p>
                             {appointment.professional_name && (
                               <p className="mt-0.5 text-xs text-[#9aa59f]">
@@ -1705,29 +1972,32 @@ export default function AgendaPage() {
                 </select>
               </label>
 
-              <label className="block text-sm font-medium text-[#50655b]">
-                Procedimento
-                <select
-                  value={editForm.procedureId}
-                  onChange={(event) =>
-                    setEditForm((current) => ({ ...current, procedureId: event.target.value }))
-                  }
-                  className="mt-2 min-h-11 w-full rounded-xl border border-[#dce5e0] bg-white p-3"
-                >
-                  <option value="">Sem procedimento definido</option>
-                  {editForm.procedureId &&
-                    !procedures.some((item) => item.id === editForm.procedureId) && (
-                      <option value={editForm.procedureId}>
-                        {editingAppointment.procedure_name ?? "Procedimento atual"} · atual
-                      </option>
+              <ProcedureFields
+                ids={editForm.procedureIds}
+                optionsForIndex={procedureOptionsForEdit}
+                onChange={handleEditProcedureChange}
+                onAdd={addEditProcedureRow}
+                onRemove={removeEditProcedureAt}
+              />
+
+              {(editTotals.durationMinutes > 0 || editTotals.hasAnyPrice) && (
+                <div className="rounded-xl border border-[#e4ebe7] bg-[#f7faf8] p-3 text-sm sm:col-span-2">
+                  <p className="font-medium text-[#30463c]">
+                    Resumo do atendimento
+                  </p>
+                  <p className="mt-1 text-[#50655b]">
+                    {editTotals.durationMinutes > 0 && (
+                      <>Duração total: {editTotals.durationMinutes} min</>
                     )}
-                  {procedures.map((procedure) => (
-                    <option key={procedure.id} value={procedure.id}>
-                      {procedure.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                    {editTotals.durationMinutes > 0 &&
+                      editTotals.hasAnyPrice &&
+                      " · "}
+                    {editTotals.hasAnyPrice && (
+                      <>Preço total: {formatMoney(editTotals.price)}</>
+                    )}
+                  </p>
+                </div>
+              )}
 
               <label className="block text-sm font-medium text-[#50655b]">
                 Data

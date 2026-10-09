@@ -3,6 +3,8 @@ import { sql } from "../src/lib/db/client.ts";
 const relations = [
   ["appointments", "client_id", "clients"],
   ["appointments", "procedure_id", "procedures"],
+  ["appointment_procedures", "appointment_id", "appointments"],
+  ["appointment_procedures", "procedure_id", "procedures"],
   ["payments", "client_id", "clients"],
   ["payments", "appointment_id", "appointments"],
   ["payments", "procedure_id", "procedures"],

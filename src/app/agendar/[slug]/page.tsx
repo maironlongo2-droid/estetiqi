@@ -125,117 +125,131 @@ export default async function PublicBookingPage({
     googleMapsUrl(organization.mapsUrl) ?? googleMapsSearchUrl(address);
 
   return (
-    <main className="min-h-screen bg-[#f6faf7] px-5 py-10 sm:px-8 sm:py-14">
-      <div className="mx-auto w-full max-w-3xl">
-        <header className="rounded-3xl border border-[#e2ebe5] bg-white p-6 sm:p-8">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#7a9f8d]">
-                Agendamento online
-              </p>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#30463c]">
-                {organization.name}
-              </h1>
-              {organization.headline ? (
-                <p className="mt-2 text-lg text-[#496458]">
-                  {organization.headline}
+    <main className="min-h-screen bg-[#f6f3ec] px-4 py-8 sm:px-6 sm:py-12">
+      <div className="mx-auto w-full max-w-xl lg:max-w-5xl">
+        <div className="lg:grid lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:items-start lg:gap-8">
+          <header className="rounded-[1.75rem] border border-[#e7e1d5] bg-white p-6 shadow-[0_1px_2px_rgba(47,58,52,0.04)] sm:p-7 lg:sticky lg:top-8">
+            <div className="flex items-center gap-4">
+              {organization.hasLogo ? (
+                // A logo mantém a proporção original (object-contain) e é
+                // exibida sem moldura, borda ou fundo que pudesse parecer um
+                // contorno ao redor da imagem.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`/api/public/${organization.slug}/logo${
+                    organization.logoVersion
+                      ? `?v=${organization.logoVersion}`
+                      : ""
+                  }`}
+                  alt={`Logo de ${organization.name}`}
+                  className="h-16 w-16 shrink-0 object-contain sm:h-20 sm:w-20"
+                />
+              ) : (
+                <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#eaf1ec] sm:h-20 sm:w-20">
+                  <BrandMark className="h-9 w-9 sm:h-11 sm:w-11" />
+                </span>
+              )}
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#8a9a90]">
+                  Agendamento online
                 </p>
-              ) : null}
+                <h1 className="mt-1 text-2xl font-semibold leading-tight tracking-tight text-[#2f3a34] sm:text-[1.75rem]">
+                  {organization.name}
+                </h1>
+              </div>
             </div>
-            {organization.hasLogo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={`/api/public/${organization.slug}/logo${
-                  organization.logoVersion ? `?v=${organization.logoVersion}` : ""
-                }`}
-                alt={`Logo de ${organization.name}`}
-                className="h-20 w-20 shrink-0 rounded-3xl bg-white object-contain p-1 sm:h-24 sm:w-24"
-              />
+
+            {organization.headline ? (
+              <p className="mt-4 text-base leading-6 text-[#496458]">
+                {organization.headline}
+              </p>
+            ) : null}
+
+            {organization.bio ? (
+              <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#5f6f68]">
+                {organization.bio}
+              </p>
+            ) : null}
+
+            {location ? (
+              <div className="mt-5">
+                <div className="h-px w-12 bg-[#d8c69b]" />
+                <p className="mt-3 flex items-center gap-1.5 text-sm text-[#5f6f68]">
+                  <span aria-hidden="true">📍</span>
+                  <span>{location}</span>
+                </p>
+              </div>
+            ) : null}
+
+            {whatsappHref || instagramHref || mapsHref ? (
+              <div className="mt-5 flex flex-wrap gap-2 border-t border-[#efe9dd] pt-5">
+                {whatsappHref ? (
+                  <a
+                    href={whatsappHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Falar no WhatsApp"
+                    className="inline-flex items-center gap-2 rounded-full bg-[#f4f1e9] px-3.5 py-2 text-xs font-medium text-[#45534c] transition hover:bg-[#ece7db]"
+                  >
+                    <WhatsAppIcon className="h-4 w-4" />
+                    <span>WhatsApp</span>
+                  </a>
+                ) : null}
+                {instagramHref ? (
+                  <a
+                    href={instagramHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Abrir Instagram"
+                    className="inline-flex items-center gap-2 rounded-full bg-[#f4f1e9] px-3.5 py-2 text-xs font-medium text-[#45534c] transition hover:bg-[#ece7db]"
+                  >
+                    <InstagramIcon className="h-4 w-4" />
+                    <span>Instagram</span>
+                  </a>
+                ) : null}
+                {mapsHref ? (
+                  <a
+                    href={mapsHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Abrir no Google Maps"
+                    className="inline-flex items-center gap-2 rounded-full bg-[#f4f1e9] px-3.5 py-2 text-xs font-medium text-[#45534c] transition hover:bg-[#ece7db]"
+                  >
+                    <MapsIcon className="h-4 w-4" />
+                    <span>Como chegar</span>
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
+          </header>
+
+          <div className="mt-6 lg:mt-0">
+            {procedures.length === 0 ? (
+              <p className="rounded-[1.75rem] border border-[#e7e1d5] bg-white p-6 text-sm text-[#5f6f68]">
+                Este cartão ainda não tem {labels.pluralLower} disponíveis para
+                agendamento online.
+              </p>
             ) : (
-              <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-[#dceee4] sm:h-24 sm:w-24">
-                <BrandMark className="h-10 w-10 sm:h-12 sm:w-12" />
-              </span>
+              <PublicBookingForm
+                slug={organization.slug}
+                procedures={procedures as PublicProcedureOption[]}
+                professionals={professionals as PublicProfessionalOption[]}
+                whatsappDigits={whatsappDigits(organization.businessPhone)}
+                businessType={organization.businessType}
+              />
             )}
           </div>
-
-          {organization.bio ? (
-            <p className="mt-5 whitespace-pre-line text-sm leading-6 text-[#6d7d75]">
-              {organization.bio}
-            </p>
-          ) : null}
-
-          <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-[#6d7d75]">
-            {location ? <span>📍 {location}</span> : null}
-          </div>
-
-          {whatsappHref || instagramHref || mapsHref ? (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {whatsappHref ? (
-                <a
-                  href={whatsappHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Falar no WhatsApp"
-                  className="inline-flex items-center gap-2 rounded-full border border-[#e2ebe5] bg-white px-3 py-1.5 text-sm font-medium text-[#405149] transition hover:bg-[#f4f7f5]"
-                >
-                  <WhatsAppIcon className="h-4 w-4" />
-                  <span>WhatsApp</span>
-                </a>
-              ) : null}
-              {instagramHref ? (
-                <a
-                  href={instagramHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Abrir Instagram"
-                  className="inline-flex items-center gap-2 rounded-full border border-[#e2ebe5] bg-white px-3 py-1.5 text-sm font-medium text-[#405149] transition hover:bg-[#f4f7f5]"
-                >
-                  <InstagramIcon className="h-4 w-4" />
-                  <span>Instagram</span>
-                </a>
-              ) : null}
-              {mapsHref ? (
-                <a
-                  href={mapsHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Abrir no Google Maps"
-                  className="inline-flex items-center gap-2 rounded-full border border-[#e2ebe5] bg-white px-3 py-1.5 text-sm font-medium text-[#405149] transition hover:bg-[#f4f7f5]"
-                >
-                  <MapsIcon className="h-4 w-4" />
-                  <span>Como chegar</span>
-                </a>
-              ) : null}
-            </div>
-          ) : null}
-        </header>
-
-        <div className="mt-8">
-          {procedures.length === 0 ? (
-            <p className="rounded-3xl border border-[#e2ebe5] bg-white p-6 text-sm text-[#6d7d75]">
-              Este cartão ainda não tem {labels.pluralLower} disponíveis para
-              agendamento online.
-            </p>
-          ) : (
-            <PublicBookingForm
-              slug={organization.slug}
-              procedures={procedures as PublicProcedureOption[]}
-              professionals={professionals as PublicProfessionalOption[]}
-              whatsappDigits={whatsappDigits(organization.businessPhone)}
-              businessType={organization.businessType}
-            />
-          )}
         </div>
 
-        <footer className="mt-8 space-y-2 text-center">
-          <p className="text-xs tracking-wider text-[#8a9892]">
-            Agendamento online via EstetiQI
+        <footer className="mx-auto mt-10 max-w-md text-center">
+          <div className="mx-auto h-px w-10 bg-[#ddd3c0]" />
+          <p className="mt-4 text-[11px] uppercase tracking-[0.2em] text-[#9aa39d]">
+            Experiência de agendamento com EstetiQI
           </p>
-          <p className="text-xs text-[#8a9892]">
-            Dúvidas sobre a plataforma? Fale com a gente:{" "}
+          <p className="mt-2 text-xs text-[#8a948e]">
             <a
               href="mailto:contato@estetiqi.com.br"
-              className="font-medium text-[#496458] underline-offset-2 transition hover:underline"
+              className="font-medium text-[#5f7568] underline-offset-2 transition hover:underline"
             >
               contato@estetiqi.com.br
             </a>

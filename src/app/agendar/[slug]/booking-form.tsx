@@ -386,7 +386,7 @@ export function PublicBookingForm({
 
   if (confirmation) {
     return (
-      <section className="rounded-3xl border border-[#e2ebe5] bg-white p-6 sm:p-8">
+      <section className="rounded-[1.75rem] border border-[#e7e1d5] bg-white p-6 sm:p-8">
         <p className="text-sm font-medium text-[#527765]">
           Agendamento solicitado
         </p>
@@ -456,7 +456,7 @@ export function PublicBookingForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-8 rounded-3xl border border-[#e2ebe5] bg-white p-6 sm:p-8"
+      className="space-y-8 rounded-[1.75rem] border border-[#e7e1d5] bg-white p-6 sm:p-8"
     >
       <fieldset>
         <legend className="text-lg font-semibold text-[#30463c]">
@@ -525,43 +525,57 @@ export function PublicBookingForm({
                     type="button"
                     onClick={() => setProfessionalId(professional.id)}
                     aria-pressed={active}
-                    className={`flex flex-col items-center gap-2 rounded-2xl border p-3 text-center transition ${
+                    className={`flex flex-col items-center gap-3 rounded-[1.5rem] p-4 text-center transition ${
                       active
-                        ? "border-[#0f766e] bg-[#0f766e]/5 ring-1 ring-[#0f766e]"
-                        : "border-[#d5e2da] hover:bg-[#f1f6f3]"
+                        ? "bg-[#0f766e]/[0.07]"
+                        : "bg-[#f7faf8] hover:bg-[#eef4f1]"
                     }`}
                   >
-                    {professional.hasPhoto ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={`/api/public/${encodeURIComponent(
-                          slug
-                        )}/professionals/${professional.id}/photo${
-                          professional.photoVersion
-                            ? `?v=${professional.photoVersion}`
-                            : ""
-                        }`}
-                        alt={`Foto de ${professional.name}`}
-                        className="h-16 w-16 rounded-full object-cover sm:h-20 sm:w-20"
-                      />
-                    ) : (
-                      <span
-                        aria-hidden="true"
-                        className={`flex h-16 w-16 items-center justify-center rounded-full text-xl font-semibold sm:h-20 sm:w-20 sm:text-2xl ${
-                          active
-                            ? "bg-[#0f766e] text-white"
-                            : "bg-[#eef3f0] text-[#527765]"
-                        }`}
-                      >
-                        {professional.name.trim().charAt(0).toUpperCase()}
-                      </span>
-                    )}
+                    {/* A foto fica limpa: nenhuma borda, anel, sombra ou
+                        contorno decorativo é aplicado à imagem. A seleção é
+                        indicada apenas pelo fundo do cartão e pelo selo, nunca
+                        por uma linha ao redor da foto. */}
+                    <span className="relative inline-flex">
+                      {professional.hasPhoto ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={`/api/public/${encodeURIComponent(
+                            slug
+                          )}/professionals/${professional.id}/photo${
+                            professional.photoVersion
+                              ? `?v=${professional.photoVersion}`
+                              : ""
+                          }`}
+                          alt={`Foto de ${professional.name}`}
+                          className="h-20 w-20 rounded-full object-cover sm:h-24 sm:w-24"
+                        />
+                      ) : (
+                        <span
+                          aria-hidden="true"
+                          className={`flex h-20 w-20 items-center justify-center rounded-full text-xl font-semibold sm:h-24 sm:w-24 sm:text-2xl ${
+                            active
+                              ? "bg-[#0f766e] text-white"
+                              : "bg-[#e6efe9] text-[#527765]"
+                          }`}
+                        >
+                          {professional.name.trim().charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                      {active ? (
+                        <span
+                          aria-hidden="true"
+                          className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-[#0f766e] text-xs font-bold text-white"
+                        >
+                          ✓
+                        </span>
+                      ) : null}
+                    </span>
                     <span className="flex flex-col items-center leading-tight">
-                      <span className="text-sm font-semibold text-[#30463c]">
+                      <span className="text-sm font-semibold text-[#2f3a34]">
                         {professional.name}
                       </span>
                       {professional.specialty ? (
-                        <span className="text-xs font-normal text-[#6d7d75]">
+                        <span className="mt-0.5 text-xs font-normal text-[#6d7d75]">
                           {professional.specialty}
                         </span>
                       ) : null}

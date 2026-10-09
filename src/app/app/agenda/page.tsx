@@ -6,7 +6,9 @@ import { useUser } from "@clerk/nextjs";
 import { useToast } from "../toast";
 
 // Rascunho do formulário de novo agendamento (apenas nesta sessão do navegador).
-const appointmentDraftPrefix = "estetiqi:agenda:draft:v2";
+// v3: a v2 podia guardar um preço total somado como texto (bug corrigido);
+// descartar evita reaproveitar um valor inválido ao reabrir a agenda.
+const appointmentDraftPrefix = "estetiqi:agenda:draft:v3";
 
 type AppointmentDraft = {
   clientId: string;
@@ -155,9 +157,25 @@ async function fetchFormSupportData(): Promise<FormSupport> {
     );
   }
 
+  // O driver do Postgres entrega NUMERIC como string ("60.00"). O formulário
+  // soma os preços, então normaliza para número; do contrário a soma vira
+  // concatenação de texto ("060.00100.00" -> NaN) e o total exibido/enviado
+  // quebra com mais de um procedimento.
+  const procedures: Procedure[] = (
+    (proceduresData.procedures || []) as Array<
+      Omit<Procedure, "price"> & { price: number | string | null }
+    >
+  ).map((procedure) => ({
+    ...procedure,
+    price:
+      procedure.price === null || procedure.price === undefined
+        ? null
+        : Number(procedure.price),
+  }));
+
   return {
     clients: clientsData.clients || [],
-    procedures: proceduresData.procedures || [],
+    procedures,
     professionals: professionalsData || [],
   };
 }
@@ -420,6 +438,52 @@ function ProcedureFields({
   );
 }
 
+// Resumo do atendimento exibido antes de confirmar: valor individual de cada
+// procedimento e a soma total (a duração total é preservada).
+function AppointmentTotalsSummary({
+  procedures,
+  durationMinutes,
+  total,
+  hasAnyPrice,
+  colSpanClassName,
+}: {
+  procedures: { id: string; name: string; price: number | null }[];
+  durationMinutes: number;
+  total: number;
+  hasAnyPrice: boolean;
+  colSpanClassName: string;
+}) {
+  return (
+    <div
+      className={`rounded-xl border border-[#e4ebe7] bg-[#f7faf8] p-3 text-sm ${colSpanClassName}`}
+    >
+      <p className="font-medium text-[#30463c]">Resumo do atendimento</p>
+      {procedures.length > 0 && (
+        <ul className="mt-1 space-y-1 text-[#50655b]">
+          {procedures.map((procedure) => (
+            <li
+              key={procedure.id}
+              className="flex items-center justify-between gap-3"
+            >
+              <span>{procedure.name}</span>
+              <span className="tabular-nums">
+                {procedure.price === null
+                  ? "Sem preço"
+                  : formatMoney(procedure.price)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-1 text-[#50655b]">
+        {durationMinutes > 0 && <>Duração total: {durationMinutes} min</>}
+        {durationMinutes > 0 && hasAnyPrice && " · "}
+        {hasAnyPrice && <>Total: {formatMoney(total)}</>}
+      </p>
+    </div>
+  );
+}
+
 export default function AgendaPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -556,7 +620,7 @@ export default function AgendaPage() {
     const hasAnyPrice = selectedProcedures.some(
       (procedure) => procedure.price !== null
     );
-    return { durationMinutes, price, hasAnyPrice };
+    return { durationMinutes, price, hasAnyPrice, procedures: selectedProcedures };
   }, [selectedProcedures]);
 
   // Totais do formulário de edição (duração e preço dos procedimentos atuais).
@@ -589,7 +653,7 @@ export default function AgendaPage() {
       0
     );
     const hasAnyPrice = selected.some((procedure) => procedure.price !== null);
-    return { durationMinutes, price, hasAnyPrice };
+    return { durationMinutes, price, hasAnyPrice, procedures: selected };
   }, [editForm.procedureIds, procedures, editingAppointment]);
 
   function procedureOptionsForCreate(index: number) {
@@ -918,7 +982,10 @@ export default function AgendaPage() {
       procedureIds: nextIds,
       startsAt: "",
       endsAt: "",
-      price: hasAnyPrice ? String(recomputeFormPrice(nextIds)) : current.price,
+      // O preço exibido/enviado precisa acompanhar a seleção atual: quando
+      // nenhum procedimento tem preço cadastrado, o campo fica livre para a
+      // profissional informar o valor do atendimento.
+      price: hasAnyPrice ? String(recomputeFormPrice(nextIds)) : "",
     }));
     setAvailableSlots([]);
     setAvailabilityError("");
@@ -1470,22 +1537,13 @@ export default function AgendaPage() {
               )}
 
               {(formTotals.durationMinutes > 0 || formTotals.hasAnyPrice) && (
-                <div className="rounded-xl border border-[#e4ebe7] bg-[#f7faf8] p-3 text-sm md:col-span-2">
-                  <p className="font-medium text-[#30463c]">
-                    Resumo do atendimento
-                  </p>
-                  <p className="mt-1 text-[#50655b]">
-                    {formTotals.durationMinutes > 0 && (
-                      <>Duração total: {formTotals.durationMinutes} min</>
-                    )}
-                    {formTotals.durationMinutes > 0 &&
-                      formTotals.hasAnyPrice &&
-                      " · "}
-                    {formTotals.hasAnyPrice && (
-                      <>Preço total: {formatMoney(formTotals.price)}</>
-                    )}
-                  </p>
-                </div>
+                <AppointmentTotalsSummary
+                  procedures={formTotals.procedures}
+                  durationMinutes={formTotals.durationMinutes}
+                  total={formTotals.price}
+                  hasAnyPrice={formTotals.hasAnyPrice}
+                  colSpanClassName="md:col-span-2"
+                />
               )}
 
               <label className="block text-sm font-medium text-[#50655b]">
@@ -1981,22 +2039,13 @@ export default function AgendaPage() {
               />
 
               {(editTotals.durationMinutes > 0 || editTotals.hasAnyPrice) && (
-                <div className="rounded-xl border border-[#e4ebe7] bg-[#f7faf8] p-3 text-sm sm:col-span-2">
-                  <p className="font-medium text-[#30463c]">
-                    Resumo do atendimento
-                  </p>
-                  <p className="mt-1 text-[#50655b]">
-                    {editTotals.durationMinutes > 0 && (
-                      <>Duração total: {editTotals.durationMinutes} min</>
-                    )}
-                    {editTotals.durationMinutes > 0 &&
-                      editTotals.hasAnyPrice &&
-                      " · "}
-                    {editTotals.hasAnyPrice && (
-                      <>Preço total: {formatMoney(editTotals.price)}</>
-                    )}
-                  </p>
-                </div>
+                <AppointmentTotalsSummary
+                  procedures={editTotals.procedures}
+                  durationMinutes={editTotals.durationMinutes}
+                  total={editTotals.price}
+                  hasAnyPrice={editTotals.hasAnyPrice}
+                  colSpanClassName="sm:col-span-2"
+                />
               )}
 
               <label className="block text-sm font-medium text-[#50655b]">

@@ -2,9 +2,19 @@ import { sql } from "@/lib/db/client";
 
 export type ProcedureRow = {
   id: string;
+  // O driver do Postgres devolve colunas NUMERIC como string (para preservar a
+  // precisão); duration_minutes é INTEGER e chega como número.
   duration_minutes: number | null;
-  price: number | null;
+  price: number | string | null;
 };
+
+// Converte um valor do banco em número (NUMERIC costuma chegar como string).
+// Retorna null quando vazio ou inválido — nunca NaN.
+function toNullableNumber(value: number | string | null): number | null {
+  if (value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
 // Lista de procedimentos do agendamento (na ordem escolhida). Quando o
 // agendamento ainda não possui vínculos registrados, cai para o campo único
@@ -101,16 +111,17 @@ export async function loadAppointmentProcedures(
     (id) => rows.find((row) => row.id === id) as ProcedureRow
   );
 
-  const durations = ordered.map((row) => row.duration_minutes);
-  const totalDurationMinutes = durations.every(
-    (value) => typeof value === "number" && value > 0
-  )
+  const durations = ordered.map((row) => toNullableNumber(row.duration_minutes));
+  const hasEveryDuration = durations.every(
+    (value) => value !== null && value > 0
+  );
+  const totalDurationMinutes = hasEveryDuration
     ? durations.reduce<number>((sum, value) => sum + (value as number), 0)
     : null;
 
-  const prices = ordered.map((row) =>
-    typeof row.price === "number" ? Number(row.price) : null
-  );
+  // O preço total é sempre recalculado no servidor a partir do cadastro; nunca
+  // se confia na soma enviada pelo navegador.
+  const prices = ordered.map((row) => toNullableNumber(row.price));
   const totalPrice = prices.some((value) => value !== null)
     ? prices.reduce<number>((sum, value) => sum + (value ?? 0), 0)
     : null;

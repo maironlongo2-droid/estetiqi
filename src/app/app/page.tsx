@@ -161,8 +161,10 @@ export default function AppPage() {
       setCurrentDate(now);
       const today = dateString(now);
       const coreRequests = await Promise.allSettled([
+        // O painel exibe apenas os 4 clientes ativos mais recentes; buscamos 8
+        // para dar folga e reduzir o payload (o total vem do campo "total").
         fetch(
-          "/api/clients?status=active&limit=500&sort=created_at&order=desc"
+          "/api/clients?status=active&limit=8&sort=created_at&order=desc"
         ).then(readResponse<{
           clients?: Client[];
           total?: number;

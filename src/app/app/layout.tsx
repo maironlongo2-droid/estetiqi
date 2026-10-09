@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useClerk } from "@clerk/nextjs";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { BrandMark } from "../brand-mark";
 import { ToastProvider } from "./toast";
 
 export default function AppLayout({
@@ -124,8 +125,8 @@ export default function AppLayout({
       <header className="border-b border-[#e4ebe7] bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <Link href="/app" className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#edf3ef] text-sm text-[#527765]">
-              ✦
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#edf3ef]">
+              <BrandMark className="h-6 w-6" />
             </div>
 
             <div className="min-w-0">

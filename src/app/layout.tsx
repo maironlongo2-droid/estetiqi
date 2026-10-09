@@ -28,9 +28,11 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "EstetiQI",
   },
+  // O favicon (/favicon.ico) e o apple-touch-icon são gerados pelas convenções
+  // de arquivo em src/app (favicon.ico, apple-icon.png), que emitem as URLs
+  // corretas automaticamente. Declaramos aqui apenas o ícone SVG do navegador.
   icons: {
     icon: "/icon.svg",
-    apple: "/apple-icon.png",
   },
   openGraph: {
     type: "website",

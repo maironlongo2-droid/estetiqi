@@ -5,7 +5,7 @@
       <stop offset="1" stop-color="#0f766e"/>
     </linearGradient>
   </defs>
-  <rect width="512" height="512" rx="116" fill="url(#estetiqi-emerald)"/>
-  <path d="M256 88C268 168 344 244 424 256C344 268 268 344 256 424C244 344 168 268 88 256C168 244 244 168 256 88Z" fill="#f7fffb"/>
-  <circle cx="372" cy="150" r="24" fill="#a7f3d0"/>
+  <rect width="512" height="512" fill="url(#estetiqi-emerald)"/>
+  <path d="M256 152C263 201 311 249 360 256C311 263 249 311 256 360C249 311 201 263 152 256C201 249 249 201 256 152Z" fill="#f7fffb"/>
+  <circle cx="340" cy="188" r="17" fill="#a7f3d0"/>
 </svg>

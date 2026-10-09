@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { BrandMark } from "./brand-mark";
 
 const centralized = [
   "Clientes",
@@ -361,8 +362,8 @@ export default function Home() {
     <main className="min-h-screen overflow-x-hidden bg-[#fbfaf8] text-[#26352f]">
       <header className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-5 sm:px-8">
         <Link href="/" className="flex items-center gap-3" aria-label="EstetiQI">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#dceee4] text-lg text-[#527765]">
-            ✦
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#dceee4]">
+            <BrandMark className="h-6 w-6" />
           </span>
           <span className="text-xl font-semibold tracking-[0.12em] text-[#30463c]">
             Esteti<span className="text-[#7a9f8d]">Qi</span>
@@ -667,8 +668,8 @@ export default function Home() {
       <footer className="border-t border-[#e8eeea] px-5 py-10 sm:px-8">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-6 sm:flex-row sm:justify-between">
           <Link href="/" className="flex items-center gap-3" aria-label="EstetiQI">
-            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#dceee4] text-[#527765]">
-              ✦
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#dceee4]">
+              <BrandMark className="h-5 w-5" />
             </span>
             <span className="text-sm font-semibold tracking-[0.12em] text-[#30463c]">
               Esteti<span className="text-[#7a9f8d]">Qi</span>

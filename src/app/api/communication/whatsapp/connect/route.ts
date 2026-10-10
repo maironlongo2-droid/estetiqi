@@ -6,8 +6,8 @@ import {
   DEFAULT_GRAPH_API_VERSION,
   exchangeAuthorizationCode,
   extendToLongLivedToken,
-  fetchAuthorizedPhoneNumber,
-  fetchWabaPhoneNumbers,
+  resolveConnectionTarget,
+  type ConnectionTargetFailureCode,
 } from "@/lib/communication/whatsapp-connect";
 import { WHATSAPP_APP_ID_ENV } from "@/lib/communication/whatsapp-embedded-signup";
 import {
@@ -25,20 +25,30 @@ import { clientIpFromRequest, rateLimit } from "@/lib/security/rate-limit";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const connectSchema = z
-  .object({
-    code: z.string().trim().min(8).max(4096),
-    // A Meta pode concluir o Embedded Signup SEM informar o número escolhido
-    // (as versões atuais permitem terminar sem número). Quando isso acontece, o
-    // número é resolvido pela conta comercial (WABA) autorizada — por isso exigir
-    // pelo menos um dos dois identificadores, e nunca confiar em dados de outra
-    // organização (a organização vem do usuário autenticado).
-    phoneNumberId: z.string().trim().min(1).max(64).optional().nullable(),
-    businessAccountId: z.string().trim().min(1).max(64).optional().nullable(),
-  })
-  .refine((value) => Boolean(value.phoneNumberId || value.businessAccountId), {
-    message: "Informe o número de telefone ou a conta comercial autorizada.",
-  });
+const connectSchema = z.object({
+  code: z.string().trim().min(8).max(4096),
+  // A Meta pode concluir o Embedded Signup devolvendo SÓ o `code`: sem o número
+  // escolhido e, às vezes, sem a conta comercial (WABA). Por isso os dois
+  // identificadores são OPCIONAIS — o que faltar é resolvido no SERVIDOR a
+  // partir do próprio token autorizado (nunca de dados de outra organização).
+  phoneNumberId: z.string().trim().min(1).max(64).optional().nullable(),
+  businessAccountId: z.string().trim().min(1).max(64).optional().nullable(),
+});
+
+// Falhas PRECISAS: erro previsível de dado/autorização nunca vira 500.
+// 400 = o que a Meta/cliente informou não permite concluir; 502 = a Meta recusou
+// ou não respondeu à consulta; 503 = falta configuração no servidor.
+const CONNECTION_FAILURE_STATUS: Record<ConnectionTargetFailureCode, number> = {
+  PHONE_NOT_AUTHORIZED: 400,
+  PHONE_NOT_IN_WABA: 400,
+  WABA_NOT_RESOLVED: 400,
+  WABA_SCOPES_MISSING: 400,
+  WABA_PHONE_NOT_FOUND: 400,
+  WABA_TOKEN_INVALID: 400,
+  WABA_RESOLUTION_FAILED: 502,
+  WABA_LOOKUP_FAILED: 502,
+  PLATFORM_NOT_CONFIGURED: 503,
+};
 
 export async function POST(request: Request) {
   try {
@@ -139,77 +149,42 @@ export async function POST(request: Request) {
       expiresInSeconds = extended.expiresInSeconds;
     }
 
-    // 3) Quando a Meta NÃO informa o número escolhido (o fluxo atual permite
-    // concluir sem número), resolvemos o número pela conta comercial autorizada.
-    // NUNCA escolhemos por conta própria: aceitamos apenas uma ÚNICA opção; zero
-    // ou várias viram erro explícito para a profissional repetir o fluxo.
-    let phoneNumberId = parsed.data.phoneNumberId ?? null;
-    if (!phoneNumberId) {
-      const wabaId = parsed.data.businessAccountId ?? null;
-      if (!wabaId) {
-        return Response.json(
-          {
-            error: "Dados inválidos para concluir a conexão.",
-            code: "MISSING_TARGET",
-          },
-          { status: 400 }
-        );
-      }
-
-      const listed = await fetchWabaPhoneNumbers({
-        wabaId,
-        accessToken,
-        graphVersion,
-      });
-      if (!listed.ok) {
-        return Response.json(
-          {
-            error: `Não foi possível consultar os números da conta comercial na Meta: ${listed.message}`,
-            code: "WABA_LOOKUP_FAILED",
-          },
-          { status: 502 }
-        );
-      }
-      if (listed.numbers.length === 0) {
-        return Response.json(
-          {
-            error: "A conta comercial autorizada não possui número de telefone.",
-            code: "WABA_PHONE_NOT_FOUND",
-          },
-          { status: 400 }
-        );
-      }
-      if (listed.numbers.length > 1) {
-        return Response.json(
-          {
-            error: "A conta comercial autorizada possui mais de um número.",
-            code: "WABA_PHONE_AMBIGUOUS",
-          },
-          { status: 400 }
-        );
-      }
-
-      phoneNumberId = listed.numbers[0].id;
-    }
-
-    // 4) Confirma que o token realmente LÊ o número informado. Não vinculamos um
-    // número que a credencial não consegue acessar.
-    const phone = await fetchAuthorizedPhoneNumber({
-      phoneNumberId,
+    // 3) Identifica a CONTA comercial (WABA) e o NÚMERO que serão gravados.
+    // Todo identificador vindo do navegador é tratado como DICA: nada é
+    // persistido sem que o token da própria organização comprove o acesso.
+    // Quando existir mais de uma conta/número possível, devolvemos ambiguidade
+    // (409) e NADA é gravado — a escolha é explícita, feita pela profissional.
+    const target = await resolveConnectionTarget({
       accessToken,
       graphVersion,
+      providedPhoneNumberId: parsed.data.phoneNumberId ?? null,
+      providedBusinessAccountId: parsed.data.businessAccountId ?? null,
+      appId,
+      appSecret,
     });
-    if (!phone.ok) {
+
+    if (!target.ok) {
+      if (target.outcome === "ambiguous") {
+        return Response.json(
+          {
+            error: target.message,
+            code: target.code,
+            // Opções conhecidas, para a profissional repetir o fluxo já sabendo
+            // qual conta/número escolher. Nunca inclui token ou segredo.
+            candidates: target.accounts,
+          },
+          { status: 409 }
+        );
+      }
+
       return Response.json(
-        {
-          error: `Não foi possível confirmar o número na Meta: ${phone.message}`,
-          code: "PHONE_NOT_AUTHORIZED",
-        },
-        { status: 400 }
+        { error: target.message, code: target.code },
+        { status: CONNECTION_FAILURE_STATUS[target.code] }
       );
     }
 
-    // 5) Persiste a integração (token CIFRADO). A organização vem do usuário.
+    // 4) Persiste a integração (token CIFRADO). A organização/`tenant_id` vem
+    // SEMPRE do usuário autenticado no servidor — nunca do corpo da requisição.
     const webhookConfigured = Boolean(
       process.env[WHATSAPP_ENV_KEYS.verifyToken]?.trim()
     );
@@ -218,10 +193,12 @@ export async function POST(request: Request) {
       organizationId: currentUser.organization.id,
       accessToken,
       tokenExpiresInSeconds: expiresInSeconds,
-      phoneNumberId,
-      businessAccountId: parsed.data.businessAccountId ?? null,
-      displayPhoneNumber: phone.phone.displayPhoneNumber,
-      verifiedName: phone.phone.verifiedName,
+      phoneNumberId: target.phoneNumberId,
+      // A conta comercial gravada é a informada pela Meta ou a RESOLVIDA no
+      // servidor a partir do token — sempre validada, nunca um palpite.
+      businessAccountId: target.businessAccountId,
+      displayPhoneNumber: target.displayPhoneNumber,
+      verifiedName: target.verifiedName,
       webhookConfigured,
     });
 

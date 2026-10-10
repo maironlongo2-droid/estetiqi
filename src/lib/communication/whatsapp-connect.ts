@@ -9,7 +9,10 @@
 //   1. O navegador conclui o Embedded Signup e recebe um `code`.
 //   2. O servidor troca o `code` por um token de acesso (GET /oauth/access_token).
 //   3. O servidor ESTENDE esse token para longa duração (grant_type=fb_exchange_token).
-//   4. O servidor confirma que o token lê o `phone_number_id` autorizado.
+//   4. O servidor identifica a conta comercial (WABA) e o número autorizados e
+//      confirma, com o PRÓPRIO token, que ambos são válidos antes de gravar.
+//      Quando a Meta deixa mais de uma opção possível, o servidor NÃO escolhe:
+//      devolve uma ambiguidade explícita para a profissional decidir.
 //
 // IMPORTANTE: a troca do `code` NÃO garante, por si só, um token permanente.
 // Por isso a extensão é um passo SEPARADO e tratado como tal. Nenhuma função
@@ -28,7 +31,14 @@ type MetaErrorBody = { error?: { message?: string; type?: string; code?: number 
 
 type JsonResult =
   | { ok: true; status: number; data: Record<string, unknown> }
-  | { ok: false; status: number | null; message: string };
+  | {
+      ok: false;
+      status: number | null;
+      // Código de erro da Meta (ex.: 190 = token inválido), quando informado.
+      // Serve apenas para CLASSIFICAR a falha (nunca é exibido ao cliente).
+      metaCode: number | null;
+      message: string;
+    };
 
 async function requestJson(
   url: string,
@@ -54,6 +64,8 @@ async function requestJson(
       return {
         ok: false,
         status: response.status,
+        metaCode:
+          typeof body?.error?.code === "number" ? body.error.code : null,
         message:
           body?.error?.message ??
           `A Meta recusou a requisição (HTTP ${response.status}).`,
@@ -66,7 +78,7 @@ async function requestJson(
       error instanceof Error && error.name === "AbortError"
         ? "A requisição à Meta demorou demais e foi cancelada."
         : "Não foi possível contatar a API da Meta agora.";
-    return { ok: false, status: null, message };
+    return { ok: false, status: null, metaCode: null, message };
   } finally {
     clearTimeout(timeout);
   }
@@ -287,3 +299,621 @@ export async function fetchWabaPhoneNumbers(
   return { ok: true, numbers };
 }
 
+export type SinglePhoneNumberSelection =
+  | { ok: true; phoneNumberId: string }
+  | {
+      ok: false;
+      code: "WABA_PHONE_NOT_FOUND" | "WABA_PHONE_AMBIGUOUS";
+      message: string;
+    };
+
+// Decide qual número usar quando a Meta NÃO informou o escolhido. Regra: só uma
+// ÚNICA opção é aceita. Zero vira "não encontrado" e várias viram "ambíguo" —
+// a escolha nunca é nossa: vincular a organização ao número errado é pior do
+// que pedir para a profissional repetir o fluxo.
+export function selectSinglePhoneNumber(
+  numbers: WabaPhoneNumber[]
+): SinglePhoneNumberSelection {
+  if (numbers.length === 0) {
+    return {
+      ok: false,
+      code: "WABA_PHONE_NOT_FOUND",
+      message: "A conta comercial autorizada não possui número de telefone.",
+    };
+  }
+
+  if (numbers.length > 1) {
+    return {
+      ok: false,
+      code: "WABA_PHONE_AMBIGUOUS",
+      message: "A conta comercial autorizada possui mais de um número.",
+    };
+  }
+
+  return { ok: true, phoneNumberId: numbers[0].id };
+}
+
+// ---------------------------------------------------------------------------
+// Identificação INEQUÍVOCA da conta comercial (WABA) e do número autorizados
+// ---------------------------------------------------------------------------
+
+// Escopos que provam que a autorização cobre uma conta comercial (WABA), na
+// ordem de prioridade de leitura. A doc do Embedded Signup manda usar o
+// `whatsapp_business_management`; o de mensagens é apenas um segundo caminho
+// documentado, caso a Meta conceda só ele.
+const WABA_SCOPES = [
+  "whatsapp_business_management",
+  "whatsapp_business_messaging",
+] as const;
+
+// Mensagens fixas: nenhuma delas carrega token, código de autorização, segredo
+// ou URL com credenciais.
+const TOKEN_INVALID_MESSAGE =
+  "A autorização devolvida pela Meta não é mais válida (o código expira em 30 segundos). Repita o fluxo de conexão.";
+const UNEXPECTED_RESPONSE_MESSAGE =
+  "A Meta respondeu em um formato inesperado ao identificar a conta comercial autorizada.";
+
+export type AuthorizedBusinessAccount = {
+  id: string;
+  // Escopo da Meta que provou a autorização desta conta.
+  scope: string;
+};
+
+export type AuthorizedAccountsResult =
+  | {
+      ok: true;
+      accounts: AuthorizedBusinessAccount[];
+      // Escopos EFETIVAMENTE devolvidos pela Meta na inspeção do token.
+      scopes: string[];
+    }
+  | {
+      ok: false;
+      code: "WABA_TOKEN_INVALID" | "WABA_RESOLUTION_FAILED";
+      message: string;
+    };
+
+// Inspeciona o token recém-autorizado e devolve TODAS as contas comerciais
+// (WABA) que ele cobre — nunca apenas a primeira. Com mais de uma conta
+// autorizada a decisão é da profissional: o servidor não adivinha qual conta
+// pertence à organização.
+//
+// Por que existe: o Embedded Signup pode concluir devolvendo apenas o `code` —
+// sem `phone_number_id` e, às vezes, sem `waba_id` no postMessage (na versão
+// atual da Meta o canal oficial de conclusão é o webhook `account_update`).
+// Sem isto, uma autorização VÁLIDA seria recusada só porque o navegador não
+// recebeu os identificadores.
+//
+// Como (documentação oficial):
+//   GET /{version}/debug_token?input_token=<TOKEN_RETURNED_FROM_SIGNUP_FLOW>
+//   Authorization: Bearer <token de app>   →  app_id|app_secret
+// A doc do endpoint (Debug Token) exige um token de app (ou de desenvolvedor do
+// app) referente ao token inspecionado; a doc do Embedded Signup o envia em
+// cabeçalho `Authorization: Bearer`. A resposta traz `granular_scopes` no
+// formato `{ scope, target_ids }` (a doc tipa `target_ids` como `?int[]`: pode
+// ser numérico e pode vir ausente), associando cada escopo concedido às contas
+// autorizadas.
+//
+// SEGURANÇA: o token inspecionado viaja na query (contrato da Meta), então este
+// módulo nunca registra a URL e nenhuma mensagem de erro carrega URL, token ou
+// segredo. Não presuma nada: cada campo é validado antes de virar decisão.
+export async function fetchAuthorizedBusinessAccounts(
+  input: {
+    accessToken: string;
+    appId: string;
+    appSecret: string;
+    graphVersion?: string;
+  },
+  fetchImpl: GraphFetch = fetch
+): Promise<AuthorizedAccountsResult> {
+  const version = input.graphVersion ?? DEFAULT_GRAPH_API_VERSION;
+  const url = buildGraphUrl(version, "debug_token", {
+    input_token: input.accessToken,
+  });
+
+  const result = await requestJson(url, fetchImpl, {
+    headers: {
+      Authorization: `Bearer ${input.appId}|${input.appSecret}`,
+    },
+  });
+
+  if (!result.ok) {
+    // 190 = token de acesso inválido/expirado. Um token recusado NÃO é falha
+    // transitória de consulta: a profissional precisa repetir o fluxo.
+    if (result.metaCode === 190 || result.status === 401) {
+      return {
+        ok: false,
+        code: "WABA_TOKEN_INVALID",
+        message: TOKEN_INVALID_MESSAGE,
+      };
+    }
+    return {
+      ok: false,
+      code: "WABA_RESOLUTION_FAILED",
+      message: result.message,
+    };
+  }
+
+  const data = result.data.data;
+  if (!data || typeof data !== "object") {
+    return {
+      ok: false,
+      code: "WABA_RESOLUTION_FAILED",
+      message: UNEXPECTED_RESPONSE_MESSAGE,
+    };
+  }
+
+  const record = data as Record<string, unknown>;
+  if (record.is_valid === false) {
+    return {
+      ok: false,
+      code: "WABA_TOKEN_INVALID",
+      message: TOKEN_INVALID_MESSAGE,
+    };
+  }
+
+  const scopes = Array.isArray(record.scopes)
+    ? record.scopes.filter(
+        (scope): scope is string => typeof scope === "string"
+      )
+    : [];
+
+  const granularScopes = Array.isArray(record.granular_scopes)
+    ? record.granular_scopes
+    : [];
+
+  const accounts: AuthorizedBusinessAccount[] = [];
+  const seen = new Set<string>();
+
+  // Percorremos os escopos na ordem de prioridade (gestão antes de mensagens) e
+  // mantemos TODOS os alvos válidos, sem repetir.
+  for (const candidateScope of WABA_SCOPES) {
+    for (const entry of granularScopes) {
+      if (!entry || typeof entry !== "object") continue;
+      const row = entry as Record<string, unknown>;
+      if (row.scope !== candidateScope) continue;
+      if (!Array.isArray(row.target_ids)) continue;
+
+      for (const raw of row.target_ids) {
+        // A doc tipa os IDs como inteiros; só aceitamos inteiro (string de
+        // dígitos ou número) para nunca tratar lixo como ID de conta comercial.
+        const id =
+          typeof raw === "number" && Number.isInteger(raw)
+            ? String(raw)
+            : typeof raw === "string"
+              ? raw.trim()
+              : "";
+        if (!/^\d+$/.test(id) || seen.has(id)) continue;
+        seen.add(id);
+        accounts.push({ id, scope: candidateScope });
+      }
+    }
+  }
+
+  return { ok: true, accounts, scopes };
+}
+
+export type ConnectionCandidateAccount = {
+  businessAccountId: string;
+  // Números conhecidos da conta; null quando a Meta não os devolveu.
+  numbers: WabaPhoneNumber[] | null;
+};
+
+// Códigos de falha do alvo. Viram a resposta HTTP do endpoint (nunca 500 por
+// erro previsível) e alimentam o texto mostrado à profissional na tela.
+export type ConnectionTargetFailureCode =
+  | "PHONE_NOT_AUTHORIZED"
+  | "PHONE_NOT_IN_WABA"
+  | "WABA_NOT_RESOLVED"
+  | "WABA_SCOPES_MISSING"
+  | "WABA_PHONE_NOT_FOUND"
+  | "WABA_TOKEN_INVALID"
+  | "WABA_RESOLUTION_FAILED"
+  | "WABA_LOOKUP_FAILED"
+  | "PLATFORM_NOT_CONFIGURED";
+
+// Resultado da identificação do alvo da conexão:
+//   ok        → existe UMA conta e UM número, já validados com o token;
+//   ambiguous → há mais de uma possibilidade; NADA pode ser gravado ainda;
+//   failed    → não há dados suficientes/validáveis; erro explícito e seguro.
+export type ConnectionTargetResolution =
+  | {
+      ok: true;
+      phoneNumberId: string;
+      businessAccountId: string | null;
+      displayPhoneNumber: string | null;
+      verifiedName: string | null;
+    }
+  | {
+      ok: false;
+      outcome: "ambiguous";
+      code: "WABA_SELECTION_REQUIRED" | "PHONE_SELECTION_REQUIRED";
+      message: string;
+      // Opções conhecidas para a seleção EXPLÍCITA da profissional.
+      accounts: ConnectionCandidateAccount[];
+    }
+  | {
+      ok: false;
+      outcome: "failed";
+      code: ConnectionTargetFailureCode;
+      message: string;
+    };
+
+function normalizeId(value: string | null | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function hasAnyWabaScope(scopes: string[]): boolean {
+  return WABA_SCOPES.some((scope) => scopes.includes(scope));
+}
+
+type DiscoveryResult =
+  | AuthorizedAccountsResult
+  | { ok: false; code: "PLATFORM_NOT_CONFIGURED"; message: string };
+
+// Inspeção do token para descobrir as contas comerciais autorizadas. Sem App
+// ID/App Secret não há como inspecionar o token: é falta de configuração do
+// SERVIDOR, e a resposta precisa dizer isso (não culpar a profissional).
+async function discoverAuthorizedAccounts(
+  input: {
+    accessToken: string;
+    appId: string | null;
+    appSecret: string | null;
+  },
+  fetchImpl: GraphFetch,
+  graphVersion: string
+): Promise<DiscoveryResult> {
+  const appId = normalizeId(input.appId);
+  const appSecret = normalizeId(input.appSecret);
+  if (!appId || !appSecret) {
+    return {
+      ok: false,
+      code: "PLATFORM_NOT_CONFIGURED",
+      message:
+        "A integração oficial da Meta (App ID/App Secret) não está configurada no servidor.",
+    };
+  }
+
+  return fetchAuthorizedBusinessAccounts(
+    { accessToken: input.accessToken, appId, appSecret, graphVersion },
+    fetchImpl
+  );
+}
+
+// Confirma, com o PRÓPRIO token da organização, que o `phone_number_id` é
+// legível (validação obrigatória antes de gravar) e devolve os dados públicos
+// usados na tela da Central de Comunicação.
+async function confirmPhoneNumber(
+  input: {
+    phoneNumberId: string;
+    businessAccountId: string | null;
+    accessToken: string;
+    graphVersion: string;
+  },
+  fetchImpl: GraphFetch
+): Promise<ConnectionTargetResolution> {
+  const phone = await fetchAuthorizedPhoneNumber(
+    {
+      phoneNumberId: input.phoneNumberId,
+      accessToken: input.accessToken,
+      graphVersion: input.graphVersion,
+    },
+    fetchImpl
+  );
+  if (!phone.ok) {
+    return {
+      ok: false,
+      outcome: "failed",
+      code: "PHONE_NOT_AUTHORIZED",
+      message: `Não foi possível confirmar o número na Meta: ${phone.message}`,
+    };
+  }
+
+  return {
+    ok: true,
+    phoneNumberId: input.phoneNumberId,
+    businessAccountId: input.businessAccountId,
+    displayPhoneNumber: phone.phone.displayPhoneNumber,
+    verifiedName: phone.phone.verifiedName,
+  };
+}
+
+function ambiguousTarget(
+  code: "WABA_SELECTION_REQUIRED" | "PHONE_SELECTION_REQUIRED",
+  message: string,
+  accounts: ConnectionCandidateAccount[]
+): ConnectionTargetResolution {
+  return { ok: false, outcome: "ambiguous", code, message, accounts };
+}
+
+// Números conhecidos de cada conta autorizada (best effort). Uma conta cujo
+// número não pôde ser lido continua na lista com `numbers: null`: mostramos a
+// opção e o servidor não inventa nada.
+async function describeCandidateAccounts(
+  accounts: AuthorizedBusinessAccount[],
+  accessToken: string,
+  graphVersion: string,
+  fetchImpl: GraphFetch
+): Promise<ConnectionCandidateAccount[]> {
+  const candidates: ConnectionCandidateAccount[] = [];
+  for (const account of accounts) {
+    const listed = await fetchWabaPhoneNumbers(
+      { wabaId: account.id, accessToken, graphVersion },
+      fetchImpl
+    );
+    candidates.push({
+      businessAccountId: account.id,
+      numbers: listed.ok ? listed.numbers : null,
+    });
+  }
+  return candidates;
+}
+
+// Decide QUAL conta comercial (WABA) e QUAL número serão gravados.
+//
+// Regra central: só existe conclusão automática quando a associação é
+// INEQUÍVOCA. Com mais de uma conta autorizada, ou mais de um número possível,
+// devolvemos um estado de ambiguidade SEM gravar nada, para que a seleção seja
+// explícita.
+//
+// Todo identificador vindo do cliente é tratado como DICA a verificar: nada é
+// aceito sem que o token da organização consiga ler o número na Meta.
+export async function resolveConnectionTarget(
+  input: {
+    accessToken: string;
+    graphVersion?: string;
+    providedPhoneNumberId: string | null;
+    providedBusinessAccountId: string | null;
+    appId: string | null;
+    appSecret: string | null;
+  },
+  fetchImpl: GraphFetch = fetch
+): Promise<ConnectionTargetResolution> {
+  const graphVersion = input.graphVersion ?? DEFAULT_GRAPH_API_VERSION;
+  const providedPhoneNumberId = normalizeId(input.providedPhoneNumberId);
+  const providedBusinessAccountId = normalizeId(input.providedBusinessAccountId);
+
+  // (A) A Meta informou a conta comercial: ela é validada listando os seus
+  // números COM O TOKEN e o número escolhido precisa pertencer a ela.
+  if (providedBusinessAccountId) {
+    const listed = await fetchWabaPhoneNumbers(
+      {
+        wabaId: providedBusinessAccountId,
+        accessToken: input.accessToken,
+        graphVersion,
+      },
+      fetchImpl
+    );
+    if (!listed.ok) {
+      return {
+        ok: false,
+        outcome: "failed",
+        code: "WABA_LOOKUP_FAILED",
+        message: `Não foi possível validar a conta comercial informada pela Meta: ${listed.message}`,
+      };
+    }
+
+    if (providedPhoneNumberId) {
+      const belongs = listed.numbers.some(
+        (number) => number.id === providedPhoneNumberId
+      );
+      if (!belongs) {
+        return {
+          ok: false,
+          outcome: "failed",
+          code: "PHONE_NOT_IN_WABA",
+          message:
+            "O número informado não pertence à conta comercial autorizada. Repita o fluxo e selecione o número desejado.",
+        };
+      }
+
+      return confirmPhoneNumber(
+        {
+          phoneNumberId: providedPhoneNumberId,
+          businessAccountId: providedBusinessAccountId,
+          accessToken: input.accessToken,
+          graphVersion,
+        },
+        fetchImpl
+      );
+    }
+
+    const selected = selectSinglePhoneNumber(listed.numbers);
+    if (!selected.ok) {
+      if (selected.code === "WABA_PHONE_AMBIGUOUS") {
+        return ambiguousTarget(
+          "PHONE_SELECTION_REQUIRED",
+          "A conta comercial autorizada tem mais de um número. Repita o fluxo e escolha o número desejado. Nada foi gravado.",
+          [
+            {
+              businessAccountId: providedBusinessAccountId,
+              numbers: listed.numbers,
+            },
+          ]
+        );
+      }
+
+      return {
+        ok: false,
+        outcome: "failed",
+        code: "WABA_PHONE_NOT_FOUND",
+        message: selected.message,
+      };
+    }
+
+    return confirmPhoneNumber(
+      {
+        phoneNumberId: selected.phoneNumberId,
+        businessAccountId: providedBusinessAccountId,
+        accessToken: input.accessToken,
+        graphVersion,
+      },
+      fetchImpl
+    );
+  }
+
+  // (B) A Meta informou apenas o número: ele é validado com o token e a conta
+  // comercial é DESCOBERTA (nunca adivinhada) apenas para ser gravada junto.
+  if (providedPhoneNumberId) {
+    const phone = await fetchAuthorizedPhoneNumber(
+      {
+        phoneNumberId: providedPhoneNumberId,
+        accessToken: input.accessToken,
+        graphVersion,
+      },
+      fetchImpl
+    );
+    if (!phone.ok) {
+      return {
+        ok: false,
+        outcome: "failed",
+        code: "PHONE_NOT_AUTHORIZED",
+        message: `Não foi possível confirmar o número informado pela Meta: ${phone.message}`,
+      };
+    }
+
+    // A descoberta serve apenas para GRAVAR a conta comercial. Quando ela não é
+    // possível (sem escopos, sem credenciais do app ou falha transitória) a
+    // conexão segue com `businessAccountId` nulo: o número escolhido pela
+    // profissional dentro do fluxo da Meta já foi validado acima. Nunca
+    // inventamos um vínculo.
+    const discovery = await discoverAuthorizedAccounts(
+      input,
+      fetchImpl,
+      graphVersion
+    );
+
+    let owner: string | null = null;
+    if (discovery.ok) {
+      const owners: string[] = [];
+      for (const account of discovery.accounts) {
+        const listed = await fetchWabaPhoneNumbers(
+          { wabaId: account.id, accessToken: input.accessToken, graphVersion },
+          fetchImpl
+        );
+        if (
+          listed.ok &&
+          listed.numbers.some((number) => number.id === providedPhoneNumberId)
+        ) {
+          owners.push(account.id);
+        }
+      }
+
+      if (owners.length > 1) {
+        // Defensivo: a Meta não deveria associar o mesmo número a duas contas.
+        return ambiguousTarget(
+          "WABA_SELECTION_REQUIRED",
+          "A Meta associou o número informado a mais de uma conta comercial. Repita o fluxo escolhendo a conta e o número desejados. Nada foi gravado.",
+          owners.map((businessAccountId) => ({
+            businessAccountId,
+            numbers: null,
+          }))
+        );
+      }
+
+      owner = owners[0] ?? null;
+    }
+
+    return {
+      ok: true,
+      phoneNumberId: providedPhoneNumberId,
+      businessAccountId: owner,
+      displayPhoneNumber: phone.phone.displayPhoneNumber,
+      verifiedName: phone.phone.verifiedName,
+    };
+  }
+
+  // (C) A Meta não informou nada: descobrimos as contas autorizadas a partir do
+  // token e só concluímos quando existe UMA conta com UM número.
+  const discovery = await discoverAuthorizedAccounts(
+    input,
+    fetchImpl,
+    graphVersion
+  );
+  if (!discovery.ok) {
+    return {
+      ok: false,
+      outcome: "failed",
+      code: discovery.code,
+      message: discovery.message,
+    };
+  }
+
+  if (discovery.accounts.length === 0) {
+    if (!hasAnyWabaScope(discovery.scopes)) {
+      return {
+        ok: false,
+        outcome: "failed",
+        code: "WABA_SCOPES_MISSING",
+        message:
+          "A autorização concedida não inclui os escopos de gestão do WhatsApp Business, então não é possível identificar a conta comercial. Repita o fluxo aceitando as permissões solicitadas.",
+      };
+    }
+
+    return {
+      ok: false,
+      outcome: "failed",
+      code: "WABA_NOT_RESOLVED",
+      message:
+        "A Meta não informou qual conta comercial (WhatsApp Business Account) foi autorizada. Repita o fluxo e selecione o número desejado.",
+    };
+  }
+
+  if (discovery.accounts.length > 1) {
+    const candidates = await describeCandidateAccounts(
+      discovery.accounts,
+      input.accessToken,
+      graphVersion,
+      fetchImpl
+    );
+
+    return ambiguousTarget(
+      "WABA_SELECTION_REQUIRED",
+      "A autorização cobre mais de uma conta comercial. Repita o fluxo escolhendo a conta e o número desejados. Nada foi gravado.",
+      candidates
+    );
+  }
+
+  const only = discovery.accounts[0];
+  const listed = await fetchWabaPhoneNumbers(
+    { wabaId: only.id, accessToken: input.accessToken, graphVersion },
+    fetchImpl
+  );
+  if (!listed.ok) {
+    return {
+      ok: false,
+      outcome: "failed",
+      code: "WABA_LOOKUP_FAILED",
+      message: `Não foi possível consultar os números da conta comercial autorizada na Meta: ${listed.message}`,
+    };
+  }
+
+  const selected = selectSinglePhoneNumber(listed.numbers);
+  if (!selected.ok) {
+    if (selected.code === "WABA_PHONE_AMBIGUOUS") {
+      return ambiguousTarget(
+        "PHONE_SELECTION_REQUIRED",
+        "A conta comercial autorizada tem mais de um número. Repita o fluxo e escolha o número desejado. Nada foi gravado.",
+        [{ businessAccountId: only.id, numbers: listed.numbers }]
+      );
+    }
+
+    return {
+      ok: false,
+      outcome: "failed",
+      code: "WABA_PHONE_NOT_FOUND",
+      message: selected.message,
+    };
+  }
+
+  return confirmPhoneNumber(
+    {
+      phoneNumberId: selected.phoneNumberId,
+      businessAccountId: only.id,
+      accessToken: input.accessToken,
+      graphVersion,
+    },
+    fetchImpl
+  );
+}

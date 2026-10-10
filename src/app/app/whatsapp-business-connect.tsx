@@ -11,6 +11,11 @@ import type { EmbeddedSignupPublicConfig } from "@/lib/communication/whatsapp-em
 // - Nada é conectado sem a profissional concluir o fluxo da própria Meta.
 // - O `code` devolvido pelo fluxo vai para o SERVIDOR, que troca por token e o
 //   grava CIFRADO. O navegador nunca vê nem guarda o token.
+// - Quando a Meta devolve só o código (sem número e, às vezes, sem conta
+//   comercial), o SERVIDOR identifica a conta autorizada e só conclui quando há
+//   UMA conta com UM número. Se houver mais de uma opção, o servidor recusa a
+//   gravação, diz o que está ambíguo e mostra aqui os números autorizados para
+//   a profissional repetir o fluxo escolhendo — nada é escolhido por palpite.
 // - Se o banco ainda não tiver a estrutura (migrations) ou a chave de
 //   criptografia não estiver configurada, o servidor recusa a conexão e aqui
 //   mostramos o motivo exato — nunca fingimos que conectou.
@@ -59,9 +64,14 @@ type SignupSelection = {
 };
 
 // O evento de sessão do Embedded Signup pode chegar DEPOIS do callback de
-// autorização. Sem esperar um instante por ele, uma autorização válida seria
-// descartada só por ordem de eventos e o servidor nunca chegaria a ser chamado.
-const SIGNUP_SELECTION_WAIT_MS = 3000;
+// autorização. Esperamos um instante curto por ele porque, quando chega, os
+// identificadores seguem prontos para o servidor (caminho PREFERENCIAL).
+//
+// Essa espera NUNCA bloqueia a conexão: sem o evento, o servidor descobre a
+// conta comercial a partir do próprio `code`. E como o `code` expira em 30
+// segundos (documentação da Meta), a espera é curta de propósito: uma
+// autorização válida não pode ser descartada só por ordem de eventos.
+const SIGNUP_SELECTION_WAIT_MS = 1200;
 const SIGNUP_SELECTION_POLL_MS = 150;
 
 async function waitForSignupSelection(ref: {
@@ -80,7 +90,24 @@ async function waitForSignupSelection(ref: {
   return ref.current;
 }
 
-type ConnectErrorBody = { error?: string; code?: string };
+// Resposta do servidor quando a identificação da conta/número é ambígua: ela
+// traz as opções conhecidas para a profissional escolher no fluxo da Meta.
+type ConnectCandidateNumber = {
+  id?: string;
+  displayPhoneNumber?: string | null;
+  verifiedName?: string | null;
+};
+
+type ConnectCandidateAccount = {
+  businessAccountId?: string;
+  numbers?: ConnectCandidateNumber[] | null;
+};
+
+type ConnectErrorBody = {
+  error?: string;
+  code?: string;
+  candidates?: ConnectCandidateAccount[];
+};
 
 // Textos para os códigos técnicos que o servidor devolve. Quando o servidor
 // manda uma mensagem própria, ela tem prioridade.
@@ -96,18 +123,51 @@ const CONNECT_ERROR_HINTS: Record<string, string> = {
   PHONE_NUMBER_IN_USE: "Este número já está conectado a outra organização.",
   WABA_LOOKUP_FAILED:
     "Não foi possível consultar os números da conta comercial na Meta agora. Tente novamente.",
+  WABA_RESOLUTION_FAILED:
+    "A Meta recusou a consulta que identifica a conta comercial autorizada. Se o problema persistir, verifique o acesso avançado da permissão whatsapp_business_management no app da Meta.",
+  WABA_TOKEN_INVALID:
+    "A autorização devolvida pela Meta não é mais válida (o código expira em 30 segundos). Repita o fluxo de conexão.",
+  WABA_NOT_RESOLVED:
+    "A Meta não informou qual conta comercial foi autorizada. Repita o fluxo e selecione o número desejado.",
   WABA_PHONE_NOT_FOUND:
     "A conta comercial autorizada não tem nenhum número de telefone. Adicione um número no fluxo da Meta e repita.",
-  WABA_PHONE_AMBIGUOUS:
-    "A conta comercial autorizada tem mais de um número. Repita o fluxo e selecione o número desejado.",
+  WABA_SELECTION_REQUIRED:
+    "A autorização cobre mais de uma conta comercial. Repita o fluxo e escolha a conta e o número desejados — nada foi gravado.",
+  PHONE_SELECTION_REQUIRED:
+    "A conta comercial autorizada tem mais de um número. Repita o fluxo e escolha o número desejado — nada foi gravado.",
+  WABA_SCOPES_MISSING:
+    "A autorização não incluiu as permissões de gestão do WhatsApp Business, então a conta comercial não pôde ser identificada. Repita o fluxo aceitando todas as permissões solicitadas.",
+  PHONE_NOT_IN_WABA:
+    "O número informado pela Meta não pertence à conta comercial autorizada. Repita o fluxo e selecione o número desejado.",
 };
+
+// Nomes legíveis das opções devolvidas pelo servidor quando existe mais de uma
+// conta/número autorizado. Serve só para a profissional saber O QUE escolher no
+// fluxo da Meta — nenhum identificador é gravado a partir daqui.
+function describeCandidates(body: ConnectErrorBody): string {
+  const labels: string[] = [];
+  for (const account of body.candidates ?? []) {
+    const numbers = account.numbers ?? [];
+    for (const item of numbers) {
+      const label = item.displayPhoneNumber ?? item.id;
+      if (!label) continue;
+      labels.push(item.verifiedName ? `${label} (${item.verifiedName})` : label);
+    }
+    if (numbers.length === 0 && account.businessAccountId) {
+      labels.push(`conta ${account.businessAccountId}`);
+    }
+  }
+  if (labels.length === 0) return "";
+  return ` Números autorizados: ${labels.join(", ")}.`;
+}
 
 function describeConnectFailure(body: ConnectErrorBody | null) {
   if (body) {
-    if (body.code && CONNECT_ERROR_HINTS[body.code]) {
-      return CONNECT_ERROR_HINTS[body.code];
-    }
-    if (typeof body.error === "string" && body.error.trim()) return body.error;
+    const hint = body.code ? CONNECT_ERROR_HINTS[body.code] : undefined;
+    const fallback =
+      typeof body.error === "string" && body.error.trim() ? body.error : "";
+    const base = hint ?? fallback;
+    if (base) return `${base}${describeCandidates(body)}`;
   }
   return "Não foi possível concluir a conexão do WhatsApp.";
 }
@@ -264,19 +324,10 @@ export function WhatsAppBusinessConnect({
         return;
       }
       // A Meta pode mandar a autorização ANTES do evento de sessão. Esperamos um
-      // instante por ele; sem isso, uma autorização válida era descartada e o
-      // servidor nunca era chamado.
+      // instante curto por ele, mas o evento NUNCA é obrigatório: sem
+      // identificadores, o servidor descobre a conta comercial a partir do
+      // próprio `code`. Autorização válida não é descartada aqui.
       const selection = await waitForSignupSelection(selectionRef);
-      if (
-        !selection ||
-        (!selection.phoneNumberId && !selection.businessAccountId)
-      ) {
-        setConnecting(false);
-        setFlowMessage(
-          "A Meta concluiu a autorização, mas não informou o número nem a conta comercial. Repita o fluxo e selecione o número desejado."
-        );
-        return;
-      }
       try {
         const apiResponse = await fetch(
           "/api/communication/whatsapp/connect",
@@ -285,8 +336,8 @@ export function WhatsAppBusinessConnect({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               code,
-              phoneNumberId: selection.phoneNumberId,
-              businessAccountId: selection.businessAccountId,
+              phoneNumberId: selection?.phoneNumberId ?? null,
+              businessAccountId: selection?.businessAccountId ?? null,
             }),
           }
         );

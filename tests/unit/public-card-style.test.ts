@@ -199,7 +199,7 @@ describe("identidade visual do cartão público", () => {
   it("usa o fundo claro documentado (rosa suave) com cartões brancos", () => {
     const light = declarationsOf(".eq-public");
 
-    assert.equal(token(light, "--eq-page"), "#fff7f8");
+    assert.equal(token(light, "--eq-page"), "#fff5f8");
     assert.equal(token(light, "--eq-soft"), "#fceef1");
     assert.equal(token(light, "--eq-card"), "#ffffff");
     assert.equal(token(light, "--eq-card-border"), "#f0dde2");

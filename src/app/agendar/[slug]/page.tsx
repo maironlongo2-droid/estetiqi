@@ -144,9 +144,6 @@ export default async function PublicBookingPage({
     getPublicProfessionals(organization.id),
   ]);
 
-  const location = [organization.city, organization.state]
-    .filter(Boolean)
-    .join(" · ");
   const address = [organization.city, organization.state]
     .filter(Boolean)
     .join(", ");
@@ -219,13 +216,6 @@ export default async function PublicBookingPage({
           {organization.bio ? (
             <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[var(--eq-muted)]">
               {organization.bio}
-            </p>
-          ) : null}
-
-          {location ? (
-            <p className="mt-4 flex items-center justify-center gap-1.5 text-sm text-[var(--eq-muted)]">
-              <span aria-hidden="true">📍</span>
-              <span>{location}</span>
             </p>
           ) : null}
 

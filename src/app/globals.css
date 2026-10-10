@@ -121,7 +121,7 @@ body {
   /* Identidade clara do cartão: fundo rosa muito suave, cartões brancos e
      divisórias discretas. O contraste de cada texto é medido no teste
      tests/unit/public-card-style.test.ts (todos ≥ 4,5:1). */
-  --eq-page: #fff7f8;
+  --eq-page: #fff5f8;
   --eq-card: #ffffff;
   --eq-card-border: #f0dde2;
   --eq-border: #f0dde2;
@@ -136,23 +136,45 @@ body {
   color-scheme: light;
 }
 
-/* Ornamento de fundo: dois brilhos radiais de baixíssima opacidade que dão
-   profundidade ao fundo claro sem competir com o conteúdo. É `background-image`
-   (o `background-color` continua vindo de `--eq-page`), então não interfere em
-   nenhuma cor de fundo já aplicada por utilitários. */
+/* Fundo EXTERNO do cartão público: rosa muito claro (#fff5f8) com textura de
+   papel fino — véus amplos e discretos em #fff0f5 e #fceaf1 e fibras de
+   contraste quase imperceptível. O `background-color` vem de `--eq-page`
+   (logo acompanha o modo escuro sem precisar de literal duplicado).
+
+   Por que também <html>/<body>: o rosa não aparecia antes porque o canvas do
+   documento seguia a cor creme global (#fbfaf8) em tudo o que fica fora do
+   <main> — rolagem elástica do celular, bordas e overscroll. Com `:has()` o
+   fundo rosa fica restrito às páginas que têm o cartão público; nenhuma outra
+   tela é afetada. Cartões, capa, logo e botões continuam como estão. */
 .eq-public {
+  background-color: var(--eq-page);
   background-image:
-    radial-gradient(
-      120% 52% at 10% -6%,
-      rgba(175, 85, 112, 0.075) 0%,
-      rgba(175, 85, 112, 0) 62%
+    repeating-linear-gradient(
+      115deg,
+      rgba(255, 255, 255, 0.32) 0 1px,
+      rgba(255, 255, 255, 0) 1px 3px
     ),
     radial-gradient(
-      105% 46% at 104% 6%,
-      rgba(63, 106, 140, 0.05) 0%,
-      rgba(63, 106, 140, 0) 58%
+      130% 58% at 8% -10%,
+      rgba(252, 234, 241, 0.95) 0%,
+      rgba(252, 234, 241, 0) 62%
+    ),
+    radial-gradient(
+      120% 54% at 102% 2%,
+      rgba(255, 240, 245, 0.9) 0%,
+      rgba(255, 240, 245, 0) 58%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 240, 245, 0.75) 0%,
+      rgba(255, 245, 248, 0) 40%
     );
   background-repeat: no-repeat;
+}
+
+html:has(main.eq-public),
+body:has(main.eq-public) {
+  background: #fff5f8;
 }
 
 /* Paleta fechada de seis cores (as mesmas chaves de src/lib/public/accent.ts).
@@ -228,6 +250,12 @@ body {
         rgba(255, 255, 255, 0) 56%
       );
     color-scheme: dark;
+  }
+
+  /* O fundo externo (html/body) acompanha o cartão também no modo escuro. */
+  html:has(main.eq-public),
+  body:has(main.eq-public) {
+    background: #171214;
   }
 }
 

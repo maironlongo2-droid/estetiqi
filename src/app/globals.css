@@ -293,6 +293,18 @@ body:has(main.eq-public) {
   outline: none;
   box-shadow: none;
   object-fit: cover;
+  /* Recorte sempre centralizado: a foto é enquadrada pelo centro do círculo. */
+  object-position: center;
+}
+
+/* Foto da profissional no agendamento público. A área da foto tem superfície
+   PRÓPRIA, sólida e neutra (o branco do cartão): o rosa do cartão nunca aparece
+   através do círculo — nem enquanto a foto carrega, nem atrás de um recorte com
+   transparência. Sem foto, a inicial do fallback aparece sobre essa mesma
+   superfície sólida, em vez de um disco tingido pela cor de destaque. A logo do
+   negócio continua com a tinta suave da paleta. */
+.eq-avatar--photo {
+  background: var(--eq-card, #ffffff);
 }
 
 /* Logo/identidade do cartão: um degrau acima das fotos de profissional, para dar

@@ -426,6 +426,28 @@ describe("avatar do cartão público", () => {
     assert.equal(token(image, "border"), "0");
     assert.equal(token(image, "border-radius"), "inherit");
     assert.equal(token(image, "box-shadow"), "none");
+    assert.equal(token(image, "object-position"), "center");
+  });
+
+  it("dá à foto da profissional uma superfície sólida própria, sem o rosa do cartão", () => {
+    // O rosa do cartão não pode aparecer através do círculo da foto: a área tem
+    // fundo sólido próprio (o branco do cartão) e nada deixa a imagem translúcida.
+    assert.equal(
+      token(declarationsOf(".eq-avatar--photo"), "background"),
+      "var(--eq-card, #ffffff)"
+    );
+
+    for (const selector of [".eq-avatar", ".eq-avatar > img"]) {
+      const declarations = declarationsOf(selector);
+
+      for (const forbidden of ["opacity", "mix-blend-mode", "filter"]) {
+        assert.equal(
+          declarations[forbidden],
+          undefined,
+          `${selector} não pode declarar ${forbidden} (deixaria o rosa do cartão aparecer na foto)`
+        );
+      }
+    }
   });
 
   it("mantém o logo maior que a foto da profissional, com anel circular", () => {

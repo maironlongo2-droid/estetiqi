@@ -542,6 +542,7 @@ export function PublicBookingForm({
                           alt={`Foto de ${professional.name}`}
                           name={professional.name}
                           size="lg"
+                          className="eq-avatar--photo"
                         />
                       {active ? (
                         <span

@@ -228,3 +228,62 @@ export async function fetchAuthorizedPhoneNumber(
     },
   };
 }
+
+export type WabaPhoneNumber = {
+  id: string;
+  displayPhoneNumber: string | null;
+  verifiedName: string | null;
+};
+
+// Lista os números de telefone da conta comercial (WABA) que o token autorizado
+// consegue ler. Existe porque as versões atuais do Embedded Signup permitem
+// concluir o fluxo SEM que a Meta informe qual número foi escolhido (inclusive
+// sem número algum). NUNCA escolhemos por conta própria: quem chama decide o que
+// fazer com zero ou com várias opções.
+export async function fetchWabaPhoneNumbers(
+  input: {
+    wabaId: string;
+    accessToken: string;
+    graphVersion?: string;
+  },
+  fetchImpl: GraphFetch = fetch
+): Promise<
+  { ok: true; numbers: WabaPhoneNumber[] } | { ok: false; message: string }
+> {
+  const version = input.graphVersion ?? DEFAULT_GRAPH_API_VERSION;
+  const url = buildGraphUrl(
+    version,
+    `${encodeURIComponent(input.wabaId)}/phone_numbers`,
+    { fields: "id,display_phone_number,verified_name" }
+  );
+
+  const result = await requestJson(url, fetchImpl, {
+    headers: { Authorization: `Bearer ${input.accessToken}` },
+  });
+
+  if (!result.ok) {
+    return { ok: false, message: result.message };
+  }
+
+  const rows = Array.isArray(result.data.data) ? result.data.data : [];
+  const numbers: WabaPhoneNumber[] = [];
+
+  for (const row of rows) {
+    if (!row || typeof row !== "object") continue;
+    const record = row as Record<string, unknown>;
+    const id = typeof record.id === "string" ? record.id.trim() : "";
+    if (!id) continue;
+    numbers.push({
+      id,
+      displayPhoneNumber:
+        typeof record.display_phone_number === "string"
+          ? record.display_phone_number
+          : null,
+      verifiedName:
+        typeof record.verified_name === "string" ? record.verified_name : null,
+    });
+  }
+
+  return { ok: true, numbers };
+}
+

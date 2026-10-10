@@ -7,6 +7,7 @@ import {
   exchangeAuthorizationCode,
   extendToLongLivedToken,
   fetchAuthorizedPhoneNumber,
+  fetchWabaPhoneNumbers,
 } from "@/lib/communication/whatsapp-connect";
 import { WHATSAPP_APP_ID_ENV } from "@/lib/communication/whatsapp-embedded-signup";
 import {
@@ -24,11 +25,20 @@ import { clientIpFromRequest, rateLimit } from "@/lib/security/rate-limit";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const connectSchema = z.object({
-  code: z.string().trim().min(8).max(4096),
-  phoneNumberId: z.string().trim().min(1).max(64),
-  businessAccountId: z.string().trim().min(1).max(64).optional().nullable(),
-});
+const connectSchema = z
+  .object({
+    code: z.string().trim().min(8).max(4096),
+    // A Meta pode concluir o Embedded Signup SEM informar o número escolhido
+    // (as versões atuais permitem terminar sem número). Quando isso acontece, o
+    // número é resolvido pela conta comercial (WABA) autorizada — por isso exigir
+    // pelo menos um dos dois identificadores, e nunca confiar em dados de outra
+    // organização (a organização vem do usuário autenticado).
+    phoneNumberId: z.string().trim().min(1).max(64).optional().nullable(),
+    businessAccountId: z.string().trim().min(1).max(64).optional().nullable(),
+  })
+  .refine((value) => Boolean(value.phoneNumberId || value.businessAccountId), {
+    message: "Informe o número de telefone ou a conta comercial autorizada.",
+  });
 
 export async function POST(request: Request) {
   try {
@@ -129,10 +139,63 @@ export async function POST(request: Request) {
       expiresInSeconds = extended.expiresInSeconds;
     }
 
-    // 3) Confirma que o token realmente LÊ o número informado. Não vinculamos um
+    // 3) Quando a Meta NÃO informa o número escolhido (o fluxo atual permite
+    // concluir sem número), resolvemos o número pela conta comercial autorizada.
+    // NUNCA escolhemos por conta própria: aceitamos apenas uma ÚNICA opção; zero
+    // ou várias viram erro explícito para a profissional repetir o fluxo.
+    let phoneNumberId = parsed.data.phoneNumberId ?? null;
+    if (!phoneNumberId) {
+      const wabaId = parsed.data.businessAccountId ?? null;
+      if (!wabaId) {
+        return Response.json(
+          {
+            error: "Dados inválidos para concluir a conexão.",
+            code: "MISSING_TARGET",
+          },
+          { status: 400 }
+        );
+      }
+
+      const listed = await fetchWabaPhoneNumbers({
+        wabaId,
+        accessToken,
+        graphVersion,
+      });
+      if (!listed.ok) {
+        return Response.json(
+          {
+            error: `Não foi possível consultar os números da conta comercial na Meta: ${listed.message}`,
+            code: "WABA_LOOKUP_FAILED",
+          },
+          { status: 502 }
+        );
+      }
+      if (listed.numbers.length === 0) {
+        return Response.json(
+          {
+            error: "A conta comercial autorizada não possui número de telefone.",
+            code: "WABA_PHONE_NOT_FOUND",
+          },
+          { status: 400 }
+        );
+      }
+      if (listed.numbers.length > 1) {
+        return Response.json(
+          {
+            error: "A conta comercial autorizada possui mais de um número.",
+            code: "WABA_PHONE_AMBIGUOUS",
+          },
+          { status: 400 }
+        );
+      }
+
+      phoneNumberId = listed.numbers[0].id;
+    }
+
+    // 4) Confirma que o token realmente LÊ o número informado. Não vinculamos um
     // número que a credencial não consegue acessar.
     const phone = await fetchAuthorizedPhoneNumber({
-      phoneNumberId: parsed.data.phoneNumberId,
+      phoneNumberId,
       accessToken,
       graphVersion,
     });
@@ -146,7 +209,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4) Persiste a integração (token CIFRADO). A organização vem do usuário.
+    // 5) Persiste a integração (token CIFRADO). A organização vem do usuário.
     const webhookConfigured = Boolean(
       process.env[WHATSAPP_ENV_KEYS.verifyToken]?.trim()
     );
@@ -155,7 +218,7 @@ export async function POST(request: Request) {
       organizationId: currentUser.organization.id,
       accessToken,
       tokenExpiresInSeconds: expiresInSeconds,
-      phoneNumberId: parsed.data.phoneNumberId,
+      phoneNumberId,
       businessAccountId: parsed.data.businessAccountId ?? null,
       displayPhoneNumber: phone.phone.displayPhoneNumber,
       verifiedName: phone.phone.verifiedName,

@@ -14,8 +14,9 @@
 // - cor base como texto sobre fundo claro (#ffffff): 4,82:1 (rosé) a 5,84:1.
 // - texto branco sobre a variante de interação (`strong`): 6,31:1 a 7,63:1.
 // Por isso o modelo usa texto branco sobre a cor de destaque e a cor de destaque
-// como texto apenas sobre fundos claros (`--eq-soft`) ou sobre o fundo escuro
-// clareado (`--eq-accent-text`, definido no CSS para o modo escuro).
+// como texto apenas sobre fundos claros (`--eq-page`, `--eq-card` e
+// `--eq-soft`), já que o cartão público é sempre claro — inclusive quando o
+// sistema do visitante está em modo escuro.
 // O mesmo degrau de contraste é revalidado em tests/unit/public-accent.test.ts,
 // que mede estas relações em vez de confiar no comentário.
 

@@ -128,8 +128,11 @@ function parseCss(source: string): Rule[] {
 const RULES = parseCss(CARD_CSS);
 
 const isLightContext = (context: string[]): boolean => context.length === 0;
-const isDarkContext = (context: string[]): boolean =>
-  context.some((entry) => entry.includes("prefers-color-scheme: dark"));
+
+// O cartão público NÃO tem tema escuro: ele já ficou quase preto (#171214) para
+// visitantes com o sistema em modo escuro, o que quebra o requisito do produto.
+// Este marcador alimenta o teste que impede a volta desse comportamento.
+const DARK_MEDIA_MARKER = "prefers-color-scheme";
 
 // Divide a lista de seletores de uma regra respeitando parênteses: em
 // `:where(a, button)` a vírgula faz parte do seletor, não separa regras.
@@ -323,48 +326,47 @@ describe("contraste do cartão público (WCAG 2.1)", () => {
     }
   });
 
-  it("garante AA em todos os textos do modo escuro", () => {
-    const dark = declarationsOf(".eq-public", isDarkContext);
-    assert.ok(
-      Object.keys(dark).length > 0,
-      "bloco do modo escuro ausente no CSS do cartão"
+  it("mantém o cartão claro mesmo com o sistema em modo escuro", () => {
+    // Regressão real: com o sistema em modo escuro o cartão público ficava quase
+    // preto (--eq-page #171214), contrariando o requisito de fundo rosa claro em
+    // qualquer aparelho. Logo, nenhuma regra do cartão pode depender do tema.
+    const darkRules = RULES.filter(
+      (rule) =>
+        rule.context.some((entry) => entry.includes(DARK_MEDIA_MARKER)) &&
+        splitSelectorList(rule.selector).some((selector) =>
+          selector.includes(".eq-public")
+        )
     );
-    assert.equal(token(dark, "color-scheme"), "dark");
 
-    const surfaces: Array<[string, string]> = [
-      ["--eq-card", token(dark, "--eq-card")],
-      ["--eq-page", token(dark, "--eq-page")],
-      ["--eq-soft", token(dark, "--eq-soft")],
-    ];
+    assert.deepEqual(
+      darkRules.map((rule) => rule.selector),
+      [],
+      "o cartão público não pode ter regras condicionadas ao modo escuro"
+    );
 
-    for (const [surfaceName, surface] of surfaces) {
-      expectContrast(
-        `--eq-ink sobre ${surfaceName} (escuro)`,
-        token(dark, "--eq-ink"),
-        surface,
-        4.5
-      );
-      expectContrast(
-        `--eq-muted sobre ${surfaceName} (escuro)`,
-        token(dark, "--eq-muted"),
-        surface,
-        4.5
+    // `color-scheme: light` mantém campos, seletores e barras de rolagem claros
+    // mesmo com o sistema operacional em modo escuro.
+    assert.equal(
+      token(declarationsOf(".eq-public"), "color-scheme"),
+      "light",
+      "o cartão público precisa declarar color-scheme: light"
+    );
+
+    // O fundo externo (html/body) é o canvas que aparece na rolagem elástica do
+    // celular: precisa ser rosa em qualquer tema, sem alternância.
+    for (const outer of ["html:has(main.eq-public)", "body:has(main.eq-public)"]) {
+      assert.equal(
+        declarationsOf(outer).background,
+        "#fff5f8",
+        `${outer} precisa manter o rosa do cartão em qualquer tema`
       );
     }
-
-    expectContrast(
-      "--eq-danger-text sobre --eq-danger-bg (escuro)",
-      token(dark, "--eq-danger-text"),
-      token(dark, "--eq-danger-bg"),
-      4.5
-    );
   });
 });
 
 describe("controles e foco do cartão público", () => {
   it("dá contraste de controle (>= 3:1) à borda dos campos", () => {
     const light = declarationsOf(".eq-public");
-    const dark = declarationsOf(".eq-public", isDarkContext);
 
     expectContrast(
       "--eq-field-border sobre --eq-card",
@@ -376,12 +378,6 @@ describe("controles e foco do cartão público", () => {
       "--eq-field-border sobre --eq-page",
       token(light, "--eq-field-border"),
       token(light, "--eq-page"),
-      3
-    );
-    expectContrast(
-      "--eq-field-border sobre --eq-card (escuro)",
-      token(dark, "--eq-field-border"),
-      token(dark, "--eq-card"),
       3
     );
   });

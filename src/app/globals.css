@@ -106,12 +106,15 @@ body {
 
    A cor chega ao documento apenas como `data-accent` (chave validada no
    servidor); nenhum valor de CSS vindo do banco é aplicado. Os tokens abaixo
-   derivam as variantes de interação, os fundos suaves e a cor de texto sobre
-   fundo escuro, sempre com contraste medido (ver comentário no módulo TS).
+   derivam as variantes de interação, os fundos suaves e a cor de texto de apoio
+   sobre os fundos claros, sempre com contraste medido (ver módulo TS).
 
-   Modo escuro: os tokens do cartão são redefinidos em
-   `prefers-color-scheme: dark`, mantendo texto claro sobre fundo escuro e a cor
-   de destaque clareada como texto (contraste ≥ 9:1 no pior caso). */
+   TEMA: o cartão público é sempre claro e não possui bloco de modo escuro
+   (ver o comentário abaixo, depois do bloco de tokens do avatar/foco). O
+   visitante abre o cartão pelo celular, geralmente com o sistema em modo
+   escuro, e o requisito do produto é o fundo rosa quase branco em qualquer
+   aparelho. O contraste de cada texto segue medido em
+   tests/unit/public-card-style.test.ts. */
 .eq-public {
   --eq-accent: #2f6f68;
   --eq-accent-strong: #275c56;
@@ -139,7 +142,7 @@ body {
 /* Fundo EXTERNO do cartão público: rosa muito claro (#fff5f8) com textura de
    papel fino — véus amplos e discretos em #fff0f5 e #fceaf1 e fibras de
    contraste quase imperceptível. O `background-color` vem de `--eq-page`
-   (logo acompanha o modo escuro sem precisar de literal duplicado).
+   (o token é único, então qualquer ajuste vale para o cartão e para o canvas).
 
    Por que também <html>/<body>: o rosa não aparecia antes porque o canvas do
    documento seguia a cor creme global (#fbfaf8) em tudo o que fica fora do
@@ -222,42 +225,12 @@ body:has(main.eq-public) {
   --eq-accent-text: #876738;
 }
 
-@media (prefers-color-scheme: dark) {
-  .eq-public {
-    /* Neutros quentes (marrom-acinzentados) para conversar com a paleta clara,
-       em vez do verde anterior. Contraste medido no teste: texto ≥ 8:1. */
-    --eq-page: #171214;
-    --eq-card: #1e181b;
-    --eq-card-border: #2e262a;
-    --eq-border: #2e262a;
-    --eq-field-border: #8d7580;
-    --eq-ink: #f5edef;
-    --eq-muted: #c3b3b9;
-    --eq-soft: #241d20;
-    --eq-accent-soft: color-mix(in srgb, var(--eq-accent) 22%, #171214);
-    --eq-accent-text: color-mix(in srgb, var(--eq-accent) 45%, #ffffff);
-    --eq-danger-bg: #3a1f27;
-    --eq-danger-text: #f0b9c6;
-    background-image:
-      radial-gradient(
-        120% 52% at 10% -6%,
-        rgba(255, 255, 255, 0.045) 0%,
-        rgba(255, 255, 255, 0) 60%
-      ),
-      radial-gradient(
-        105% 46% at 104% 6%,
-        rgba(255, 255, 255, 0.03) 0%,
-        rgba(255, 255, 255, 0) 56%
-      );
-    color-scheme: dark;
-  }
-
-  /* O fundo externo (html/body) acompanha o cartão também no modo escuro. */
-  html:has(main.eq-public),
-  body:has(main.eq-public) {
-    background: #171214;
-  }
-}
+/* TEMA DO CARTÃO: o cartão público é SEMPRE claro. Não existe media query de
+   modo escuro para ele, de propósito: é a página que a cliente final abre no
+   celular — quase sempre com o sistema em modo escuro — e o requisito do produto
+   é o fundo rosa quase branco (#fff5f8) em qualquer aparelho. O `color-scheme:
+   light` do bloco `.eq-public` mantém campos, seletores e barras de rolagem
+   claros mesmo com o sistema escuro. */
 
 /* Foco de teclado dentro do cartão: o anel global do app é verde-escuro; aqui ele
    passa a usar a cor de destaque escolhida (contraste ≥ 4,8:1 sobre o fundo

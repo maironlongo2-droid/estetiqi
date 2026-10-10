@@ -231,8 +231,8 @@ export default function TermosPage() {
           </li>
           <li>
             O suporte é prestado pelo canal de suporte dentro do painel e pelos
-            endereços de contato informados na seção 16, em horário comercial e
-            na ordem de chegada das solicitações.
+            endereços de contato informados na seção 16, na ordem de chegada das
+            solicitações.
           </li>
         </ul>
       </LegalSection>
@@ -289,12 +289,11 @@ export default function TermosPage() {
       </LegalSection>
       <LegalSection title="12. Planos e condições comerciais">
         <p>
-          O EstetiQI pode ser oferecido em diferentes planos e condições,
-          inclusive em período de teste ou de uso gratuito. As condições
-          aplicáveis — valores, forma de pagamento, renovação e cancelamento —
-          são apresentadas ao usuário de forma clara antes de qualquer
-          contratação e podem ser consultadas pelo canal de contato indicado na
-          seção 16.
+          O EstetiQI pode ser oferecido em diferentes planos e condições. As
+          condições aplicáveis — valores, forma de pagamento, renovação e
+          cancelamento — são apresentadas ao usuário de forma clara antes de
+          qualquer contratação e podem ser consultadas pelo canal de contato
+          indicado na seção 16.
         </p>
         <p>
           A plataforma não realiza cobrança automática por meio de cartão dentro

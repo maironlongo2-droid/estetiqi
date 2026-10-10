@@ -446,11 +446,12 @@ export default function PrivacidadePage() {
             eles, não é possível entrar no sistema.
           </li>
           <li>
-            <strong>Armazenamento local do navegador:</strong> usamos armazenamento
-            local do navegador apenas para guardar rascunhos de formulários
+            <strong>Armazenamento no navegador:</strong> usamos o armazenamento
+            de sessão do navegador apenas para guardar rascunhos de formulários
             enquanto o usuário preenche uma tela (por exemplo, um agendamento em
-            andamento). Esse conteúdo permanece no próprio dispositivo e não é
-            usado para rastreamento.
+            andamento). Esse conteúdo permanece no próprio dispositivo, é
+            descartado quando a sessão do navegador termina e não é usado para
+            rastreamento.
           </li>
           <li>
             <strong>Sem rastreamento publicitário:</strong> não utilizamos cookies

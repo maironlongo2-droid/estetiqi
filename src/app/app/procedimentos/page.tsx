@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useToast } from "../toast";
 import { useProcedureLabels } from "../procedure-labels";
+import { ProtocolManager } from "../protocol-manager";
 
 type Procedure = {
   id: string;
@@ -25,6 +25,7 @@ export default function ProcedimentosPage() {
   const labels = useProcedureLabels();
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [protocolsFor, setProtocolsFor] = useState<string | null>(null);
   const listRevision = useRef(0);
 
   useEffect(() => {
@@ -307,9 +308,10 @@ export default function ProcedimentosPage() {
               {procedures.map((procedure) => (
                 <div
                   key={procedure.id}
-                  className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
+                  className="p-4 sm:p-5"
                 >
-                  <div className="min-w-0">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
                     <p className="font-semibold">{procedure.name}</p>
                     <p className="mt-1 text-sm text-[#78867f]">
                       {procedure.description || "Sem descrição"}
@@ -340,12 +342,34 @@ export default function ProcedimentosPage() {
 
                     <button
                       type="button"
+                      onClick={() =>
+                        setProtocolsFor((current) =>
+                          current === procedure.id ? null : procedure.id
+                        )
+                      }
+                      className="min-h-10 rounded-lg border border-[#dce5e0] px-3 py-2 text-sm font-medium"
+                    >
+                      {protocolsFor === procedure.id
+                        ? "Fechar protocolo"
+                        : "Protocolo PDF"}
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() => handleDelete(procedure)}
                       className="min-h-10 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-700"
                     >
                       Excluir
                     </button>
                   </div>
+                  </div>
+                  {protocolsFor === procedure.id ? (
+                    <ProtocolManager
+                      key={procedure.id}
+                      procedureId={procedure.id}
+                      procedureName={procedure.name}
+                    />
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -364,60 +388,31 @@ export default function ProcedimentosPage() {
               Documentos
             </span>
           </div>
-          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-            <p className="font-semibold">
-              Upload de PDF ainda não disponível neste ambiente.
-            </p>
-            <p className="mt-1">
-              Para anexar protocolos em PDF a cada {labels.singularLower},
-              protegidos por organização, são necessários dois recursos que ainda
-              não estão configurados:
-            </p>
-            <ul className="mt-2 list-disc space-y-1 pl-5">
-              <li>
-                Armazenamento privado de objetos (bucket) com acesso autenticado
-                e temporário aos arquivos.
-              </li>
-              <li>
-                A tabela dedicada à associação protocolo ↔ {labels.singularLower}{" "}
-                (migration 034_procedure_protocols.sql), ainda não aplicada neste
-                ambiente.
-              </li>
-            </ul>
-            <p className="mt-2">
-              Enquanto isso, esta tela não faz upload nem mantém documentos —
-              nada é simulado.
-            </p>
-          </div>
           <p className="mt-3 text-sm text-[#52635b]">
-            Você pode registrar as orientações gerais de cada{" "}
-            {labels.singularLower} no campo Descrição, acima, e usar as mensagens
-            pós-atendimento na{" "}
-            <Link
-              href="/app/comunicacao"
-              className="font-semibold text-[#30463c] underline"
-            >
-              Central de Comunicação
-            </Link>{" "}
-            para falar com a cliente após o atendimento.
+            Cada {labels.singularLower} tem a própria área de protocolos: clique
+            em <span className="font-semibold">Protocolo PDF</span> na lista
+            acima para anexar, substituir ou remover os documentos da clínica e
+            acompanhar o estado real de cada envio.
           </p>
-          {procedures.length > 0 && (
-            <div className="mt-4">
-              <p className="text-xs font-semibold text-[#78867f]">
-                {labels.plural} disponíveis para receber protocolo
-              </p>
-              <ul className="mt-2 flex flex-wrap gap-2">
-                {procedures.map((procedure) => (
-                  <li
-                    key={procedure.id}
-                    className="rounded-full bg-[#edf3ef] px-3 py-1 text-xs font-medium text-[#50655b]"
-                  >
-                    {procedure.name}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          <ul className="mt-3 space-y-1 text-sm text-[#78867f]">
+            <li>
+              · Somente PDF, de até 5 MB, validado no navegador e novamente no
+              servidor (tipo real e assinatura do arquivo).
+            </li>
+            <li>
+              · O documento fica privado e separado por organização: só quem está
+              autenticado no seu negócio consegue abrir o arquivo.
+            </li>
+            <li>
+              · Pré-procedimento é enviado depois da confirmação do agendamento;
+              pós-procedimento, depois do atendimento ser concluído.
+            </li>
+            <li>
+              · O envio usa o WhatsApp oficial conectado à sua conta. Sem número
+              conectado, o estado fica como indisponível e pode ser tentado de
+              novo — nada é simulado.
+            </li>
+          </ul>
         </section>
       </div>
     </main>

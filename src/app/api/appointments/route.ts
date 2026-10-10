@@ -7,6 +7,7 @@ import {
   appointmentProceduresSelect,
   normalizeProcedureIds,
 } from "@/lib/appointments/procedures";
+import { deliverProtocolsForAppointment } from "@/lib/protocols/protocol-delivery";
 
 // Limite defensivo para a consulta por intervalo (?from&to), em dias inclusivos.
 const MAX_APPOINTMENTS_RANGE_DAYS = 92;
@@ -316,6 +317,16 @@ export async function POST(request: Request) {
         { error: outcome.error },
         { status: outcome.status }
       );
+    }
+
+    // Agendamento criado já confirmado: envia as orientações pré-procedimento
+    // configuradas. Best-effort — a criação nunca falha por causa do envio.
+    if (outcome.appointment.status === "confirmed") {
+      await deliverProtocolsForAppointment({
+        organizationId: currentUser.organization.id,
+        appointmentId: outcome.appointment.id,
+        trigger: "pre_appointment",
+      });
     }
 
     return Response.json({ appointment: outcome.appointment }, { status: 201 });

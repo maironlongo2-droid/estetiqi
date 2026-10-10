@@ -15,20 +15,6 @@ type Client = {
   status: string;
 };
 
-type Analytics = {
-  revenue?: number;
-  previousRevenue?: number;
-  revenueChange?: number | null;
-  ticketAverage?: number;
-  payingClients?: number;
-  appointments?: {
-    total?: number;
-    completed?: number;
-    cancelled?: number;
-    no_show?: number;
-  };
-};
-
 type Appointment = {
   id: string;
   client_name: string;
@@ -81,13 +67,6 @@ type PublicCard = {
 
 const cardClass = "rounded-2xl border border-[#e4ebe7] bg-white shadow-sm";
 const mutedClass = "text-sm text-[#78867f]";
-
-function money(value = 0) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value);
-}
 
 function dateString(date: Date) {
   const year = date.getFullYear();
@@ -162,7 +141,6 @@ function MetricCard({
 export default function AppPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [activeClientCount, setActiveClientCount] = useState(0);
-  const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [actions, setActions] = useState<AIAction[]>([]);
@@ -189,6 +167,9 @@ export default function AppPage() {
       const now = new Date();
       setCurrentDate(now);
       const today = dateString(now);
+      // O painel inicial NÃO carrega o faturamento: o resumo financeiro
+      // (receita, ticket médio e comparação com o mês anterior) é exibido apenas
+      // na aba Financeiro, que usa a rota /api/analytics normalmente.
       const coreRequests = await Promise.allSettled([
         // O painel exibe apenas os 4 clientes ativos mais recentes; buscamos 8
         // para dar folga e reduzir o payload (o total vem do campo "total").
@@ -198,7 +179,6 @@ export default function AppPage() {
           clients?: Client[];
           total?: number;
         }>),
-        fetch("/api/analytics").then(readResponse<Analytics>),
         fetch(`/api/appointments?date=${today}`).then(readResponse<{
           appointments?: Appointment[];
         }>),
@@ -207,19 +187,13 @@ export default function AppPage() {
       if (!active) return;
 
       let failedCore = false;
-      const [clientsResult, analyticsResult, appointmentsResult] = coreRequests;
+      const [clientsResult, appointmentsResult] = coreRequests;
 
       if (clientsResult.status === "fulfilled") {
         setClients(clientsResult.value.clients ?? []);
         setActiveClientCount(
           clientsResult.value.total ?? clientsResult.value.clients?.length ?? 0
         );
-      } else {
-        failedCore = true;
-      }
-
-      if (analyticsResult.status === "fulfilled") {
-        setAnalytics(analyticsResult.value);
       } else {
         failedCore = true;
       }
@@ -419,8 +393,6 @@ export default function AppPage() {
     }
   }
 
-  const revenue = analytics?.revenue;
-  const revenueChange = analytics?.revenueChange;
   const pendingActions = actions.filter(
     (action) => action.status === "pending_approval"
   );
@@ -526,18 +498,11 @@ export default function AppPage() {
           </div>
         </section>
 
-        <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            label="Faturamento deste mês"
-            href="/app/financeiro"
-            value={loading ? "—" : revenue === undefined ? "Indisponível" : money(revenue)}
-            detail={
-              revenueChange === null || revenueChange === undefined
-                ? "Sem comparação com o mês anterior"
-                : `${revenueChange >= 0 ? "+" : ""}${revenueChange.toFixed(1)}% em relação ao mês anterior`
-            }
-            accent
-          />
+        {/* Indicadores operacionais do dia. O faturamento do mês NÃO aparece aqui:
+            ele é exibido exclusivamente na aba Financeiro, onde há o detalhamento
+            dos recebimentos. Nenhum cálculo, rota ou serviço financeiro foi
+            removido — a página Financeiro continua com os mesmos dados. */}
+        <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <MetricCard
             label="Atendimentos de hoje"
             href="/app/agenda"

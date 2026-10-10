@@ -5,6 +5,11 @@ import { requireCurrentUser } from "@/lib/auth/require-current-user";
 import { hasPermission } from "@/lib/auth/authorization";
 import { isValidPublicSlug, normalizeSlug } from "@/lib/public/slug";
 import {
+  PUBLIC_ACCENT_KEYS,
+  resolvePublicAccent,
+} from "@/lib/public/accent";
+import { readPublicCardSupport } from "@/lib/public/profile";
+import {
   googleMapsUrl,
   instagramUrl,
   normalizeWhatsapp,
@@ -13,11 +18,22 @@ import {
 const updateSchema = z.object({
   published: z.boolean(),
   slug: z.string().trim().max(60).optional().or(z.literal("")),
-  headline: z.string().trim().max(160).optional().or(z.literal("")),
+  // A chamada curta aparece abaixo do nome no cartão público: entre 10 e 120
+  // caracteres quando preenchida.
+  headline: z
+    .string()
+    .trim()
+    .min(10, "A chamada curta deve ter pelo menos 10 caracteres.")
+    .max(120, "A chamada curta deve ter no máximo 120 caracteres.")
+    .optional()
+    .or(z.literal("")),
   bio: z.string().trim().max(600).optional().or(z.literal("")),
   instagram: z.string().trim().max(120).optional().or(z.literal("")),
   whatsapp: z.string().trim().max(30).optional().or(z.literal("")),
   mapsUrl: z.string().trim().max(500).optional().or(z.literal("")),
+  // Cor de destaque: SOMENTE as chaves da paleta fechada. Qualquer outro valor é
+  // rejeitado (nunca vira CSS aplicado na página pública).
+  accent: z.enum(PUBLIC_ACCENT_KEYS).optional(),
 });
 
 type PublicCardRow = {
@@ -29,8 +45,11 @@ type PublicCardRow = {
   public_instagram: string | null;
   public_whatsapp: string | null;
   public_maps_url: string | null;
+  public_accent: string | null;
   has_logo: boolean;
   logo_updated_at: string | null;
+  has_cover?: boolean;
+  public_cover_updated_at?: string | null;
 };
 
 function toConfig(row: PublicCardRow) {
@@ -45,9 +64,15 @@ function toConfig(row: PublicCardRow) {
     instagram: row.public_instagram,
     whatsapp: row.public_whatsapp,
     mapsUrl: row.public_maps_url,
+    // Chave validada: valor ausente/inválido cai no padrão do aplicativo.
+    accent: resolvePublicAccent(row.public_accent),
     hasLogo: Boolean(row.has_logo),
     logoVersion: row.logo_updated_at
       ? new Date(row.logo_updated_at).getTime()
+      : null,
+    hasCover: Boolean(row.has_cover),
+    coverVersion: row.public_cover_updated_at
+      ? new Date(row.public_cover_updated_at).getTime()
       : null,
   };
 }
@@ -58,6 +83,12 @@ export async function GET() {
     if (!hasPermission(currentUser.role, "organization", "read")) {
       return Response.json({ error: "Sem permissão." }, { status: 403 });
     }
+
+    // A cor de destaque e a capa dependem da migration 038. Sem ela, o cartão
+    // segue funcionando com os valores padrão e a tela administrativa informa o
+    // que falta aplicar.
+    const support = await readPublicCardSupport();
+    const organizationId = currentUser.organization.id;
 
     const rows = await sql`
       SELECT
@@ -71,8 +102,10 @@ export async function GET() {
         public_maps_url,
         (logo_image IS NOT NULL) AS has_logo,
         logo_updated_at
+        ${support.accent ? sql`, public_accent` : sql`, NULL::varchar(20) AS public_accent`}
+        ${support.cover ? sql`, (public_cover_image IS NOT NULL) AS has_cover, public_cover_updated_at` : sql`, FALSE AS has_cover, NULL::timestamptz AS public_cover_updated_at`}
       FROM organizations
-      WHERE id = ${currentUser.organization.id}
+      WHERE id = ${organizationId}
       LIMIT 1
     `;
 
@@ -80,7 +113,11 @@ export async function GET() {
       return Response.json({ error: "ORGANIZATION_NOT_FOUND" }, { status: 404 });
     }
 
-    return Response.json(toConfig(rows[0] as PublicCardRow));
+    return Response.json({
+      ...toConfig(rows[0] as PublicCardRow),
+      accentSupported: support.accent,
+      coverSupported: support.cover,
+    });
   } catch (error) {
     if (error instanceof Error && error.message === "ORGANIZATION_BLOCKED") {
       return Response.json({ error: "A organização está bloqueada. Fale com o suporte da EstetiQI." }, { status: 403 });
@@ -110,8 +147,12 @@ export async function PUT(request: Request) {
     }
 
     const { published } = parsed.data;
+    const nextAccent = parsed.data.accent ?? null;
     const slug = normalizeSlug(parsed.data.slug || "");
     const organizationId = currentUser.organization.id;
+    // Estrutura da migration 038 (cor de destaque/capa). Quando ela não está
+    // aplicada, o campo é simplesmente ignorado e a resposta avisa a interface.
+    const support = await readPublicCardSupport();
 
     // Para publicar é obrigatório um endereço válido e único.
     if (published) {
@@ -191,6 +232,7 @@ export async function PUT(request: Request) {
           public_instagram = ${published ? nextInstagram : null},
           public_whatsapp = ${published ? nextWhatsapp : null},
           public_maps_url = ${published ? nextMapsUrl : null},
+          ${support.accent ? sql`public_accent = COALESCE(${nextAccent}, public_accent),` : sql``}
           updated_at = NOW()
         WHERE id = ${organizationId}
         RETURNING
@@ -204,6 +246,8 @@ export async function PUT(request: Request) {
           public_maps_url,
           (logo_image IS NOT NULL) AS has_logo,
           logo_updated_at
+          ${support.accent ? sql`, public_accent` : sql`, NULL::varchar(20) AS public_accent`}
+          ${support.cover ? sql`, (public_cover_image IS NOT NULL) AS has_cover, public_cover_updated_at` : sql`, FALSE AS has_cover, NULL::timestamptz AS public_cover_updated_at`}
       `;
     }
 
@@ -224,7 +268,11 @@ export async function PUT(request: Request) {
       return Response.json({ error: "ORGANIZATION_NOT_FOUND" }, { status: 404 });
     }
 
-    return Response.json(toConfig(result[0] as PublicCardRow));
+    return Response.json({
+      ...toConfig(result[0] as PublicCardRow),
+      accentSupported: support.accent,
+      coverSupported: support.cover,
+    });
   } catch (error) {
     if (error instanceof Error && error.message === "ORGANIZATION_BLOCKED") {
       return Response.json({ error: "A organização está bloqueada. Fale com o suporte da EstetiQI." }, { status: 403 });

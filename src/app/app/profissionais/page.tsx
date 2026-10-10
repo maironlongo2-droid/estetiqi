@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { PublicAvatar } from "../../public-avatar";
 import { useToast } from "../toast";
 import { useProcedureLabels } from "../procedure-labels";
 import { prepareImage } from "@/lib/images/downscale";
@@ -562,27 +563,22 @@ export default function ProfessionalsPage() {
                     Foto da profissional
                   </h3>
                   <div className="mt-2 flex items-center gap-3">
-                    {editingProfessional.has_photo ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={`/api/professionals/${editingProfessional.id}/photo${
-                          editingProfessional.photo_updated_at
-                            ? `?v=${encodeURIComponent(
-                                editingProfessional.photo_updated_at
-                              )}`
-                            : ""
-                        }`}
-                        alt=""
-                        className="h-16 w-16 shrink-0 rounded-full object-cover"
-                      />
-                    ) : (
-                      <span
-                        aria-hidden="true"
-                        className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#eef3f0] text-lg font-semibold text-[#527765]"
-                      >
-                        {editingProfessional.name.trim().charAt(0).toUpperCase()}
-                      </span>
-                    )}
+                    <PublicAvatar
+                      src={
+                        editingProfessional.has_photo
+                          ? `/api/professionals/${editingProfessional.id}/photo${
+                              editingProfessional.photo_updated_at
+                                ? `?v=${encodeURIComponent(
+                                    editingProfessional.photo_updated_at
+                                  )}`
+                                : ""
+                            }`
+                          : null
+                      }
+                      alt=""
+                      name={editingProfessional.name}
+                      size="md"
+                    />
                     <div className="flex flex-wrap gap-2">
                       <label className="inline-flex min-h-10 cursor-pointer items-center rounded-lg border border-[#dfe9e3] px-3 py-2 text-xs font-semibold text-[#405149] transition hover:bg-[#f4f7f5]">
                         {uploadingPhotoId === editingProfessional.id
@@ -747,27 +743,22 @@ export default function ProfessionalsPage() {
                 <article key={professional.id} className="rounded-2xl border border-[#e4ebe7] bg-white p-5 sm:p-6">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      {professional.has_photo ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={`/api/professionals/${professional.id}/photo${
-                            professional.photo_updated_at
-                              ? `?v=${encodeURIComponent(
-                                  professional.photo_updated_at
-                                )}`
-                              : ""
-                          }`}
-                          alt=""
-                          className="h-12 w-12 shrink-0 rounded-full object-cover"
-                        />
-                      ) : (
-                        <span
-                          aria-hidden="true"
-                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#eef3f0] text-sm font-semibold text-[#527765]"
-                        >
-                          {professional.name.trim().charAt(0).toUpperCase()}
-                        </span>
-                      )}
+                      <PublicAvatar
+                        src={
+                          professional.has_photo
+                            ? `/api/professionals/${professional.id}/photo${
+                                professional.photo_updated_at
+                                  ? `?v=${encodeURIComponent(
+                                      professional.photo_updated_at
+                                    )}`
+                                  : ""
+                              }`
+                            : null
+                        }
+                        alt=""
+                        name={professional.name}
+                        size="sm"
+                      />
                       <div>
                         <div className="flex items-center gap-2">
                           <h2 className="font-semibold text-[#30463c]">{professional.name}</h2>

@@ -19,6 +19,11 @@ export const MAX_STORED_BYTES = 2 * 1024 * 1024; // 2 MB
 // Maior lado (largura ou altura) da imagem guardada. Mantém as fotos leves.
 export const IMAGE_MAX_DIMENSION = 1024;
 
+// Largura máxima guardada da capa do cartão digital (recortada em 16:9 no
+// navegador antes do envio). Mantém a capa leve e nítida em telas de celular e
+// desktop.
+export const COVER_MAX_WIDTH = 1280;
+
 export function isAllowedImageType(value: string): value is AllowedImageType {
   return (ALLOWED_IMAGE_TYPES as readonly string[]).includes(value);
 }

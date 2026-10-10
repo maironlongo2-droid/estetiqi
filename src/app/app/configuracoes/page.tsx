@@ -3,7 +3,12 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useToast } from "../toast";
-import { prepareImage } from "@/lib/images/downscale";
+import { prepareCoverImage, prepareImage } from "@/lib/images/downscale";
+import {
+  DEFAULT_PUBLIC_ACCENT,
+  PUBLIC_ACCENT_SWATCHES,
+  resolvePublicAccent,
+} from "@/lib/public/accent";
 import {
   googleMapsUrl,
   instagramUrl,
@@ -43,6 +48,12 @@ export default function ConfiguracoesPage() {
   const [cardHasLogo, setCardHasLogo] = useState(false);
   const [cardLogoVersion, setCardLogoVersion] = useState<number | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [cardAccent, setCardAccent] = useState(DEFAULT_PUBLIC_ACCENT);
+  const [cardAccentSupported, setCardAccentSupported] = useState(true);
+  const [cardCoverSupported, setCardCoverSupported] = useState(true);
+  const [cardHasCover, setCardHasCover] = useState(false);
+  const [cardCoverVersion, setCardCoverVersion] = useState<number | null>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -117,6 +128,13 @@ export default function ConfiguracoesPage() {
         setCardHasLogo(Boolean(card.hasLogo));
         setCardLogoVersion(
           typeof card.logoVersion === "number" ? card.logoVersion : null
+        );
+        setCardAccent(resolvePublicAccent(card.accent));
+        setCardAccentSupported(card.accentSupported !== false);
+        setCardCoverSupported(card.coverSupported !== false);
+        setCardHasCover(Boolean(card.hasCover));
+        setCardCoverVersion(
+          typeof card.coverVersion === "number" ? card.coverVersion : null
         );
         setCardError("");
       })
@@ -224,6 +242,82 @@ export default function ConfiguracoesPage() {
     }
   }
 
+  async function handleCoverFile(file: File | null) {
+    if (!file || !canEditOrganization) return;
+
+    if (!cardCoverSupported) {
+      notifyError(
+        "A capa depende da migration 038_public_card_accent.sql, que ainda não foi aplicada neste ambiente."
+      );
+      return;
+    }
+
+    setUploadingCover(true);
+    try {
+      const blob = await prepareCoverImage(file);
+      const form = new FormData();
+      form.append("file", blob, "capa");
+
+      const response = await fetch("/api/organization/cover", {
+        method: "PUT",
+        body: form,
+      });
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          typeof data?.error === "string"
+            ? data.error
+            : "Não foi possível enviar a capa."
+        );
+      }
+
+      setCardHasCover(true);
+      setCardCoverVersion(Date.now());
+      notifySuccess("Capa do cartão atualizada.");
+    } catch (error) {
+      notifyError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível enviar a capa."
+      );
+    } finally {
+      setUploadingCover(false);
+    }
+  }
+
+  async function handleCoverRemove() {
+    if (!canEditOrganization) return;
+
+    setUploadingCover(true);
+    try {
+      const response = await fetch("/api/organization/cover", {
+        method: "DELETE",
+      });
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          typeof data?.error === "string"
+            ? data.error
+            : "Não foi possível remover a capa."
+        );
+      }
+
+      setCardHasCover(false);
+      setCardCoverVersion(null);
+      notifySuccess("Capa removida.");
+    } catch (error) {
+      notifyError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível remover a capa."
+      );
+    } finally {
+      setUploadingCover(false);
+    }
+  }
+
   async function handleOrganizationSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (savingOrganization || !canEditOrganization) return;
@@ -232,6 +326,11 @@ export default function ConfiguracoesPage() {
 
     if (name.length < 2) {
       notifyError("O nome do negócio deve ter pelo menos 2 caracteres.");
+      return;
+    }
+
+    if (name.length > 80) {
+      notifyError("O nome do negócio deve ter no máximo 80 caracteres.");
       return;
     }
 
@@ -309,6 +408,15 @@ export default function ConfiguracoesPage() {
 
     // Validacao no navegador apenas para dar retorno rapido; o servidor valida
     // novamente e e a fonte da verdade.
+    const headline = cardHeadline.trim();
+    if (headline && headline.length < 10) {
+      notifyError("A chamada curta deve ter pelo menos 10 caracteres.");
+      return;
+    }
+    if (headline.length > 120) {
+      notifyError("A chamada curta deve ter no máximo 120 caracteres.");
+      return;
+    }
     if (cardInstagram.trim() && !instagramUrl(cardInstagram)) {
       notifyError(
         "Informe um Instagram válido (ex.: @seuinsta ou https://instagram.com/seuinsta)."
@@ -340,6 +448,7 @@ export default function ConfiguracoesPage() {
           instagram: cardInstagram,
           whatsapp: cardWhatsapp,
           mapsUrl: cardMapsUrl,
+          accent: cardAccent,
         }),
       });
 
@@ -362,6 +471,9 @@ export default function ConfiguracoesPage() {
       );
       setCardWhatsapp(typeof data?.whatsapp === "string" ? data.whatsapp : "");
       setCardMapsUrl(typeof data?.mapsUrl === "string" ? data.mapsUrl : "");
+      setCardAccent(resolvePublicAccent(data?.accent));
+      setCardAccentSupported(data?.accentSupported !== false);
+      setCardCoverSupported(data?.coverSupported !== false);
 
       notifySuccess(
         data?.published
@@ -429,6 +541,7 @@ export default function ConfiguracoesPage() {
                 value={organizationName}
                 onChange={(event) => setOrganizationName(event.target.value)}
                 disabled={!canEditOrganization}
+                maxLength={80}
                 placeholder="Ex.: Estética Mairon"
                 className="w-full rounded-xl border border-[#dfe9e3] px-4 py-3 outline-none focus:border-[#7a9f8d] disabled:cursor-not-allowed disabled:bg-[#f4f7f5] disabled:text-[#8a9891]"
               />
@@ -564,6 +677,121 @@ export default function ConfiguracoesPage() {
                 </span>
               </div>
 
+              <fieldset disabled={!canEditOrganization}>
+                <legend className="mb-2 block text-sm font-medium text-[#405149]">
+                  Cor de destaque do cartão
+                </legend>
+                <div className="flex flex-wrap gap-2">
+                  {PUBLIC_ACCENT_SWATCHES.map((swatch) => (
+                    <label
+                      key={swatch.key}
+                      className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm ${
+                        cardAccent === swatch.key
+                          ? "border-[#7a9f8d] bg-[#f4f8f6]"
+                          : "border-[#dfe9e3] bg-white"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="cardAccent"
+                        value={swatch.key}
+                        checked={cardAccent === swatch.key}
+                        onChange={() => setCardAccent(swatch.key)}
+                        className="h-4 w-4"
+                      />
+                      <span
+                        aria-hidden="true"
+                        className="h-5 w-5 rounded-full border border-black/10"
+                        style={{ backgroundColor: swatch.base }}
+                      />
+                      <span>{swatch.label}</span>
+                    </label>
+                  ))}
+                </div>
+                <span className="mt-1 block text-xs text-[#8a9891]">
+                  A tipografia, o layout e os componentes do cartão são fixos.
+                  Você escolhe apenas uma das seis cores de destaque.
+                </span>
+                {!cardAccentSupported ? (
+                  <span className="mt-1 block text-xs text-amber-700">
+                    A cor escolhida passa a valer quando a migration
+                    038_public_card_accent.sql for aplicada neste ambiente.
+                  </span>
+                ) : null}
+              </fieldset>
+
+              <div>
+                <span className="mb-2 block text-sm font-medium text-[#405149]">
+                  Foto de capa (opcional)
+                </span>
+                <div className="flex flex-wrap items-center gap-4">
+                  {cardHasCover ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={`/api/organization/cover${
+                        cardCoverVersion ? `?v=${cardCoverVersion}` : ""
+                      }`}
+                      alt="Capa do cartão"
+                      className="h-16 w-28 rounded-xl border border-[#dfe9e3] bg-white object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-16 w-28 items-center justify-center rounded-xl border border-dashed border-[#dfe9e3] text-center text-[11px] text-[#8a9891]">
+                      Sem capa
+                    </span>
+                  )}
+
+                  {canEditOrganization ? (
+                    <div className="flex flex-wrap gap-2">
+                      <label
+                        className={`inline-flex min-h-11 cursor-pointer items-center rounded-xl border border-[#dfe9e3] px-4 py-2 text-sm font-medium text-[#405149] transition hover:bg-[#f4f7f5] ${
+                          uploadingCover || !cardCoverSupported
+                            ? "cursor-not-allowed opacity-60"
+                            : ""
+                        }`}
+                      >
+                        {uploadingCover
+                          ? "Enviando..."
+                          : cardHasCover
+                            ? "Trocar capa"
+                            : "Adicionar capa"}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="hidden"
+                          disabled={uploadingCover || !cardCoverSupported}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0] ?? null;
+                            event.target.value = "";
+                            void handleCoverFile(file);
+                          }}
+                        />
+                      </label>
+                      {cardHasCover ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleCoverRemove()}
+                          disabled={uploadingCover}
+                          className="min-h-11 rounded-xl border border-[#e8ceca] px-4 py-2 text-sm font-medium text-[#8a5149] transition hover:bg-[#fdf5f7] disabled:opacity-50"
+                        >
+                          Remover
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+                <span className="mt-2 block text-xs text-[#8a9891]">
+                  JPG, PNG ou WebP, até 4 MB. A imagem é recortada em 16:9 e
+                  usada como fundo do cartão. Sem capa, o cartão usa um fundo
+                  gerado a partir da cor de destaque.
+                </span>
+                {!cardCoverSupported ? (
+                  <span className="mt-1 block text-xs text-amber-700">
+                    A capa passa a funcionar quando a migration
+                    038_public_card_accent.sql for aplicada neste ambiente.
+                  </span>
+                ) : null}
+              </div>
+
               <label className="block">
                 <span className="mb-2 block text-sm font-medium text-[#405149]">
                   Endereço do cartão
@@ -591,7 +819,8 @@ export default function ConfiguracoesPage() {
                   value={cardHeadline}
                   onChange={(event) => setCardHeadline(event.target.value)}
                   disabled={!canEditOrganization}
-                  maxLength={160}
+                  maxLength={120}
+                minLength={10}
                   placeholder="Ex.: Cuidados que realçam sua beleza natural"
                   className="w-full rounded-xl border border-[#dfe9e3] px-4 py-3 outline-none focus:border-[#7a9f8d] disabled:cursor-not-allowed disabled:bg-[#f4f7f5] disabled:text-[#8a9891]"
                 />

@@ -4,7 +4,13 @@ import { requireCurrentUser } from "@/lib/auth/require-current-user";
 import { hasPermission } from "@/lib/auth/authorization";
 
 const onboardingSchema = z.object({
-  name: z.string().trim().min(2).max(120),
+  // Limites do nome do negócio: ele aparece em destaque no cartão público, por
+  // isso precisa caber em uma linha sem quebrar o modelo do cartão (2 a 80).
+  name: z
+    .string()
+    .trim()
+    .min(2, "Informe o nome do negócio (mínimo 2 caracteres).")
+    .max(80, "O nome do negócio deve ter no máximo 80 caracteres."),
   businessPhone: z.string().trim().max(30).optional().or(z.literal("")),
   city: z.string().trim().max(100).optional().or(z.literal("")),
   state: z.string().trim().length(2).toUpperCase().optional().or(z.literal("")),

@@ -9,6 +9,7 @@ import {
   loadAppointmentProcedures,
   procedureLinksJson,
 } from "@/lib/appointments/procedures";
+import { deliverProtocolsForAppointment } from "@/lib/protocols/protocol-delivery";
 
 export async function GET(
   request: Request,
@@ -536,6 +537,23 @@ export async function PATCH(
           endsAt: endsAt.toISOString(),
           price: price ?? null,
         },
+      });
+    }
+
+    // Protocolos de procedimento (migration 034): quando o agendamento é
+    // confirmado, as orientações pré-procedimento configuradas são enviadas; quando
+    // é concluído, os cuidados pós-procedimento. A função NUNCA lança e registra o
+    // estado real (enviado / falhou / indisponível), portanto a resposta do
+    // agendamento não depende do resultado do envio.
+    if (
+      status !== current.status &&
+      (status === "confirmed" || status === "completed")
+    ) {
+      await deliverProtocolsForAppointment({
+        organizationId,
+        appointmentId: id,
+        trigger:
+          status === "confirmed" ? "pre_appointment" : "post_appointment",
       });
     }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { PublicAvatar } from "@/app/public-avatar";
 import { getProcedureLabels } from "@/lib/business/procedure-labels";
 
 export type PublicProcedureOption = {
@@ -386,39 +387,39 @@ export function PublicBookingForm({
 
   if (confirmation) {
     return (
-      <section className="rounded-[1.75rem] border border-[#e7e1d5] bg-white p-6 sm:p-8">
-        <p className="text-sm font-medium text-[#527765]">
+      <section className="rounded-[1.75rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] p-6 sm:p-8">
+        <p className="text-sm font-medium text-[var(--eq-accent-text)]">
           Agendamento solicitado
         </p>
-        <h2 className="mt-2 text-2xl font-semibold text-[#30463c]">
+        <h2 className="mt-2 text-2xl font-semibold text-[var(--eq-ink)]">
           Tudo certo! Seu horário foi reservado.
         </h2>
         <dl className="mt-6 space-y-3 text-sm">
           <div className="flex justify-between gap-4">
-            <dt className="text-[#6d7d75]">Data</dt>
-            <dd className="font-medium text-[#30463c]">
+            <dt className="text-[var(--eq-muted)]">Data</dt>
+            <dd className="font-medium text-[var(--eq-ink)]">
               {formatDateLong(confirmation.startsAt.slice(0, 10))}
             </dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-[#6d7d75]">Horário</dt>
-            <dd className="font-medium text-[#30463c]">
+            <dt className="text-[var(--eq-muted)]">Horário</dt>
+            <dd className="font-medium text-[var(--eq-ink)]">
               {formatTime(confirmation.startsAt)} –{" "}
               {formatTime(confirmation.endsAt)}
             </dd>
           </div>
           {confirmation.professionalName ? (
             <div className="flex justify-between gap-4">
-              <dt className="text-[#6d7d75]">Profissional</dt>
-              <dd className="font-medium text-[#30463c]">
+              <dt className="text-[var(--eq-muted)]">Profissional</dt>
+              <dd className="font-medium text-[var(--eq-ink)]">
                 {confirmation.professionalName}
               </dd>
             </div>
           ) : null}
           {confirmation.price !== null ? (
             <div className="flex justify-between gap-4">
-              <dt className="text-[#6d7d75]">Valor</dt>
-              <dd className="font-medium text-[#30463c]">
+              <dt className="text-[var(--eq-muted)]">Valor</dt>
+              <dd className="font-medium text-[var(--eq-ink)]">
                 {formatPrice(confirmation.price)}
               </dd>
             </div>
@@ -430,7 +431,7 @@ export function PublicBookingForm({
               href={whatsappLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center rounded-full bg-[#0f766e] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#0c5f59]"
+              className="inline-flex items-center justify-center rounded-full bg-[var(--eq-accent)] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[var(--eq-accent-strong)]"
             >
               Falar no WhatsApp
             </a>
@@ -444,7 +445,7 @@ export function PublicBookingForm({
               setName("");
               setPhone("");
             }}
-            className="inline-flex items-center justify-center rounded-full border border-[#d5e2da] px-6 py-3 text-sm font-semibold text-[#30463c] transition hover:bg-[#f1f6f3]"
+            className="inline-flex items-center justify-center rounded-full border border-[var(--eq-border)] px-6 py-3 text-sm font-semibold text-[var(--eq-ink)] transition hover:bg-[var(--eq-soft)]"
           >
             Fazer outro agendamento
           </button>
@@ -456,10 +457,10 @@ export function PublicBookingForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-8 rounded-[1.75rem] border border-[#e7e1d5] bg-white p-6 sm:p-8"
+      className="space-y-8 rounded-[1.75rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] p-6 sm:p-8"
     >
       <fieldset>
-        <legend className="text-lg font-semibold text-[#30463c]">
+        <legend className="text-lg font-semibold text-[var(--eq-ink)]">
           1. Escolha os {labels.pluralLower}
         </legend>
         <div className="mt-4 space-y-3">
@@ -471,22 +472,22 @@ export function PublicBookingForm({
                 key={procedure.id}
                 className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition ${
                   checked
-                    ? "border-[#0f766e] bg-[#f1f6f3]"
-                    : "border-[#e2ebe5] hover:border-[#c4d8cc]"
+                    ? "border-[var(--eq-accent)] bg-[var(--eq-soft)]"
+                    : "border-[var(--eq-border)] hover:border-[var(--eq-accent)]"
                 }`}
               >
                 <input
                   type="checkbox"
-                  className="mt-1 h-4 w-4 accent-[#0f766e]"
+                  className="mt-1 h-4 w-4 accent-[var(--eq-accent)]"
                   checked={checked}
                   onChange={() => toggleProcedure(procedure.id)}
                 />
                 <span className="flex-1">
                   <span className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-medium text-[#30463c]">
+                    <span className="font-medium text-[var(--eq-ink)]">
                       {procedure.name}
                     </span>
-                    <span className="text-sm text-[#6d7d75]">
+                    <span className="text-sm text-[var(--eq-muted)]">
                       {price ? `${price} · ` : ""}
                       {procedure.durationMinutes
                         ? `${procedure.durationMinutes} min`
@@ -494,7 +495,7 @@ export function PublicBookingForm({
                     </span>
                   </span>
                   {procedure.description ? (
-                    <span className="mt-1 block text-sm text-[#6d7d75]">
+                    <span className="mt-1 block text-sm text-[var(--eq-muted)]">
                       {procedure.description}
                     </span>
                   ) : null}
@@ -507,11 +508,11 @@ export function PublicBookingForm({
 
       {selected.length > 0 ? (
         <fieldset>
-          <legend className="text-lg font-semibold text-[#30463c]">
+          <legend className="text-lg font-semibold text-[var(--eq-ink)]">
             2. Escolha o profissional
           </legend>
           {eligibleProfessionals.length === 0 ? (
-            <p className="mt-3 text-sm text-[#a87483]">
+            <p className="mt-3 text-sm text-[var(--eq-danger-text)]">
               Nenhum profissional realiza todos os {labels.pluralLower} escolhidos.
               Ajuste a seleção.
             </p>
@@ -527,8 +528,8 @@ export function PublicBookingForm({
                     aria-pressed={active}
                     className={`flex flex-col items-center gap-3 rounded-[1.5rem] p-4 text-center transition ${
                       active
-                        ? "bg-[#0f766e]/[0.07]"
-                        : "bg-[#f7faf8] hover:bg-[#eef4f1]"
+                        ? "bg-[var(--eq-accent-soft)]"
+                        : "bg-[var(--eq-soft)] hover:bg-[var(--eq-card)]"
                     }`}
                   >
                     {/* A foto fica limpa: nenhuma borda, anel, sombra ou
@@ -536,46 +537,27 @@ export function PublicBookingForm({
                         indicada apenas pelo fundo do cartão e pelo selo, nunca
                         por uma linha ao redor da foto. */}
                     <span className="relative inline-flex">
-                      {professional.hasPhoto ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={`/api/public/${encodeURIComponent(
-                            slug
-                          )}/professionals/${professional.id}/photo${
-                            professional.photoVersion
-                              ? `?v=${professional.photoVersion}`
-                              : ""
-                          }`}
+                      <PublicAvatar
+                          src={professional.hasPhoto ? `/api/public/${encodeURIComponent(slug)}/professionals/${professional.id}/photo${professional.photoVersion ? `?v=${professional.photoVersion}` : ""}` : null}
                           alt={`Foto de ${professional.name}`}
-                          className="h-20 w-20 rounded-full object-cover sm:h-24 sm:w-24"
+                          name={professional.name}
+                          size="lg"
                         />
-                      ) : (
-                        <span
-                          aria-hidden="true"
-                          className={`flex h-20 w-20 items-center justify-center rounded-full text-xl font-semibold sm:h-24 sm:w-24 sm:text-2xl ${
-                            active
-                              ? "bg-[#0f766e] text-white"
-                              : "bg-[#e6efe9] text-[#527765]"
-                          }`}
-                        >
-                          {professional.name.trim().charAt(0).toUpperCase()}
-                        </span>
-                      )}
                       {active ? (
                         <span
                           aria-hidden="true"
-                          className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-[#0f766e] text-xs font-bold text-white"
+                          className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--eq-accent)] text-xs font-bold text-white"
                         >
                           ✓
                         </span>
                       ) : null}
                     </span>
                     <span className="flex flex-col items-center leading-tight">
-                      <span className="text-sm font-semibold text-[#2f3a34]">
+                      <span className="text-sm font-semibold text-[var(--eq-ink)]">
                         {professional.name}
                       </span>
                       {professional.specialty ? (
-                        <span className="mt-0.5 text-xs font-normal text-[#6d7d75]">
+                        <span className="mt-0.5 text-xs font-normal text-[var(--eq-muted)]">
                           {professional.specialty}
                         </span>
                       ) : null}
@@ -590,28 +572,28 @@ export function PublicBookingForm({
 
       {effectiveProfessionalId ? (
         <fieldset>
-          <legend className="text-lg font-semibold text-[#30463c]">
+          <legend className="text-lg font-semibold text-[var(--eq-ink)]">
             3. Escolha o dia e o horário
           </legend>
-          <div className="mt-4 rounded-2xl border border-[#d5e2da] p-3 sm:p-4">
+          <div className="mt-4 rounded-2xl border border-[var(--eq-border)] p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => setMonth((current) => addMonths(current, -1))}
                 disabled={month <= currentMonth}
                 aria-label="Mês anterior"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-[#d5e2da] text-lg leading-none text-[#30463c] transition hover:bg-[#f1f6f3] disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--eq-border)] text-lg leading-none text-[var(--eq-ink)] transition hover:bg-[var(--eq-soft)] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 ‹
               </button>
-              <span className="text-sm font-semibold capitalize text-[#30463c]">
+              <span className="text-sm font-semibold capitalize text-[var(--eq-ink)]">
                 {monthLabel(month)}
               </span>
               <button
                 type="button"
                 onClick={() => setMonth((current) => addMonths(current, 1))}
                 aria-label="Próximo mês"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-[#d5e2da] text-lg leading-none text-[#30463c] transition hover:bg-[#f1f6f3]"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--eq-border)] text-lg leading-none text-[var(--eq-ink)] transition hover:bg-[var(--eq-soft)]"
               >
                 ›
               </button>
@@ -621,7 +603,7 @@ export function PublicBookingForm({
               {WEEKDAY_LABELS.map((label) => (
                 <span
                   key={label}
-                  className="py-1 text-[11px] font-semibold uppercase tracking-wide text-[#8a9891]"
+                  className="py-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--eq-muted)]"
                 >
                   {label}
                 </span>
@@ -629,7 +611,7 @@ export function PublicBookingForm({
             </div>
 
             {loadingMonth ? (
-              <p className="mt-2 text-sm text-[#6d7d75]">
+              <p className="mt-2 text-sm text-[var(--eq-muted)]">
                 Carregando dias disponíveis…
               </p>
             ) : (
@@ -654,10 +636,10 @@ export function PublicBookingForm({
                       aria-label={`Dia ${Number(cell.slice(8, 10))}`}
                       className={`aspect-square rounded-lg text-sm transition ${
                         isSelected
-                          ? "bg-[#0f766e] font-semibold text-white"
+                          ? "bg-[var(--eq-accent)] font-semibold text-white"
                           : disabled
-                            ? "cursor-not-allowed bg-[#f3f4f3] text-[#c2cac5]"
-                            : "font-medium text-[#30463c] hover:bg-[#eaf3ee]"
+                            ? "cursor-not-allowed bg-[var(--eq-soft)] text-[var(--eq-muted)]"
+                            : "font-medium text-[var(--eq-ink)] hover:bg-[var(--eq-soft)]"
                       }`}
                     >
                       {Number(cell.slice(8, 10))}
@@ -668,16 +650,16 @@ export function PublicBookingForm({
             )}
 
             {!loadingMonth && availableDates.length === 0 ? (
-              <p className="mt-3 text-xs text-[#8a9891]">
+              <p className="mt-3 text-xs text-[var(--eq-muted)]">
                 Nenhum dia com horário livre neste mês. Tente outro mês.
               </p>
             ) : null}
           </div>
           <div className="mt-4">
             {loadingSlots ? (
-              <p className="text-sm text-[#6d7d75]">Carregando horários…</p>
+              <p className="text-sm text-[var(--eq-muted)]">Carregando horários…</p>
             ) : slots.length === 0 ? (
-              <p className="text-sm text-[#6d7d75]">
+              <p className="text-sm text-[var(--eq-muted)]">
                 Nenhum horário livre nesse dia. Tente outra data.
               </p>
             ) : (
@@ -691,8 +673,8 @@ export function PublicBookingForm({
                       onClick={() => setSlot(item.startsAt)}
                       className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
                         active
-                          ? "border-[#0f766e] bg-[#0f766e] text-white"
-                          : "border-[#d5e2da] text-[#30463c] hover:bg-[#f1f6f3]"
+                          ? "border-[var(--eq-accent)] bg-[var(--eq-accent)] text-[var(--eq-accent-on)]"
+                          : "border-[var(--eq-border)] text-[var(--eq-ink)] hover:bg-[var(--eq-soft)]"
                       }`}
                     >
                       {formatTime(item.startsAt)}
@@ -707,23 +689,23 @@ export function PublicBookingForm({
 
       {selectedSlot ? (
         <fieldset>
-          <legend className="text-lg font-semibold text-[#30463c]">
+          <legend className="text-lg font-semibold text-[var(--eq-ink)]">
             4. Seus dados
           </legend>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <label className="flex flex-col gap-1 text-sm">
-              <span className="text-[#6d7d75]">Nome completo</span>
+              <span className="text-[var(--eq-muted)]">Nome completo</span>
               <input
                 type="text"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 autoComplete="name"
                 required
-                className="rounded-2xl border border-[#d5e2da] px-4 py-3 text-[#30463c]"
+                className="rounded-2xl border border-[var(--eq-border)] px-4 py-3 text-[var(--eq-ink)]"
               />
             </label>
             <label className="flex flex-col gap-1 text-sm">
-              <span className="text-[#6d7d75]">WhatsApp (com DDD)</span>
+              <span className="text-[var(--eq-muted)]">WhatsApp (com DDD)</span>
               <input
                 type="tel"
                 value={phone}
@@ -731,7 +713,7 @@ export function PublicBookingForm({
                 autoComplete="tel"
                 placeholder="(11) 99999-9999"
                 required
-                className="rounded-2xl border border-[#d5e2da] px-4 py-3 text-[#30463c]"
+                className="rounded-2xl border border-[var(--eq-border)] px-4 py-3 text-[var(--eq-ink)]"
               />
             </label>
           </div>
@@ -741,14 +723,14 @@ export function PublicBookingForm({
       {error ? (
         <p
           role="alert"
-          className="rounded-2xl bg-[#f4e4e8] px-4 py-3 text-sm text-[#a87483]"
+          className="rounded-2xl bg-[var(--eq-danger-bg)] px-4 py-3 text-sm text-[var(--eq-danger-text)]"
         >
           {error}
         </p>
       ) : null}
 
-      <div className="border-t border-[#eef3f0] pt-6">
-        <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-[#6d7d75]">
+      <div className="border-t border-[var(--eq-card-border)] pt-6">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-[var(--eq-muted)]">
           <span>
             {selected.length === 0
               ? `Selecione ao menos um ${labels.singularLower}`
@@ -759,7 +741,7 @@ export function PublicBookingForm({
                 }`}
           </span>
           {totalPrice !== null ? (
-            <span className="font-semibold text-[#30463c]">
+            <span className="font-semibold text-[var(--eq-ink)]">
               {formatPrice(totalPrice)}
             </span>
           ) : null}
@@ -767,7 +749,7 @@ export function PublicBookingForm({
         <button
           type="submit"
           disabled={submitting || !selectedSlot}
-          className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-[#0f766e] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#0c5f59] disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-[var(--eq-accent)] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[var(--eq-accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitting ? "Agendando…" : "Confirmar agendamento"}
         </button>

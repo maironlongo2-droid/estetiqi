@@ -1,4 +1,8 @@
 import { sql } from "@/lib/db/client";
+import {
+  resolvePublicAccent,
+  type PublicAccent,
+} from "@/lib/public/accent";
 
 // Dados públicos do cartão digital. Somente leitura e apenas o necessário para
 // a página pública: nunca expõe dados administrativos, financeiros ou de
@@ -19,6 +23,10 @@ export type PublicOrganization = {
   businessType: string | null;
   hasLogo: boolean;
   logoVersion: number | null;
+  hasCover: boolean;
+  coverVersion: number | null;
+  // Chave validada da paleta fechada (nunca CSS vindo do banco).
+  accent: PublicAccent;
 };
 
 export type PublicProcedure = {
@@ -38,11 +46,45 @@ export type PublicProfessional = {
   photoVersion: number | null;
 };
 
+// Colunas adicionadas pela migration 038 (cor de destaque e capa). Como a
+// migration pode ainda não estar aplicada, a leitura pública verifica a estrutura
+// antes de consultá-las: sem elas, o cartão usa a cor padrão e nenhuma capa, em
+// vez de falhar.
+export type PublicCardSupport = {
+  accent: boolean;
+  cover: boolean;
+};
+
+export async function readPublicCardSupport(): Promise<PublicCardSupport> {
+  const rows = (await sql`
+    SELECT
+      EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'organizations'
+          AND column_name = 'public_accent'
+      ) AS has_accent,
+      EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'organizations'
+          AND column_name = 'public_cover_image'
+      ) AS has_cover
+  `) as { has_accent: boolean; has_cover: boolean }[];
+
+  return {
+    accent: Boolean(rows[0]?.has_accent),
+    cover: Boolean(rows[0]?.has_cover),
+  };
+}
+
 // Resolve a organização publicada a partir do endereço público. Cartões não
 // publicados (ou inexistentes) retornam null, impedindo o acesso público.
 export async function getPublishedOrganizationBySlug(
   slug: string
 ): Promise<PublicOrganization | null> {
+  const support = await readPublicCardSupport();
+
   const rows = await sql`
     SELECT
       id,
@@ -58,7 +100,10 @@ export async function getPublishedOrganizationBySlug(
       state,
       business_type,
       (logo_image IS NOT NULL) AS has_logo,
-      logo_updated_at
+      logo_updated_at,
+      ${support.accent ? sql`public_accent` : sql`NULL::varchar(20) AS public_accent`},
+      ${support.cover ? sql`(public_cover_image IS NOT NULL) AS has_cover` : sql`FALSE AS has_cover`},
+      ${support.cover ? sql`public_cover_updated_at` : sql`NULL::timestamptz AS public_cover_updated_at`}
     FROM organizations
     WHERE LOWER(public_slug) = LOWER(${slug})
       AND public_published = TRUE
@@ -85,6 +130,12 @@ export async function getPublishedOrganizationBySlug(
     logoVersion: row.logo_updated_at
       ? new Date(row.logo_updated_at).getTime()
       : null,
+    hasCover: Boolean(row.has_cover),
+    coverVersion: row.public_cover_updated_at
+      ? new Date(row.public_cover_updated_at).getTime()
+      : null,
+    // Valor inválido ou ausente no banco cai no padrão do aplicativo.
+    accent: resolvePublicAccent(row.public_accent),
   };
 }
 

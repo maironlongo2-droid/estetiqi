@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { BrandMark } from "@/app/brand-mark";
+import { PublicAvatar } from "@/app/public-avatar";
 import {
   getPublishedOrganizationBySlug,
   getPublicProcedures,
@@ -103,11 +103,23 @@ export async function generateMetadata({
     return { title: "Cartão não encontrado · EstetiQI" };
   }
 
+  const description =
+    organization.headline ??
+    `Agende seu horário com ${organization.name} de forma simples e online.`;
+
+  // Somente dados públicos da clínica: nenhum identificador interno, e-mail de
+  // proprietário ou dado de cliente aparece nos metadados.
   return {
     title: `${organization.name} · Agende seu horário`,
-    description:
-      organization.headline ??
-      `Agende seu horário com ${organization.name} de forma simples e online.`,
+    description,
+    openGraph: {
+      type: "website",
+      title: `${organization.name} · Agende seu horário`,
+      description,
+      ...(organization.hasCover
+        ? { images: [`/api/public/${organization.slug}/cover`] }
+        : {}),
+    },
   };
 }
 
@@ -145,49 +157,70 @@ export default async function PublicBookingPage({
     googleMapsUrl(organization.mapsUrl) ?? googleMapsSearchUrl(address);
 
   return (
-    <main className="min-h-screen bg-[#f6f3ec] px-4 py-8 sm:px-6 sm:py-12">
-      <div className="mx-auto flex w-full max-w-md flex-col">
-        <header className="rounded-[1.75rem] border border-[#e7e1d5] bg-white p-6 text-center shadow-[0_1px_2px_rgba(47,58,52,0.04)] sm:p-8">
-          <div className="flex justify-center">
-            {organization.hasLogo ? (
-              // A logo mantém a proporção original (object-contain) e é
-              // exibida sem moldura, borda ou fundo que pudesse parecer um
-              // contorno ao redor da imagem.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={`/api/public/${organization.slug}/logo${
-                  organization.logoVersion
-                    ? `?v=${organization.logoVersion}`
-                    : ""
-                }`}
-                alt={`Logo de ${organization.name}`}
-                className="h-20 w-20 object-contain sm:h-24 sm:w-24"
-              />
-            ) : (
-              <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[#eaf1ec] sm:h-24 sm:w-24">
-                <BrandMark className="h-11 w-11 sm:h-14 sm:w-14" />
-              </span>
-            )}
+    <main
+      className="eq-public min-h-screen bg-[var(--eq-page)] px-4 pb-28 pt-6 text-[var(--eq-ink)] sm:px-6 sm:pb-12 sm:pt-10"
+      data-accent={organization.accent}
+    >
+      <div className="mx-auto flex w-full max-w-[480px] flex-col">
+        <header className="overflow-hidden rounded-[1.75rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] shadow-[0_1px_2px_rgba(47,58,52,0.04)]">
+          {/* Capa: opcional. Sem capa cadastrada, o fundo é gerado a partir da
+              cor de destaque — nunca uma imagem quebrada. */}
+          {organization.hasCover ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={`/api/public/${organization.slug}/cover${
+                organization.coverVersion
+                  ? `?v=${organization.coverVersion}`
+                  : ""
+              }`}
+              alt={`Capa de ${organization.name}`}
+              className="h-32 w-full object-cover sm:h-40"
+            />
+          ) : (
+            <div
+              aria-hidden="true"
+              className="h-32 w-full bg-[linear-gradient(135deg,var(--eq-accent)_0%,var(--eq-accent-strong)_100%)] sm:h-40"
+            />
+          )}
+
+          <div className="px-6 pb-6 text-center sm:px-8 sm:pb-8">
+            <div className="-mt-10 flex justify-center sm:-mt-12">
+            <PublicAvatar
+              src={
+                organization.hasLogo
+                  ? `/api/public/${organization.slug}/logo${
+                      organization.logoVersion
+                        ? `?v=${organization.logoVersion}`
+                        : ""
+                    }`
+                  : null
+              }
+              alt={`Logo de ${organization.name}`}
+              name={organization.name}
+              size="lg"
+              fit="contain"
+              className="eq-avatar--ring"
+            />
           </div>
 
-          <h1 className="mt-4 text-2xl font-semibold leading-tight tracking-tight text-[#2f3a34] sm:text-[1.75rem]">
+          <h1 className="mt-4 text-2xl font-semibold leading-tight tracking-tight text-[var(--eq-ink)] sm:text-[1.75rem]">
             {organization.name}
           </h1>
 
           {organization.headline ? (
-            <p className="mt-3 text-base leading-6 text-[#496458]">
+            <p className="mt-3 text-[17px] leading-6 text-[var(--eq-muted)]">
               {organization.headline}
             </p>
           ) : null}
 
           {organization.bio ? (
-            <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#5f6f68]">
+            <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[var(--eq-muted)]">
               {organization.bio}
             </p>
           ) : null}
 
           {location ? (
-            <p className="mt-4 flex items-center justify-center gap-1.5 text-sm text-[#5f6f68]">
+            <p className="mt-4 flex items-center justify-center gap-1.5 text-sm text-[var(--eq-muted)]">
               <span aria-hidden="true">📍</span>
               <span>{location}</span>
             </p>
@@ -200,7 +233,7 @@ export default async function PublicBookingPage({
             {procedures.length > 0 ? (
               <a
                 href="#agendamento"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#0f766e] px-6 py-3.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(15,118,110,0.25)] transition hover:bg-[#0c5f59]"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[var(--eq-accent)] px-6 py-3.5 text-sm font-semibold text-[var(--eq-accent-on)] shadow-[0_1px_2px_rgba(15,118,110,0.25)] transition hover:bg-[var(--eq-accent-strong)]"
               >
                 <CalendarIcon className="h-5 w-5" />
                 <span>Agendar online</span>
@@ -211,7 +244,7 @@ export default async function PublicBookingPage({
                 href={whatsappHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#d9e5dd] bg-white px-6 py-3.5 text-sm font-semibold text-[#30463c] transition hover:bg-[#f1f6f3]"
+                className="eq-contact-link w-full"
               >
                 <WhatsAppIcon className="h-5 w-5" />
                 <span>WhatsApp</span>
@@ -222,7 +255,7 @@ export default async function PublicBookingPage({
                 href={instagramHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#d9e5dd] bg-white px-6 py-3.5 text-sm font-semibold text-[#30463c] transition hover:bg-[#f1f6f3]"
+                className="eq-contact-link w-full"
               >
                 <InstagramIcon className="h-5 w-5" />
                 <span>Instagram</span>
@@ -233,12 +266,13 @@ export default async function PublicBookingPage({
                 href={mapsHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#d9e5dd] bg-white px-6 py-3.5 text-sm font-semibold text-[#30463c] transition hover:bg-[#f1f6f3]"
+                className="eq-contact-link w-full"
               >
                 <MapsIcon className="h-5 w-5" />
                 <span>Como chegar</span>
               </a>
             ) : null}
+          </div>
           </div>
         </header>
 
@@ -246,7 +280,7 @@ export default async function PublicBookingPage({
             "Agendar online". O id é a âncora usada para a rolagem suave. */}
         <section id="agendamento" className="mt-6 scroll-mt-6">
           {procedures.length === 0 ? (
-            <p className="rounded-[1.75rem] border border-[#e7e1d5] bg-white p-6 text-sm text-[#5f6f68]">
+            <p className="rounded-[1.75rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] p-6 text-sm text-[var(--eq-muted)]">
               Este cartão ainda não tem {labels.pluralLower} disponíveis para
               agendamento online.
             </p>
@@ -262,19 +296,33 @@ export default async function PublicBookingPage({
         </section>
 
         <footer className="mx-auto mt-10 text-center">
-          <div className="mx-auto h-px w-10 bg-[#ddd3c0]" />
-          <p className="mt-4 text-[11px] uppercase tracking-[0.2em] text-[#9aa39d]">
-            Experiência de agendamento com EstetiQI
+          <div className="mx-auto h-px w-10 bg-[var(--eq-card-border)]" />
+          <p className="mt-4 text-[11px] uppercase tracking-[0.2em] text-[var(--eq-muted)]">
+            Agendamento por EstetiQI
           </p>
-          <p className="mt-2 text-xs text-[#8a948e]">
+          <p className="mt-2 text-xs text-[var(--eq-muted)]">
             <a
               href="mailto:contato@estetiqi.com.br"
-              className="font-medium text-[#5f7568] underline-offset-2 transition hover:underline"
+              className="font-medium text-[var(--eq-accent-text)] underline-offset-2 transition hover:underline"
             >
               contato@estetiqi.com.br
             </a>
           </p>
         </footer>
+
+        {/* Ação fixa no rodapé do celular. O conteúdo acima reserva espaço
+            (pb-28) para que o botão nunca encubra informações. */}
+        {procedures.length > 0 ? (
+          <div className="fixed inset-x-0 bottom-0 z-10 border-t border-[var(--eq-card-border)] bg-[var(--eq-card)] px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 sm:hidden">
+            <a
+              href="#agendamento"
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--eq-accent)] px-6 text-sm font-semibold text-[var(--eq-accent-on)]"
+            >
+              <CalendarIcon className="h-5 w-5" />
+              Agendar horário
+            </a>
+          </div>
+        ) : null}
       </div>
     </main>
   );

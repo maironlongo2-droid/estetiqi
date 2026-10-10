@@ -97,6 +97,185 @@ body {
   animation: eq-drift 16s ease-in-out infinite;
 }
 
+/* ---------------------------------------------------------------------------
+   Cartão digital público — modelo único do EstetiQI.
+   ---------------------------------------------------------------------------
+   A clínica personaliza dados e UMA cor de destaque (conjunto fechado de seis
+   chaves, definido em src/lib/public/accent.ts). Todo o restante — tipografia,
+   hierarquia, espaçamentos, raios, sombras, estrutura — é fixo.
+
+   A cor chega ao documento apenas como `data-accent` (chave validada no
+   servidor); nenhum valor de CSS vindo do banco é aplicado. Os tokens abaixo
+   derivam as variantes de interação, os fundos suaves e a cor de texto sobre
+   fundo escuro, sempre com contraste medido (ver comentário no módulo TS).
+
+   Modo escuro: os tokens do cartão são redefinidos em
+   `prefers-color-scheme: dark`, mantendo texto claro sobre fundo escuro e a cor
+   de destaque clareada como texto (contraste ≥ 9:1 no pior caso). */
+.eq-public {
+  --eq-accent: #0f5f59;
+  --eq-accent-strong: #0b4a45;
+  --eq-accent-on: #ffffff;
+  --eq-accent-soft: #e4efec;
+  --eq-accent-text: #0f5f59;
+  --eq-page: #f6f3ec;
+  --eq-card: #ffffff;
+  --eq-card-border: #e7e1d5;
+  --eq-border: #d5e2da;
+  --eq-ink: #30463c;
+  --eq-muted: #6d7d75;
+  --eq-soft: #f1f6f3;
+  --eq-danger-bg: #f7e8ec;
+  --eq-danger-text: #8a4356;
+  color-scheme: light;
+}
+
+.eq-public[data-accent="petroleo"] {
+  --eq-accent: #0f5f59;
+  --eq-accent-strong: #0b4a45;
+  --eq-accent-soft: #e4efec;
+  --eq-accent-text: #0f5f59;
+}
+
+.eq-public[data-accent="salvia"] {
+  --eq-accent: #3f6f4f;
+  --eq-accent-strong: #325a3f;
+  --eq-accent-soft: #e6efe8;
+  --eq-accent-text: #3f6f4f;
+}
+
+.eq-public[data-accent="rose"] {
+  --eq-accent: #a2425f;
+  --eq-accent-strong: #85344d;
+  --eq-accent-soft: #f6e7eb;
+  --eq-accent-text: #a2425f;
+}
+
+.eq-public[data-accent="ameixa"] {
+  --eq-accent: #6a4678;
+  --eq-accent-strong: #553860;
+  --eq-accent-soft: #efe8f2;
+  --eq-accent-text: #6a4678;
+}
+
+.eq-public[data-accent="azul"] {
+  --eq-accent: #2c5a7a;
+  --eq-accent-strong: #224762;
+  --eq-accent-soft: #e5eef4;
+  --eq-accent-text: #2c5a7a;
+}
+
+.eq-public[data-accent="bronze"] {
+  --eq-accent: #80612f;
+  --eq-accent-strong: #664d25;
+  --eq-accent-soft: #f4ede1;
+  --eq-accent-text: #80612f;
+}
+
+@media (prefers-color-scheme: dark) {
+  .eq-public {
+    --eq-accent-soft: color-mix(in srgb, var(--eq-accent) 24%, #0d1412);
+    --eq-accent-text: color-mix(in srgb, var(--eq-accent) 45%, #ffffff);
+    --eq-page: #0f1513;
+    --eq-card: #161d1a;
+    --eq-card-border: #26332e;
+    --eq-border: #2c3a34;
+    --eq-ink: #e8efeb;
+    --eq-muted: #a9b8b1;
+    --eq-soft: #1d2724;
+    --eq-danger-bg: #3a1f27;
+    --eq-danger-text: #f0b9c6;
+    color-scheme: dark;
+  }
+}
+
+/* Avatar único do cartão público (profissionais e logo).
+   Um só elemento controla formato circular, recorte, fundo de fallback e o
+   anel quando necessário. A imagem NUNCA desenha borda, contorno ou anel
+   próprios, e o recorte circular é garantido pelo `overflow: hidden` do
+   contêiner — sem moldura quadrada ao redor da foto. O foco de teclado
+   continua visível quando o avatar está dentro de um botão/link. */
+.eq-avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex: none;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--eq-accent-soft, #e4efec);
+  color: var(--eq-accent-text, #0f5f59);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.eq-avatar::before,
+.eq-avatar::after {
+  content: none;
+}
+
+.eq-avatar > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: inherit;
+  outline: none;
+  box-shadow: none;
+  object-fit: cover;
+}
+
+.eq-avatar--lg {
+  font-size: 1.5rem;
+}
+
+.eq-avatar--md {
+  font-size: 1.125rem;
+}
+
+.eq-avatar--sm {
+  font-size: 0.875rem;
+}
+
+/* Foco visível apenas no avatar quando ele mesmo é focável (dentro de botão o
+   anel do botão já indica o foco). */
+.eq-avatar:focus-visible {
+  outline: 2px solid var(--eq-accent, #0f5f59);
+  outline-offset: 2px;
+}
+
+/* Variante de recorte para LOGOS (mantém a proporção dentro do círculo) e anel
+   circular discreto sobre a capa. O anel acompanha o raio do avatar, portanto
+   continua sendo um contorno CIRCULAR — nunca uma moldura quadrada. */
+.eq-avatar--contain > img {
+  object-fit: contain;
+}
+
+.eq-avatar--ring {
+  box-shadow: 0 0 0 4px var(--eq-card, #ffffff);
+}
+
+/* Ícone de contato do cartão (WhatsApp/Instagram/Maps) sem moldura herdada. */
+.eq-contact-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  border-radius: 9999px;
+  border: 1px solid var(--eq-border);
+  background: var(--eq-card);
+  color: var(--eq-ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background-color 150ms ease;
+}
+
+.eq-contact-link:hover {
+  background: var(--eq-soft);
+}
+
 /* Altura mínima do shell do app compatível com a viewport dinâmica do mobile.
    100vh é usado como fallback seguro; navegadores com suporte a dvh usam a
    altura dinâmica para evitar excesso de altura (scroll/overscroll). */

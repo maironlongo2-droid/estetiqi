@@ -216,6 +216,63 @@ export function WhatsAppBusinessConnect({
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
+  // O SDK da Meta (FB.login) valida o callback com `Assert.isFunction` e recusa
+  // funções `async` — lança "Expression is of type asyncfunction, not function"
+  // antes de abrir o popup. Por isso o processamento assíncrono fica neste
+  // handler e o callback entregue ao FB.login é síncrono e apenas delega.
+  const handleLoginResponse = useCallback(
+    async (response: FacebookLoginResponse) => {
+      const code = response?.authResponse?.code ?? null;
+      if (!code) {
+        setConnecting(false);
+        setFlowMessage(
+          "O fluxo da Meta não devolveu a autorização. A conexão não foi concluída."
+        );
+        return;
+      }
+      const selection = selectionRef.current;
+      if (!selection?.phoneNumberId) {
+        setConnecting(false);
+        setFlowMessage(
+          "A Meta não informou qual número foi escolhido. Repita o fluxo e selecione o número desejado."
+        );
+        return;
+      }
+      try {
+        const apiResponse = await fetch(
+          "/api/communication/whatsapp/connect",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              code,
+              phoneNumberId: selection.phoneNumberId,
+              businessAccountId: selection.businessAccountId,
+            }),
+          }
+        );
+        const body = (await apiResponse
+          .json()
+          .catch(() => null)) as ConnectErrorBody | null;
+        if (!apiResponse.ok) {
+          setFlowMessage(describeConnectFailure(body));
+          return;
+        }
+        setFlowMessage("");
+        notifySuccess("WhatsApp oficial conectado.");
+        await onChanged();
+      } catch {
+        setFlowMessage(
+          "Não foi possível concluir a conexão. Verifique sua internet e tente novamente."
+        );
+      } finally {
+        setConnecting(false);
+        selectionRef.current = null;
+      }
+    },
+    [notifySuccess, onChanged]
+  );
+
   const startSignup = useCallback(() => {
     const sdk = window.FB;
     if (!appId || !configId) return;
@@ -229,54 +286,8 @@ export function WhatsAppBusinessConnect({
     setFlowMessage("");
     setConnecting(true);
     sdk.login(
-      async (response) => {
-        const code = response?.authResponse?.code ?? null;
-        if (!code) {
-          setConnecting(false);
-          setFlowMessage(
-            "O fluxo da Meta não devolveu a autorização. A conexão não foi concluída."
-          );
-          return;
-        }
-        const selection = selectionRef.current;
-        if (!selection?.phoneNumberId) {
-          setConnecting(false);
-          setFlowMessage(
-            "A Meta não informou qual número foi escolhido. Repita o fluxo e selecione o número desejado."
-          );
-          return;
-        }
-        try {
-          const apiResponse = await fetch(
-            "/api/communication/whatsapp/connect",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                code,
-                phoneNumberId: selection.phoneNumberId,
-                businessAccountId: selection.businessAccountId,
-              }),
-            }
-          );
-          const body = (await apiResponse
-            .json()
-            .catch(() => null)) as ConnectErrorBody | null;
-          if (!apiResponse.ok) {
-            setFlowMessage(describeConnectFailure(body));
-            return;
-          }
-          setFlowMessage("");
-          notifySuccess("WhatsApp oficial conectado.");
-          await onChanged();
-        } catch {
-          setFlowMessage(
-            "Não foi possível concluir a conexão. Verifique sua internet e tente novamente."
-          );
-        } finally {
-          setConnecting(false);
-          selectionRef.current = null;
-        }
+      (response) => {
+        void handleLoginResponse(response);
       },
       {
         config_id: configId,
@@ -285,7 +296,7 @@ export function WhatsAppBusinessConnect({
         extras: { setup: {}, featureType: "", sessionInfoVersion: "3" },
       }
     );
-  }, [appId, configId, sdkStatus, notifyError, notifySuccess, onChanged]);
+  }, [appId, configId, sdkStatus, notifyError, handleLoginResponse]);
 
   const handleDisconnect = useCallback(async () => {
     const confirmed = window.confirm(

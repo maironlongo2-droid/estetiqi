@@ -755,6 +755,18 @@ export default function Home() {
               Benefícios
             </a>
             <Link
+              href="/privacidade"
+              className="text-sm text-[#6d7d75] transition hover:text-[#30463c]"
+            >
+              Privacidade
+            </Link>
+            <Link
+              href="/termos"
+              className="text-sm text-[#6d7d75] transition hover:text-[#30463c]"
+            >
+              Termos
+            </Link>
+            <Link
               href="/cadastro"
               className="text-sm font-medium text-[#496458] transition hover:text-[#30463c]"
             >

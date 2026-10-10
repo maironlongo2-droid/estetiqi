@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PublicAvatar } from "@/app/public-avatar";
 import {
@@ -300,6 +301,21 @@ export default async function PublicBookingPage({
             >
               contato@estetiqi.com.br
             </a>
+          </p>
+          <p className="mt-2 text-xs text-[var(--eq-muted)]">
+            <Link
+              href="/privacidade"
+              className="font-medium text-[var(--eq-accent-text)] underline-offset-2 transition hover:underline"
+            >
+              Política de Privacidade
+            </Link>
+            <span aria-hidden="true"> · </span>
+            <Link
+              href="/termos"
+              className="font-medium text-[var(--eq-accent-text)] underline-offset-2 transition hover:underline"
+            >
+              Termos de Serviço
+            </Link>
           </p>
         </footer>
 

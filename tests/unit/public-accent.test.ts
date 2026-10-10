@@ -29,32 +29,7 @@ const REQUIRED_KEYS = [
   "bronze",
 ] as const;
 
-function channelToLinear(value: number): number {
-  const channel = value / 255;
-  return channel <= 0.03928
-    ? channel / 12.92
-    : Math.pow((channel + 0.055) / 1.055, 2.4);
-}
-
-function luminance(hex: string): number {
-  const clean = hex.replace("#", "");
-  const r = parseInt(clean.slice(0, 2), 16);
-  const g = parseInt(clean.slice(2, 4), 16);
-  const b = parseInt(clean.slice(4, 6), 16);
-  return (
-    0.2126 * channelToLinear(r) +
-    0.7152 * channelToLinear(g) +
-    0.0722 * channelToLinear(b)
-  );
-}
-
-function contrast(foreground: string, background: string): number {
-  const first = luminance(foreground);
-  const second = luminance(background);
-  const lighter = Math.max(first, second);
-  const darker = Math.min(first, second);
-  return (lighter + 0.05) / (darker + 0.05);
-}
+import { contrast, ratioLabel } from "./helpers/wcag-contrast.ts";
 
 describe("paleta de destaque do cartão", () => {
   it("expõe exatamente as seis chaves permitidas", () => {
@@ -103,16 +78,29 @@ describe("paleta de destaque do cartão", () => {
 
   it("mantém contraste WCAG AA (>= 4,5:1) nas combinações usadas pelo cartão", () => {
     for (const swatch of PUBLIC_ACCENT_SWATCHES) {
+      // Texto branco sobre a cor base (botão, dia selecionado) e sobre a cor de
+      // interação (hover), e a cor base como texto sobre o branco do cartão.
       const whiteOnAccent = contrast("#ffffff", swatch.base);
+      const whiteOnStrong = contrast("#ffffff", swatch.strong);
       const accentOnWhite = contrast(swatch.base, "#ffffff");
 
       assert.ok(
         whiteOnAccent >= 4.5,
-        `texto branco sobre ${swatch.key} = ${whiteOnAccent.toFixed(2)}:1`
+        `texto branco sobre ${swatch.key} = ${ratioLabel("#ffffff", swatch.base)}`
+      );
+      assert.ok(
+        whiteOnStrong >= 4.5,
+        `texto branco sobre ${swatch.key} (interação) = ${ratioLabel(
+          "#ffffff",
+          swatch.strong
+        )}`
       );
       assert.ok(
         accentOnWhite >= 4.5,
-        `${swatch.key} como texto sobre branco = ${accentOnWhite.toFixed(2)}:1`
+        `${swatch.key} como texto sobre branco = ${ratioLabel(
+          swatch.base,
+          "#ffffff"
+        )}`
       );
     }
   });

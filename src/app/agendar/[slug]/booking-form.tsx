@@ -431,7 +431,7 @@ export function PublicBookingForm({
               href={whatsappLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center rounded-full bg-[var(--eq-accent)] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[var(--eq-accent-strong)]"
+              className="inline-flex items-center justify-center rounded-full bg-[var(--eq-accent)] px-6 py-3 text-sm font-semibold text-[var(--eq-accent-on)] transition hover:bg-[var(--eq-accent-strong)]"
             >
               Falar no WhatsApp
             </a>
@@ -445,7 +445,7 @@ export function PublicBookingForm({
               setName("");
               setPhone("");
             }}
-            className="inline-flex items-center justify-center rounded-full border border-[var(--eq-border)] px-6 py-3 text-sm font-semibold text-[var(--eq-ink)] transition hover:bg-[var(--eq-soft)]"
+            className="inline-flex items-center justify-center rounded-full border border-[var(--eq-field-border)] px-6 py-3 text-sm font-semibold text-[var(--eq-ink)] transition hover:bg-[var(--eq-soft)]"
           >
             Fazer outro agendamento
           </button>
@@ -473,7 +473,7 @@ export function PublicBookingForm({
                 className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition ${
                   checked
                     ? "border-[var(--eq-accent)] bg-[var(--eq-soft)]"
-                    : "border-[var(--eq-border)] hover:border-[var(--eq-accent)]"
+                    : "border-[var(--eq-field-border)] hover:border-[var(--eq-accent)]"
                 }`}
               >
                 <input
@@ -546,7 +546,7 @@ export function PublicBookingForm({
                       {active ? (
                         <span
                           aria-hidden="true"
-                          className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--eq-accent)] text-xs font-bold text-white"
+                          className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--eq-accent)] text-xs font-bold text-[var(--eq-accent-on)]"
                         >
                           ✓
                         </span>
@@ -582,7 +582,7 @@ export function PublicBookingForm({
                 onClick={() => setMonth((current) => addMonths(current, -1))}
                 disabled={month <= currentMonth}
                 aria-label="Mês anterior"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--eq-border)] text-lg leading-none text-[var(--eq-ink)] transition hover:bg-[var(--eq-soft)] disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--eq-field-border)] text-lg leading-none text-[var(--eq-ink)] transition hover:bg-[var(--eq-soft)] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 ‹
               </button>
@@ -593,7 +593,7 @@ export function PublicBookingForm({
                 type="button"
                 onClick={() => setMonth((current) => addMonths(current, 1))}
                 aria-label="Próximo mês"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--eq-border)] text-lg leading-none text-[var(--eq-ink)] transition hover:bg-[var(--eq-soft)]"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--eq-field-border)] text-lg leading-none text-[var(--eq-ink)] transition hover:bg-[var(--eq-soft)]"
               >
                 ›
               </button>
@@ -636,7 +636,7 @@ export function PublicBookingForm({
                       aria-label={`Dia ${Number(cell.slice(8, 10))}`}
                       className={`aspect-square rounded-lg text-sm transition ${
                         isSelected
-                          ? "bg-[var(--eq-accent)] font-semibold text-white"
+                          ? "bg-[var(--eq-accent)] font-semibold text-[var(--eq-accent-on)]"
                           : disabled
                             ? "cursor-not-allowed bg-[var(--eq-soft)] text-[var(--eq-muted)]"
                             : "font-medium text-[var(--eq-ink)] hover:bg-[var(--eq-soft)]"
@@ -674,7 +674,7 @@ export function PublicBookingForm({
                       className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
                         active
                           ? "border-[var(--eq-accent)] bg-[var(--eq-accent)] text-[var(--eq-accent-on)]"
-                          : "border-[var(--eq-border)] text-[var(--eq-ink)] hover:bg-[var(--eq-soft)]"
+                          : "border-[var(--eq-field-border)] text-[var(--eq-ink)] hover:bg-[var(--eq-soft)]"
                       }`}
                     >
                       {formatTime(item.startsAt)}
@@ -701,7 +701,7 @@ export function PublicBookingForm({
                 onChange={(event) => setName(event.target.value)}
                 autoComplete="name"
                 required
-                className="rounded-2xl border border-[var(--eq-border)] px-4 py-3 text-[var(--eq-ink)]"
+                className="rounded-2xl border border-[var(--eq-field-border)] bg-[var(--eq-card)] px-4 py-3 text-[var(--eq-ink)]"
               />
             </label>
             <label className="flex flex-col gap-1 text-sm">
@@ -713,7 +713,7 @@ export function PublicBookingForm({
                 autoComplete="tel"
                 placeholder="(11) 99999-9999"
                 required
-                className="rounded-2xl border border-[var(--eq-border)] px-4 py-3 text-[var(--eq-ink)]"
+                className="rounded-2xl border border-[var(--eq-field-border)] bg-[var(--eq-card)] px-4 py-3 text-[var(--eq-ink)]"
               />
             </label>
           </div>
@@ -749,7 +749,7 @@ export function PublicBookingForm({
         <button
           type="submit"
           disabled={submitting || !selectedSlot}
-          className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-[var(--eq-accent)] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[var(--eq-accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-[var(--eq-accent)] px-6 py-3 text-sm font-semibold text-[var(--eq-accent-on)] transition hover:bg-[var(--eq-accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitting ? "Agendando…" : "Confirmar agendamento"}
         </button>

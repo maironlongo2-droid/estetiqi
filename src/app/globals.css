@@ -113,88 +113,147 @@ body {
    `prefers-color-scheme: dark`, mantendo texto claro sobre fundo escuro e a cor
    de destaque clareada como texto (contraste ≥ 9:1 no pior caso). */
 .eq-public {
-  --eq-accent: #0f5f59;
-  --eq-accent-strong: #0b4a45;
+  --eq-accent: #2f6f68;
+  --eq-accent-strong: #275c56;
   --eq-accent-on: #ffffff;
-  --eq-accent-soft: #e4efec;
-  --eq-accent-text: #0f5f59;
-  --eq-page: #f6f3ec;
+  --eq-accent-soft: #e8f1f0;
+  --eq-accent-text: #2f6f68;
+  /* Identidade clara do cartão: fundo rosa muito suave, cartões brancos e
+     divisórias discretas. O contraste de cada texto é medido no teste
+     tests/unit/public-card-style.test.ts (todos ≥ 4,5:1). */
+  --eq-page: #fff7f8;
   --eq-card: #ffffff;
-  --eq-card-border: #e7e1d5;
-  --eq-border: #d5e2da;
-  --eq-ink: #30463c;
-  --eq-muted: #6d7d75;
-  --eq-soft: #f1f6f3;
+  --eq-card-border: #f0dde2;
+  --eq-border: #f0dde2;
+  /* Borda de CAMPO de formulário: precisa de 3:1 contra o branco (WCAG 1.4.11),
+     por isso é mais escura que as bordas decorativas acima. */
+  --eq-field-border: #a1858f;
+  --eq-ink: #3f3439;
+  --eq-muted: #77676e;
+  --eq-soft: #fceef1;
   --eq-danger-bg: #f7e8ec;
   --eq-danger-text: #8a4356;
   color-scheme: light;
 }
 
+/* Ornamento de fundo: dois brilhos radiais de baixíssima opacidade que dão
+   profundidade ao fundo claro sem competir com o conteúdo. É `background-image`
+   (o `background-color` continua vindo de `--eq-page`), então não interfere em
+   nenhuma cor de fundo já aplicada por utilitários. */
+.eq-public {
+  background-image:
+    radial-gradient(
+      120% 52% at 10% -6%,
+      rgba(175, 85, 112, 0.075) 0%,
+      rgba(175, 85, 112, 0) 62%
+    ),
+    radial-gradient(
+      105% 46% at 104% 6%,
+      rgba(63, 106, 140, 0.05) 0%,
+      rgba(63, 106, 140, 0) 58%
+    );
+  background-repeat: no-repeat;
+}
+
+/* Paleta fechada de seis cores (as mesmas chaves de src/lib/public/accent.ts).
+   `--eq-accent-soft` é a tinta de fundo do avatar/tag; é mais clara que a cor
+   base para manter o cartão leve. */
 .eq-public[data-accent="petroleo"] {
-  --eq-accent: #0f5f59;
-  --eq-accent-strong: #0b4a45;
-  --eq-accent-soft: #e4efec;
-  --eq-accent-text: #0f5f59;
+  --eq-accent: #2f6f68;
+  --eq-accent-strong: #275c56;
+  --eq-accent-soft: #e8f1f0;
+  --eq-accent-text: #2f6f68;
 }
 
 .eq-public[data-accent="salvia"] {
-  --eq-accent: #3f6f4f;
-  --eq-accent-strong: #325a3f;
-  --eq-accent-soft: #e6efe8;
-  --eq-accent-text: #3f6f4f;
+  --eq-accent: #4f7a5c;
+  --eq-accent-strong: #41674c;
+  --eq-accent-soft: #eaf2eb;
+  --eq-accent-text: #4f7a5c;
 }
 
 .eq-public[data-accent="rose"] {
-  --eq-accent: #a2425f;
-  --eq-accent-strong: #85344d;
-  --eq-accent-soft: #f6e7eb;
-  --eq-accent-text: #a2425f;
+  --eq-accent: #af5570;
+  --eq-accent-strong: #93485e;
+  --eq-accent-soft: #fbebf0;
+  --eq-accent-text: #af5570;
 }
 
 .eq-public[data-accent="ameixa"] {
-  --eq-accent: #6a4678;
-  --eq-accent-strong: #553860;
-  --eq-accent-soft: #efe8f2;
-  --eq-accent-text: #6a4678;
+  --eq-accent: #7c5a8e;
+  --eq-accent-strong: #684b78;
+  --eq-accent-soft: #f2ebf5;
+  --eq-accent-text: #7c5a8e;
 }
 
 .eq-public[data-accent="azul"] {
-  --eq-accent: #2c5a7a;
-  --eq-accent-strong: #224762;
-  --eq-accent-soft: #e5eef4;
-  --eq-accent-text: #2c5a7a;
+  --eq-accent: #3f6a8c;
+  --eq-accent-strong: #355a76;
+  --eq-accent-soft: #eaf0f6;
+  --eq-accent-text: #3f6a8c;
 }
 
 .eq-public[data-accent="bronze"] {
-  --eq-accent: #80612f;
-  --eq-accent-strong: #664d25;
-  --eq-accent-soft: #f4ede1;
-  --eq-accent-text: #80612f;
+  --eq-accent: #876738;
+  --eq-accent-strong: #71562f;
+  --eq-accent-soft: #f7efe2;
+  --eq-accent-text: #876738;
 }
 
 @media (prefers-color-scheme: dark) {
   .eq-public {
-    --eq-accent-soft: color-mix(in srgb, var(--eq-accent) 24%, #0d1412);
+    /* Neutros quentes (marrom-acinzentados) para conversar com a paleta clara,
+       em vez do verde anterior. Contraste medido no teste: texto ≥ 8:1. */
+    --eq-page: #171214;
+    --eq-card: #1e181b;
+    --eq-card-border: #2e262a;
+    --eq-border: #2e262a;
+    --eq-field-border: #8d7580;
+    --eq-ink: #f5edef;
+    --eq-muted: #c3b3b9;
+    --eq-soft: #241d20;
+    --eq-accent-soft: color-mix(in srgb, var(--eq-accent) 22%, #171214);
     --eq-accent-text: color-mix(in srgb, var(--eq-accent) 45%, #ffffff);
-    --eq-page: #0f1513;
-    --eq-card: #161d1a;
-    --eq-card-border: #26332e;
-    --eq-border: #2c3a34;
-    --eq-ink: #e8efeb;
-    --eq-muted: #a9b8b1;
-    --eq-soft: #1d2724;
     --eq-danger-bg: #3a1f27;
     --eq-danger-text: #f0b9c6;
+    background-image:
+      radial-gradient(
+        120% 52% at 10% -6%,
+        rgba(255, 255, 255, 0.045) 0%,
+        rgba(255, 255, 255, 0) 60%
+      ),
+      radial-gradient(
+        105% 46% at 104% 6%,
+        rgba(255, 255, 255, 0.03) 0%,
+        rgba(255, 255, 255, 0) 56%
+      );
     color-scheme: dark;
   }
 }
 
-/* Avatar único do cartão público (profissionais e logo).
-   Um só elemento controla formato circular, recorte, fundo de fallback e o
-   anel quando necessário. A imagem NUNCA desenha borda, contorno ou anel
-   próprios, e o recorte circular é garantido pelo `overflow: hidden` do
-   contêiner — sem moldura quadrada ao redor da foto. O foco de teclado
-   continua visível quando o avatar está dentro de um botão/link. */
+/* Foco de teclado dentro do cartão: o anel global do app é verde-escuro; aqui ele
+   passa a usar a cor de destaque escolhida (contraste ≥ 4,8:1 sobre o fundo
+   claro), mantendo o indicador visível sobre cartões e sobre a tinta suave. */
+.eq-public :where(a, button, input, select, textarea):focus-visible {
+  outline-color: var(--eq-accent);
+}
+
+/* Texto de apoio dentro dos campos (placeholder) na cor de apoio do cartão:
+   legível sobre o branco e coerente com o restante da página, em vez do cinza
+   padrão do navegador. */
+.eq-public :where(input, textarea)::placeholder {
+  color: var(--eq-muted);
+}
+
+/* ---------------------------------------------------------------------------
+   Avatar único do cartão público (profissionais e logo).
+
+   Um só elemento controla formato circular, recorte, fundo de fallback e o anel
+   quando necessário. A imagem NUNCA desenha borda, contorno ou anel próprios, e
+   o recorte circular vem do `overflow: hidden` + `aspect-ratio: 1 / 1` do
+   contêiner — sem moldura quadrada ao redor da foto. O foco de teclado continua
+   visível quando o avatar está dentro de um botão/link.
+   --------------------------------------------------------------------------- */
 .eq-avatar {
   position: relative;
   display: inline-flex;
@@ -202,14 +261,19 @@ body {
   justify-content: center;
   overflow: hidden;
   flex: none;
+  /* Círculo garantido por construção: `aspect-ratio: 1 / 1` mantém
+     largura = altura mesmo que apenas uma das dimensões seja definida, e o raio
+     de 50% recorta essa caixa quadrada em um círculo perfeito. */
+  aspect-ratio: 1 / 1;
   border: 0;
   border-radius: 9999px;
-  background: var(--eq-accent-soft, #e4efec);
-  color: var(--eq-accent-text, #0f5f59);
+  background: var(--eq-accent-soft, #e8f1f0);
+  color: var(--eq-accent-text, #2f6f68);
   font-weight: 600;
   line-height: 1;
 }
 
+/* Nenhum pseudo-elemento pode desenhar moldura, etiqueta ou canto sobre a foto. */
 .eq-avatar::before,
 .eq-avatar::after {
   content: none;
@@ -219,11 +283,21 @@ body {
   display: block;
   width: 100%;
   height: 100%;
+  /* Cobre o círculo inteiro: sem faixa nem sobra da moldura atrás da foto, o que
+     é o que fazia a imagem "quadrada" aparecer dentro do avatar. */
+  min-width: 100%;
+  min-height: 100%;
   border: 0;
   border-radius: inherit;
   outline: none;
   box-shadow: none;
   object-fit: cover;
+}
+
+/* Logo/identidade do cartão: um degrau acima das fotos de profissional, para dar
+   presença à marca sem ocupar mais espaço na página. */
+.eq-avatar--xl {
+  font-size: 1.75rem;
 }
 
 .eq-avatar--lg {

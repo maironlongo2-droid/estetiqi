@@ -184,24 +184,27 @@ export default async function PublicBookingPage({
           )}
 
           <div className="px-6 pb-6 text-center sm:px-8 sm:pb-8">
-            <div className="-mt-10 flex justify-center sm:-mt-12">
-            <PublicAvatar
-              src={
-                organization.hasLogo
-                  ? `/api/public/${organization.slug}/logo${
-                      organization.logoVersion
-                        ? `?v=${organization.logoVersion}`
-                        : ""
-                    }`
-                  : null
-              }
-              alt={`Logo de ${organization.name}`}
-              name={organization.name}
-              size="lg"
-              fit="contain"
-              className="eq-avatar--ring"
-            />
-          </div>
+            {/* Logo maior, avançando sobre a capa. O anel usa a cor do cartão e
+                acompanha o raio do avatar, portanto continua sendo um contorno
+                circular — nunca uma moldura quadrada. */}
+            <div className="-mt-12 flex justify-center sm:-mt-14">
+              <PublicAvatar
+                src={
+                  organization.hasLogo
+                    ? `/api/public/${organization.slug}/logo${
+                        organization.logoVersion
+                          ? `?v=${organization.logoVersion}`
+                          : ""
+                      }`
+                    : null
+                }
+                alt={`Logo de ${organization.name}`}
+                name={organization.name}
+                size="xl"
+                fit="contain"
+                className="eq-avatar--ring"
+              />
+            </div>
 
           <h1 className="mt-4 text-2xl font-semibold leading-tight tracking-tight text-[var(--eq-ink)] sm:text-[1.75rem]">
             {organization.name}

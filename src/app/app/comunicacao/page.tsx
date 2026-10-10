@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useProcedureLabels } from "../procedure-labels";
+import { WhatsAppBusinessConnect } from "../whatsapp-business-connect";
+import { WhatsAppInbox } from "../whatsapp-inbox";
 import { WhatsAppMessageDialog } from "../whatsapp-message-dialog";
 import {
   buildAppointmentConfirmationMessage,
@@ -12,6 +14,8 @@ import {
   hasValidContactPhone,
   type CommunicationCategory,
 } from "@/lib/communication/messages";
+import type { OrganizationWhatsAppIntegration } from "@/lib/communication/whatsapp-integration";
+import type { EmbeddedSignupPublicConfig } from "@/lib/communication/whatsapp-embedded-signup";
 
 // Central de Comunicação — operações de mensagens e WhatsApp.
 //
@@ -25,7 +29,10 @@ import {
 //   abre o WhatsApp (wa.me). Abrir o WhatsApp NÃO confirma o envio.
 // - O estado da integração oficial do WhatsApp é real: sem credenciais ele é
 //   "Não configurado" e nenhuma chamada externa é feita.
-// - O histórico persistente ainda não está ativo (ver a aba "Histórico").
+// - O envio pela API OFICIAL só existe quando a profissional conecta o número
+//   (aba "Conversas"). Abrir o wa.me nunca confirma envio.
+// - O histórico persistente depende de as migrations do banco existirem (ver a
+//   aba "Histórico").
 
 const TIME_ZONE = "America/Sao_Paulo";
 
@@ -66,6 +73,7 @@ const TABS = [
   { id: "confirmations", label: "Agendamentos" },
   { id: "post", label: "Pós-atendimento" },
   { id: "returns", label: "Retorno de clientes" },
+  { id: "inbox", label: "Conversas" },
   { id: "whatsapp", label: "WhatsApp e configurações" },
   { id: "history", label: "Histórico" },
 ] as const;
@@ -86,6 +94,11 @@ type WhatsAppStatus = {
   verifiedName: string | null;
   lastCheckedAt: string;
   docsUrl: string;
+  // Estado da conexão DESTA organização (pode faltar em resposta antiga).
+  organization?: OrganizationWhatsAppIntegration | null;
+  // Configuração pública do Embedded Signup (App ID + config_id). O App Secret
+  // permanece apenas no servidor.
+  embeddedSignup?: EmbeddedSignupPublicConfig | null;
 };
 
 function todayInTimeZone() {
@@ -227,38 +240,39 @@ export default function ComunicacaoPage() {
   }, []);
 
   // Estado da integração oficial. É uma consulta independente: uma falha aqui
-  // não impede o uso das mensagens manuais (wa.me).
-  useEffect(() => {
-    let active = true;
-    fetch("/api/communication/whatsapp")
-      .then(async (response) => {
-        const data = await response.json().catch(() => null);
-        if (!response.ok) {
-          throw new Error(
-            typeof data?.error === "string"
-              ? data.error
-              : "Não foi possível carregar o estado da integração."
-          );
-        }
-        return data as WhatsAppStatus;
-      })
-      .then((data) => {
-        if (!active) return;
-        setWhatsapp(data);
-        setWhatsappError("");
-      })
-      .catch((loadError: unknown) => {
-        if (!active) return;
-        setWhatsappError(
-          loadError instanceof Error
-            ? loadError.message
+  // não impede o uso das mensagens manuais (wa.me). Também é reaproveitada para
+  // recarregar depois de conectar/desconectar o número.
+  const loadWhatsAppStatus = useCallback(async () => {
+    try {
+      const response = await fetch("/api/communication/whatsapp");
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(
+          typeof data?.error === "string"
+            ? data.error
             : "Não foi possível carregar o estado da integração."
         );
-      });
-    return () => {
-      active = false;
-    };
+      }
+      setWhatsapp(data as WhatsAppStatus);
+      setWhatsappError("");
+    } catch (loadError: unknown) {
+      setWhatsappError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Não foi possível carregar o estado da integração."
+      );
+    }
   }, []);
+
+  useEffect(() => {
+    // A chamada é adiada para fora do corpo síncrono do efeito (mesmo padrão
+    // usado em clientes/page.tsx) para evitar renders em cascata.
+    const timer = window.setTimeout(() => {
+      void loadWhatsAppStatus();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [loadWhatsAppStatus]);
 
   async function retry() {
     setLoading(true);
@@ -378,8 +392,8 @@ export default function ComunicacaoPage() {
           <p className="mt-2 text-xs text-[#8a9891]">
             Abrir o WhatsApp não confirma o envio. As marcações de estado
             (“Preparada”, “WhatsApp aberto”, “Envio manual confirmado”) valem
-            apenas nesta sessão, porque ainda não há histórico de comunicação
-            persistido no sistema.
+            apenas nesta sessão. O envio pela API oficial, com confirmação da
+            Meta, fica na aba “Conversas” e exige o número conectado.
           </p>
         </div>
 
@@ -461,13 +475,14 @@ export default function ComunicacaoPage() {
                       {
                         label: "WhatsApp oficial",
                         value: whatsapp
-                          ? WHATSAPP_STATE_LABELS[whatsapp.connection]
+                          ? (whatsapp.organization?.statusLabel ??
+                            WHATSAPP_STATE_LABELS[whatsapp.connection])
                           : whatsappError
                             ? "Indisponível"
                             : "Verificando...",
-                        detail: whatsapp?.configured
-                          ? "credenciais presentes no servidor"
-                          : "integração da Meta ainda não configurada",
+                        detail: whatsapp?.organization?.connected
+                          ? "número oficial conectado a esta organização"
+                          : "número oficial ainda não conectado",
                       },
                     ].map((metric) => (
                       <div
@@ -504,8 +519,9 @@ export default function ComunicacaoPage() {
                     <p className="mt-3 text-xs text-[#8a9891]">
                       As oportunidades continuam sendo identificadas pelo
                       Assistente IA; esta Central apenas executa e acompanha a
-                      comunicação. O histórico persistente ainda não está ativo:
-                      as marcações valem apenas nesta sessão.
+                      comunicação. As marcações do diálogo (wa.me) valem apenas
+                      nesta sessão; o envio confirmado pela API oficial aparece na
+                      aba “Conversas”.
                     </p>
                   </section>
                 </>
@@ -694,6 +710,12 @@ export default function ComunicacaoPage() {
                 </section>
               )}
 
+              {tab === "inbox" && (
+                <WhatsAppInbox
+                  connected={Boolean(whatsapp?.organization?.connected)}
+                />
+              )}
+
               {tab === "whatsapp" && (
                 <section className="rounded-2xl border border-[#e4ebe7] bg-white p-5 sm:p-6">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -731,6 +753,12 @@ export default function ComunicacaoPage() {
                       <p className="mt-3 text-sm text-[#52635b]">
                         {whatsapp.connectionMessage}
                       </p>
+
+                      <WhatsAppBusinessConnect
+                        organization={whatsapp.organization ?? null}
+                        embeddedSignup={whatsapp.embeddedSignup ?? null}
+                        onChanged={loadWhatsAppStatus}
+                      />
 
                       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
                         <div>
@@ -770,6 +798,22 @@ export default function ComunicacaoPage() {
                           </dd>
                         </div>
                       </dl>
+
+                      {whatsapp.connection === "ok" &&
+                        !whatsapp.webhookReady && (
+                          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                            <p className="font-semibold">
+                              Recebimento de mensagens ainda não está pronto.
+                            </p>
+                            <p className="mt-1">
+                              A conexão de envio foi verificada, mas o webhook
+                              exige o token de verificação e o segredo do
+                              aplicativo (assinatura). Sem essas credenciais, as
+                              mensagens recebidas não podem ser validadas nem
+                              registradas.
+                            </p>
+                          </div>
+                        )}
 
                       <div className="mt-4 rounded-xl border border-[#e4ebe7] p-4">
                         <p className="text-xs font-semibold text-[#78867f]">
@@ -822,9 +866,10 @@ export default function ComunicacaoPage() {
                       )}
 
                       <p className="mt-3 text-xs text-[#8a9891]">
-                        O envio automático pela API oficial ainda não está
-                        habilitado nesta versão. Uma mensagem só é considerada
-                        enviada quando houver confirmação real do provedor.
+                        O envio pela API oficial fica disponível quando o número
+                        estiver conectado (aba “Conversas”). Uma mensagem só é
+                        considerada enviada quando a Meta confirma o envio —
+                        abrir o WhatsApp (wa.me) não confirma nada.
                       </p>
                     </>
                   )}
@@ -838,25 +883,30 @@ export default function ComunicacaoPage() {
                       Histórico de comunicações
                     </h2>
                     <span className="rounded-full bg-[#f4f7f5] px-2.5 py-1 text-xs font-semibold text-[#52635b]">
-                      Não persistido
+                      Depende das migrations
                     </span>
                   </div>
                   <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
                     <p className="font-semibold">
-                      O histórico persistente ainda não está ativo.
+                      O histórico persistente depende das migrations do banco.
                     </p>
                     <p className="mt-1">
                       O registro permanente de mensagens (enviadas e recebidas),
-                      com estado e identificador do provedor, depende de aplicar
-                      a migration 033_communication_messages.sql no banco. Nesta
-                      versão, as marcações de estado do diálogo valem apenas para
-                      a sessão atual.
+                      com estado e identificador do provedor, exige aplicar as
+                      migrations 033_communication_messages.sql e
+                      036_inbound_whatsapp_messages.sql. Enquanto a estrutura não
+                      existir, nem as mensagens recebidas pela API oficial podem
+                      ser gravadas — e as marcações de estado do diálogo valem
+                      apenas para a sessão atual.
+                    </p>
+                    <p className="mt-2">
+                      As conversas com o número oficial conectado aparecem na aba
+                      “Conversas”, que informa o estado real do armazenamento.
                     </p>
                   </div>
                   <p className="mt-3 text-xs text-[#8a9891]">
-                    Abrir o WhatsApp não confirma o envio. Uma mensagem só será
-                    considerada “enviada” quando houver confirmação real do
-                    provedor.
+                    Abrir o WhatsApp (wa.me) não confirma o envio: apenas a aba
+                    “Conversas” mostra o que a Meta confirmou.
                   </p>
                 </section>
               )}

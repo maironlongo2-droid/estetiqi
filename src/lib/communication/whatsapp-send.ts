@@ -1,8 +1,10 @@
 // Camada de serviço para ENVIO pela WhatsApp Business Cloud API (Meta).
 //
-// MÓDULO EXCLUSIVO DO SERVIDOR. Ele NÃO é acionado pela interface nesta versão:
-// sem credenciais configuradas, o envio pela API oficial permanece desabilitado e
-// a profissional continua revisando e abrindo o WhatsApp (wa.me).
+// MÓDULO EXCLUSIVO DO SERVIDOR. Acionado apenas por POST
+// /api/communication/whatsapp/send, que usa as credenciais da PRÓPRIA organização
+// (lidas e decifradas no servidor). Sem número conectado a rota responde 409 e a
+// interface explica o motivo; o wa.me continua como caminho manual, que nunca é
+// registrado como enviado.
 //
 // A função é defensiva e NUNCA lança: devolve um resultado explícito para que o
 // chamador só afirme sucesso quando houver a confirmação real do provedor (o
@@ -37,16 +39,31 @@ export type WhatsAppTemplateMessage = {
   bodyParameters?: string[];
 };
 
+// Credenciais por organização. Quando informadas (integração conectada), têm
+// prioridade sobre a configuração global por variáveis de ambiente. São sempre
+// passadas já decifradas por quem chama (o armazenamento da integração); este
+// módulo NUNCA lê o banco nem guarda segredos.
+export type WhatsAppSendCredentials = {
+  accessToken: string | null;
+  phoneNumberId: string | null;
+};
+
 export async function sendWhatsAppMessage(
   input: {
     to: string | null | undefined;
     message: WhatsAppTextMessage | WhatsAppTemplateMessage;
+    credentials?: WhatsAppSendCredentials | null;
   },
-  env: NodeJS.ProcessEnv = process.env
+  env: NodeJS.ProcessEnv = process.env,
+  fetchImpl: typeof fetch = fetch
 ): Promise<WhatsAppSendResult> {
   const config = readWhatsAppConfig(env);
+  const accessToken =
+    input.credentials?.accessToken?.trim() || config.accessToken;
+  const phoneNumberId =
+    input.credentials?.phoneNumberId?.trim() || config.phoneNumberId;
 
-  if (!config.accessToken || !config.phoneNumberId) {
+  if (!accessToken || !phoneNumberId) {
     return {
       ok: false,
       code: "NOT_CONFIGURED",
@@ -99,14 +116,14 @@ export async function sendWhatsAppMessage(
   const timeout = setTimeout(() => controller.abort(), SEND_TIMEOUT_MS);
 
   try {
-    const response = await fetch(
+    const response = await fetchImpl(
       `https://graph.facebook.com/${GRAPH_API_VERSION}/${encodeURIComponent(
-        config.phoneNumberId
+        phoneNumberId
       )}/messages`,
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${config.accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),

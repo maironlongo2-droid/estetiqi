@@ -131,6 +131,7 @@ console.log("=================================");
 
 run("TypeScript", "npx tsc --noEmit");
 run("ESLint", "npm run lint");
+run("Testes unitários", "npm run test:unit");
 run("Next Build", "npm run build");
 
 checkApiStructure();

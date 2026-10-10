@@ -1,6 +1,8 @@
 import { requireCurrentUser } from "@/lib/auth/require-current-user";
 import { hasPermission } from "@/lib/auth/authorization";
 import { getWhatsAppIntegrationStatus } from "@/lib/communication/whatsapp-status";
+import { readEmbeddedSignupPublicConfig } from "@/lib/communication/whatsapp-embedded-signup";
+import { getOrganizationIntegration } from "@/lib/communication/whatsapp-integration-store";
 
 // Estado da integração com a WhatsApp Business Cloud API para a organização
 // autenticada. Devolve apenas presença/estado das credenciais — nunca os
@@ -19,7 +21,17 @@ export async function GET() {
     // é acessível porque nada por organização é lido aqui ainda.
     const status = await getWhatsAppIntegrationStatus();
 
-    return Response.json(status);
+    // Estado da conexão DESTA organização (isolamento multitenant). A
+    // organização vem do usuário autenticado — nunca do corpo da requisição.
+    const organization = await getOrganizationIntegration(
+      currentUser.organization.id
+    );
+
+    // Configuração PÚBLICA do Embedded Signup. O App Secret (WHATSAPP_APP_SECRET)
+    // permanece apenas no servidor; aqui saem apenas App ID e config_id.
+    const embeddedSignup = readEmbeddedSignupPublicConfig();
+
+    return Response.json({ ...status, organization, embeddedSignup });
   } catch (error) {
     if (error instanceof Error && error.message === "ORGANIZATION_BLOCKED") {
       return Response.json(

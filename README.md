@@ -31,7 +31,7 @@ Para gerar mensagens com o Gemini, configure `GEMINI_API_KEY` no ambiente do ser
 O endpoint público do webhook fica em `/api/communication/whatsapp/webhook`.
 
 - **`GET` (verificação da Meta):** valida `hub.mode` e `hub.verify_token`; responde com `hub.challenge` como texto puro somente quando o token confere com `WHATSAPP_WEBHOOK_VERIFY_TOKEN`. Caso contrário responde `403`.
-- **`POST` (notificações):** valida a assinatura `X-Hub-Signature-256` (HMAC-SHA256 do **corpo bruto** calculado com `WHATSAPP_APP_SECRET`). Assinatura ausente/invalida responde `401`; corpo nao-JSON responde `400`; sem `WHATSAPP_APP_SECRET` responde `503`. Quando tudo confere, a Meta recebe `200 {"received":true}`. Nesta etapa o endpoint **apenas recebe e valida** — nenhuma resposta automatica e enviada a clientes e nada e gravado no banco.
+- **`POST` (notificacoes):** valida a assinatura `X-Hub-Signature-256` (HMAC-SHA256 do **corpo bruto** calculado com `WHATSAPP_APP_SECRET`). Assinatura ausente/invalida responde `401`; corpo nao-JSON responde `400`; sem `WHATSAPP_APP_SECRET` responde `503`; corpo acima de 1 MB responde `413`. Quando tudo confere, o endpoint **processa e grava as mensagens recebidas** de clientes na organizacao dona do numero que as recebeu e a Meta recebe `200 {"received":true}`. Falha real de banco responde `500` (nao confirmamos sucesso sem ter armazenado de fato). Respostas automaticas, chatbot e agendamento por conversa continuam fora do escopo.
 
 Variaveis de ambiente (somente no servidor; nunca use o prefixo `NEXT_PUBLIC_`):
 
@@ -44,6 +44,24 @@ Passos que ainda dependem da configuracao no painel da Meta (fora do codigo):
 1. Criar/escolher o App da Meta e o numero (de teste ou de producao).
 2. Definir a Callback URL como `https://estetiqi.com.br/api/communication/whatsapp/webhook` e o Verify Token igual a `WHATSAPP_WEBHOOK_VERIFY_TOKEN`.
 3. Assinar os campos desejados (ex.: `messages`) e concluir a verificacao do webhook.
+
+### Mensagens recebidas (inbound)
+
+- **Como a empresa e identificada:** pelo `metadata.phone_number_id` do evento, cruzado com a tabela `whatsapp_integrations` (coluna `phone_number_id`). O `organization_id` nunca vem do corpo da requisicao; sem um numero associado a exatamente uma integracao, o evento nao e ligado a empresa nenhuma.
+- **Idempotencia:** o `id` da mensagem (`provider_message_id`) e unico por organizacao (indice `uq_communication_messages_provider_id`, migration 033). Reentregas da Meta nao criam duplicata (`INSERT ... ON CONFLICT DO NOTHING`).
+- **O que e gravado** em `communication_messages`: organizacao, cliente (somente quando o telefone confere com um unico cliente da mesma empresa), `channel = 'whatsapp'`, `direction = 'inbound'`, `category = 'atendimento'`, `status = 'received'`, `provider_message_id`, `message_type`, `body` (texto ou legenda de midia; `null` para tipos sem texto), `event_at` (data/hora do evento), `whatsapp_phone_number_id`, `sender_phone` e `metadata` (JSON, ex.: id da mensagem citada). Atualizacoes de **status** de mensagens enviadas (`statuses`) sao ignoradas nesta etapa.
+- **Migrations exigidas:** `033_communication_messages.sql`, `035_whatsapp_integrations.sql` e `036_inbound_whatsapp_messages.sql` precisam estar aplicadas, e o numero deve estar cadastrado em `whatsapp_integrations`. Enquanto isso nao ocorrer, todo evento valido responde `500` (comportamento esperado: a Meta reentrega).
+
+### Conexao oficial, credenciais e envio (Embedded Signup)
+
+- **Como a empresa e identificada no envio:** as credenciais sao lidas a partir da organizacao do USUARIO AUTENTICADO (nunca de um `organization_id` enviado pelo cliente) e decifradas apenas no servidor.
+- **Conectar o numero (por organizacao):** a aba `Conversas` > `WhatsApp e configuracoes` abre o Embedded Signup oficial da Meta (Facebook Login for Business com `config_id`). O navegador devolve o `code` e envia `POST /api/communication/whatsapp/connect`. O servidor: (1) troca o `code` por token; (2) estende para longa duracao; (3) confirma que o token realmente LE o `phone_number_id` informado; (4) grava a integracao da organizacao. Exige permissao de dono (`organization:update`) e limite de 10 tentativas por minuto.
+- **Credenciais protegidas:** o token e gravado CIFRADO (AES-256-GCM) em `whatsapp_integrations.access_token_encrypted` (migration 037) e nunca e devolvido por nenhuma resposta. A chave vem de `WHATSAPP_CREDENTIALS_KEY`; sem ela a conexao responde `KEY_MISSING` e nada e gravado em texto puro.
+- **Envio de texto:** `POST /api/communication/whatsapp/send` (`to`, `body`, `clientId` opcional). Exige permissao de edicao de clientes, limite de 60 envios por minuto por organizacao/IP. O sistema so afirma envio quando a Meta aceita (`providerMessageId`); o registro no historico e informado separadamente em `recorded`.
+- **Regras da Meta:** somente a API oficial (nada de automacao por WhatsApp Web). Texto livre e aceito apenas dentro da janela de 24h da ultima mensagem da cliente; fora dela e necessario um MODELO aprovado. Nao enviamos promocao sem consentimento.
+- **Caixa de entrada:** `GET /api/communication/whatsapp/conversations` lista as conversas recebidas; `GET /api/communication/whatsapp/conversations/messages?phone=...` reune recebidas e enviadas (as enviadas sao casadas pelo cliente vinculado ou pelo destino gravado em `metadata.to`). A resposta da conversa e o envio de texto livre ficam na propria aba `Conversas`.
+- **Migrations exigidas para conectar/enviar:** `033`, `035`, `036` e `037`. Sem elas, conectar responde `SCHEMA_PENDING` (503) e a interface explica exatamente o que falta, em vez de mostrar sucesso falso.
+- **Variaveis de ambiente do fluxo oficial:** `WHATSAPP_APP_ID`, `WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID` e `WHATSAPP_CREDENTIALS_KEY` (alem de `WHATSAPP_APP_SECRET`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`, `WHATSAPP_CLOUD_API_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` e `WHATSAPP_BUSINESS_ACCOUNT_ID`).
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

@@ -26,6 +26,25 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 Para gerar mensagens com o Gemini, configure `GEMINI_API_KEY` no ambiente do servidor (em `.env.local` no desenvolvimento ou nas variaveis de ambiente do deploy). A chave deve permanecer somente no servidor e nao deve usar o prefixo `NEXT_PUBLIC_`. `GEMINI_MODEL` e opcional; se definido, use um identificador de modelo habilitado para essa chave na API Gemini. Sem `GEMINI_API_KEY`, a API devolve uma mensagem-padrao montada com os dados reais da cliente (nome e ultimo procedimento), a tela sinaliza que a IA esta indisponivel e o fluxo de revisao e abertura do `wa.me` continua funcionando.
 
+## Integração com a WhatsApp Business Cloud API (Meta)
+
+O endpoint público do webhook fica em `/api/communication/whatsapp/webhook`.
+
+- **`GET` (verificação da Meta):** valida `hub.mode` e `hub.verify_token`; responde com `hub.challenge` como texto puro somente quando o token confere com `WHATSAPP_WEBHOOK_VERIFY_TOKEN`. Caso contrário responde `403`.
+- **`POST` (notificações):** valida a assinatura `X-Hub-Signature-256` (HMAC-SHA256 do **corpo bruto** calculado com `WHATSAPP_APP_SECRET`). Assinatura ausente/invalida responde `401`; corpo nao-JSON responde `400`; sem `WHATSAPP_APP_SECRET` responde `503`. Quando tudo confere, a Meta recebe `200 {"received":true}`. Nesta etapa o endpoint **apenas recebe e valida** — nenhuma resposta automatica e enviada a clientes e nada e gravado no banco.
+
+Variaveis de ambiente (somente no servidor; nunca use o prefixo `NEXT_PUBLIC_`):
+
+- `WHATSAPP_WEBHOOK_VERIFY_TOKEN` — token de verificacao que voce define e informa no painel da Meta.
+- `WHATSAPP_APP_SECRET` — App Secret do aplicativo Meta, usado para validar a assinatura. Nunca e exposto ao cliente nem registrado em log.
+- Credenciais do canal (lidas pelo mesmo modulo e usadas na tela `/app/comunicacao`): `WHATSAPP_CLOUD_API_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_BUSINESS_ACCOUNT_ID`.
+
+Passos que ainda dependem da configuracao no painel da Meta (fora do codigo):
+
+1. Criar/escolher o App da Meta e o numero (de teste ou de producao).
+2. Definir a Callback URL como `https://estetiqi.com.br/api/communication/whatsapp/webhook` e o Verify Token igual a `WHATSAPP_WEBHOOK_VERIFY_TOKEN`.
+3. Assinar os campos desejados (ex.: `messages`) e concluir a verificacao do webhook.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

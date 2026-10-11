@@ -18,6 +18,11 @@
 // Por isso a extensão é um passo SEPARADO e tratado como tal. Nenhuma função
 // aqui registra o token ou o App Secret (não há `console`), e o resultado
 // devolvido nunca inclui segredos em mensagens de erro.
+//
+// DIAGNÓSTICO: quando a Meta recusa, a falha carrega APENAS metadados técnicos
+// (status HTTP, error.code, error.error_subcode, error.type, fbtrace_id). Quem
+// transforma isso em log é o chamador — a URL da troca carrega `code` e
+// `client_secret` na query string e NUNCA é registrada.
 
 export const GRAPH_API_BASE = "https://graph.facebook.com";
 export const DEFAULT_GRAPH_API_VERSION = "v21.0";
@@ -27,18 +32,35 @@ const REQUEST_TIMEOUT_MS = 10000;
 // `fetch` compatível com a implementação global (injetável nos testes).
 export type GraphFetch = typeof fetch;
 
-type MetaErrorBody = { error?: { message?: string; type?: string; code?: number } };
+// Corpo de erro da Graph API. `fbtrace_id` aparece dentro de `error` em parte
+// das respostas e no nível raiz em outras — por isso os dois são lidos.
+type MetaErrorBody = {
+  error?: {
+    message?: string;
+    type?: string;
+    code?: number;
+    error_subcode?: number;
+    fbtrace_id?: string;
+  };
+  fbtrace_id?: string;
+};
+
+// Metadados de DIAGNÓSTICO da recusa da Meta. São apenas identificadores
+// técnicos (números e ids opacos): nunca carregam o `code` de autorização, o
+// token, o App Secret nem dados pessoais. Servem para CLASSIFICAR a falha no
+// servidor (ex.: 190 = token inválido) e para o suporte da Meta rastrear o
+// evento pelo `fbtrace_id`.
+export type MetaErrorDiagnostics = {
+  status: number | null;
+  metaCode: number | null;
+  metaSubcode: number | null;
+  metaType: string | null;
+  metaTraceId: string | null;
+};
 
 type JsonResult =
   | { ok: true; status: number; data: Record<string, unknown> }
-  | {
-      ok: false;
-      status: number | null;
-      // Código de erro da Meta (ex.: 190 = token inválido), quando informado.
-      // Serve apenas para CLASSIFICAR a falha (nunca é exibido ao cliente).
-      metaCode: number | null;
-      message: string;
-    };
+  | ({ ok: false; message: string } & MetaErrorDiagnostics);
 
 async function requestJson(
   url: string,
@@ -61,13 +83,24 @@ async function requestJson(
 
     if (!response.ok) {
       const body = data as MetaErrorBody | null;
+      const errorBody = body?.error;
       return {
         ok: false,
         status: response.status,
-        metaCode:
-          typeof body?.error?.code === "number" ? body.error.code : null,
+        metaCode: typeof errorBody?.code === "number" ? errorBody.code : null,
+        metaSubcode:
+          typeof errorBody?.error_subcode === "number"
+            ? errorBody.error_subcode
+            : null,
+        metaType: typeof errorBody?.type === "string" ? errorBody.type : null,
+        metaTraceId:
+          typeof errorBody?.fbtrace_id === "string"
+            ? errorBody.fbtrace_id
+            : typeof body?.fbtrace_id === "string"
+              ? body.fbtrace_id
+              : null,
         message:
-          body?.error?.message ??
+          errorBody?.message ??
           `A Meta recusou a requisição (HTTP ${response.status}).`,
       };
     }
@@ -78,10 +111,41 @@ async function requestJson(
       error instanceof Error && error.name === "AbortError"
         ? "A requisição à Meta demorou demais e foi cancelada."
         : "Não foi possível contatar a API da Meta agora.";
-    return { ok: false, status: null, metaCode: null, message };
+    return {
+      ok: false,
+      status: null,
+      metaCode: null,
+      metaSubcode: null,
+      metaType: null,
+      metaTraceId: null,
+      message,
+    };
   } finally {
     clearTimeout(timeout);
   }
+}
+
+// Projeta SOMENTE os metadados de diagnóstico, sem tocar em token ou segredo.
+// Quando a resposta não trouxe erro (ex.: 200 sem `access_token`), os campos da
+// Meta ficam nulos e o status HTTP real é preservado.
+function diagnosticsOf(result: JsonResult): MetaErrorDiagnostics {
+  if (result.ok) {
+    return {
+      status: result.status,
+      metaCode: null,
+      metaSubcode: null,
+      metaType: null,
+      metaTraceId: null,
+    };
+  }
+
+  return {
+    status: result.status,
+    metaCode: result.metaCode,
+    metaSubcode: result.metaSubcode,
+    metaType: result.metaType,
+    metaTraceId: result.metaTraceId,
+  };
 }
 
 function buildGraphUrl(
@@ -103,11 +167,14 @@ export type TokenExchangeSuccess = {
   expiresInSeconds: number | null;
 };
 
+// A falha carrega os metadados de DIAGNÓSTICO da Meta (status HTTP, error.code,
+// error_subcode, error.type, fbtrace_id) para que o chamador possa registrá-los
+// sem nunca lidar com o `code`, com o token ou com o App Secret.
 export type TokenExchangeFailure = {
   ok: false;
   code: "REQUEST_FAILED" | "META_REJECTED" | "NO_TOKEN";
   message: string;
-};
+} & MetaErrorDiagnostics;
 
 // Troca o `code` do Embedded Signup por um token de acesso. Segue estritamente
 // o endpoint oficial de OAuth e valida a resposta antes de devolver o token.
@@ -129,7 +196,12 @@ export async function exchangeAuthorizationCode(
 
   const result = await requestJson(url, fetchImpl);
   if (!result.ok) {
-    return { ok: false, code: "REQUEST_FAILED", message: result.message };
+    return {
+      ok: false,
+      code: "REQUEST_FAILED",
+      message: result.message,
+      ...diagnosticsOf(result),
+    };
   }
 
   const accessToken = result.data.access_token;
@@ -138,6 +210,7 @@ export async function exchangeAuthorizationCode(
       ok: false,
       code: "NO_TOKEN",
       message: "A Meta não retornou um token de acesso válido.",
+      ...diagnosticsOf(result),
     };
   }
 
@@ -174,7 +247,12 @@ export async function extendToLongLivedToken(
 
   const result = await requestJson(url, fetchImpl);
   if (!result.ok) {
-    return { ok: false, code: "REQUEST_FAILED", message: result.message };
+    return {
+      ok: false,
+      code: "REQUEST_FAILED",
+      message: result.message,
+      ...diagnosticsOf(result),
+    };
   }
 
   const accessToken = result.data.access_token;
@@ -183,6 +261,7 @@ export async function extendToLongLivedToken(
       ok: false,
       code: "NO_TOKEN",
       message: "A Meta não retornou um token de longa duração.",
+      ...diagnosticsOf(result),
     };
   }
 

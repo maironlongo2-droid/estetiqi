@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { requireCurrentUser } from "@/lib/auth/require-current-user";
 import { hasPermission } from "@/lib/auth/authorization";
@@ -49,6 +50,38 @@ const CONNECTION_FAILURE_STATUS: Record<ConnectionTargetFailureCode, number> = {
   WABA_LOOKUP_FAILED: 502,
   PLATFORM_NOT_CONFIGURED: 503,
 };
+
+// Diagnóstico da conexão: registramos SOMENTE os metadados técnicos devolvidos
+// pela Meta. A lista de campos é explícita e é a única coisa que vai para o log.
+//
+// NUNCA entram no log: `code` de autorização, App Secret, tokens, cookies,
+// cabeçalhos de autenticação, dados pessoais e a URL completa — a URL da troca
+// carrega `code` e `client_secret` na query string.
+//
+// Para correlacionar tentativas usamos um identificador derivado do `code` por
+// SHA-256 truncado: permite perceber que o MESMO código foi trocado duas vezes
+// (a Meta invalida o código no primeiro uso) sem guardar nem registrar o código.
+const CODE_REF_TTL_MS = 60_000;
+const CODE_REF_MAX_ENTRIES = 500;
+const recentCodeRefs = new Map<string, number>();
+
+function codeRefOf(code: string) {
+  return createHash("sha256").update(code).digest("hex").slice(0, 12);
+}
+
+// BEST-EFFORT: a memória é por instância do servidor (serverless). Serve como
+// sinal adicional; a confirmação vem de correlacionar as linhas pelo `codeRef`.
+function registerCodeAttempt(codeRef: string) {
+  const now = Date.now();
+  for (const [key, seenAt] of recentCodeRefs) {
+    if (now - seenAt > CODE_REF_TTL_MS) recentCodeRefs.delete(key);
+  }
+  if (recentCodeRefs.size > CODE_REF_MAX_ENTRIES) recentCodeRefs.clear();
+
+  const duplicate = recentCodeRefs.has(codeRef);
+  recentCodeRefs.set(codeRef, now);
+  return duplicate;
+}
 
 export async function POST(request: Request) {
   try {
@@ -128,6 +161,24 @@ export async function POST(request: Request) {
       graphVersion,
     });
     if (!exchange.ok) {
+      // Log mínimo e sem segredos: só o necessário para identificar a causa real
+      // da recusa da Meta (nada de `code`, token, segredo, cookies ou URL).
+      const codeRef = codeRefOf(parsed.data.code);
+      console.warn("[whatsapp-connect] troca do código de autorização recusada", {
+        stage: "authorization_code_exchange",
+        failureCode: exchange.code,
+        graphVersion,
+        httpStatus: exchange.status,
+        metaCode: exchange.metaCode,
+        metaSubcode: exchange.metaSubcode,
+        metaType: exchange.metaType,
+        fbtraceId: exchange.metaTraceId,
+        codeRef,
+        duplicateCodeRef: registerCodeAttempt(codeRef),
+        host: request.headers.get("host"),
+        origin: request.headers.get("origin"),
+      });
+
       return Response.json(
         { error: exchange.message, code: exchange.code },
         { status: 502 }
@@ -147,6 +198,19 @@ export async function POST(request: Request) {
     if (extended.ok) {
       accessToken = extended.accessToken;
       expiresInSeconds = extended.expiresInSeconds;
+    } else {
+      // Mesma lista explícita de campos permitidos: só metadados da Meta.
+      // Sem isso, uma recusa da extensão ficaria invisível para o diagnóstico.
+      console.warn("[whatsapp-connect] token de longa duração recusado", {
+        stage: "long_lived_token_exchange",
+        failureCode: extended.code,
+        graphVersion,
+        httpStatus: extended.status,
+        metaCode: extended.metaCode,
+        metaSubcode: extended.metaSubcode,
+        metaType: extended.metaType,
+        fbtraceId: extended.metaTraceId,
+      });
     }
 
     // 3) Identifica a CONTA comercial (WABA) e o NÚMERO que serão gravados.

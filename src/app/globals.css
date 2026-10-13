@@ -100,20 +100,20 @@ body {
 /* ---------------------------------------------------------------------------
    Cartão digital público — modelo único do EstetiQI.
    ---------------------------------------------------------------------------
-   A clínica personaliza dados e UMA cor de destaque (conjunto fechado de seis
-   chaves, definido em src/lib/public/accent.ts). Todo o restante — tipografia,
-   hierarquia, espaçamentos, raios, sombras, estrutura — é fixo.
+   O cartão NÃO é personalizável: tipografia, cores, espaçamentos, raios,
+   sombras e estrutura são fixos aqui. A clínica personaliza apenas os DADOS do
+   cartão (nome, chamada, bio, contatos, logo e foto de capa) — nunca a cor.
 
-   A cor chega ao documento apenas como `data-accent` (chave validada no
-   servidor); nenhum valor de CSS vindo do banco é aplicado. Os tokens abaixo
-   derivam as variantes de interação, os fundos suaves e a cor de texto de apoio
-   sobre os fundos claros, sempre com contraste medido (ver módulo TS).
+   A identidade usada nas interações (contorno da ação principal, dia
+   selecionado, anel de foco e avatar) vem dos tokens `--eq-accent*` abaixo,
+   FIXOS no aplicativo. Nenhuma cor vem do banco nem do navegador, portanto
+   nenhuma configuração antiga de cor consegue tingir a página pública.
 
    TEMA: o cartão público é sempre claro e não possui bloco de modo escuro
    (ver o comentário abaixo, depois do bloco de tokens do avatar/foco). O
    visitante abre o cartão pelo celular, geralmente com o sistema em modo
-   escuro, e o requisito do produto é o fundo rosa quase branco em qualquer
-   aparelho. O contraste de cada texto segue medido em
+   escuro, e o requisito do produto é o fundo gelo em qualquer aparelho. O
+   contraste de cada texto segue medido em
    tests/unit/public-card-style.test.ts. */
 .eq-public {
   --eq-accent: #2f6f68;
@@ -122,20 +122,20 @@ body {
   --eq-accent-soft: #e8f1f0;
   --eq-accent-text: #2f6f68;
   /* PALETA DO CARTÃO: gelo no fundo do documento e na superfície dos botões;
-     salmão claro em TODAS as caixas de conteúdo (perfil, serviços, equipe,
+     VERDE CLARO suave em TODAS as caixas de conteúdo (perfil, serviços, equipe,
      agendamento, calendário e confirmação) e na capa sem foto. O contraste de
      cada texto é medido no teste tests/unit/public-card-style.test.ts (todos
-     ≥ 4,5:1) — inclusive contra o salmão, que por isso é bem claro: a cor de
-     destaque mais clara (rosé) continua sendo usada como texto sobre ele. */
+     ≥ 4,5:1) — inclusive sobre o verde, que por isso é bem claro: o verde dá o
+     relevo das caixas sem escurecer a página nem competir com o texto. */
   --eq-page: #e9f0f3;
-  --eq-card: #fff6f1;
-  --eq-card-border: #f7d7c9;
-  --eq-border: #f7d7c9;
+  --eq-card: #e6f1e2;
+  --eq-card-border: #cfe3c9;
+  --eq-border: #cfe3c9;
   /* Borda de CAMPO de formulário: precisa de 3:1 contra a caixa (WCAG 1.4.11),
      por isso é mais escura que as bordas decorativas acima. */
-  /* Cinza quente um degrau mais escuro: 3,52:1 contra a caixa de salmão e 3,26:1
-     contra o gelo do fundo. Também é o contorno dos botões, para a página manter
-     uma única linguagem de controle. */
+  /* Cinza quente um degrau mais escuro: 3,22:1 contra a caixa de verde claro e
+     3,26:1 contra o gelo do fundo. Também é o contorno dos botões, para a página
+     manter uma única linguagem de controle. */
   --eq-field-border: #8f8085;
   --eq-ink: #3f3439;
   --eq-muted: #77676e;
@@ -143,14 +143,13 @@ body {
   /* Degrau mais forte do gelo: retorno de interação (hover) dos botões, enquanto
      `--eq-soft` é a tinta de repouso dos controles desativados. */
   --eq-action-hover: #d9e6ea;
-  /* Capa sem imagem: salmão claro, um degrau acima da caixa, para a faixa da
-     capa continuar presente mesmo sem foto cadastrada. */
-  --eq-cover: #fbded1;
+  /* Capa sem imagem: verde claro um degrau mais forte que a caixa, para a faixa
+     da capa continuar presente mesmo sem foto cadastrada. */
+  --eq-cover: #d9ead3;
   --eq-danger-bg: #f7e8ec;
   --eq-danger-text: #8a4356;
   /* Elevação NEUTRA, derivada da tinta do cartão. A única sombra colorida do
-     cartão vivia nos botões (um verde fixo) e ficava esverdeada quando a clínica
-     escolhia rosé, ameixa, azul ou bronze. */
+     cartão vivia nos botões (um verde fixo) e destoava da paleta gelo/verde. */
   --eq-shadow: rgba(63, 52, 57, 0.06);
   --eq-shadow-strong: rgba(63, 52, 57, 0.2);
   color-scheme: light;
@@ -158,7 +157,7 @@ body {
 
 /* Fundo EXTERNO do cartão público: o gelo plano de `--eq-page` (#e9f0f3), sem
    véu branco no topo — o fundo nunca pode tender ao branco puro nem introduzir
-   uma segunda cor. Todo o relevo fica por conta das caixas de salmão claro e dos
+   uma segunda cor. Todo o relevo fica por conta das caixas de verde claro e dos
    botões de gelo, que é o que organiza a leitura da página.
 
    Por que também <html>/<body>: o gelo não aparecia antes porque o canvas do
@@ -175,50 +174,10 @@ body:has(main.eq-public) {
   background: #e9f0f3;
 }
 
-/* Paleta fechada de seis cores (as mesmas chaves de src/lib/public/accent.ts).
-   `--eq-accent-soft` é a tinta de fundo do avatar/tag; é mais clara que a cor
-   base para manter o cartão leve. */
-.eq-public[data-accent="petroleo"] {
-  --eq-accent: #2f6f68;
-  --eq-accent-strong: #275c56;
-  --eq-accent-soft: #e8f1f0;
-  --eq-accent-text: #2f6f68;
-}
-
-.eq-public[data-accent="salvia"] {
-  --eq-accent: #4f7a5c;
-  --eq-accent-strong: #41674c;
-  --eq-accent-soft: #eaf2eb;
-  --eq-accent-text: #4f7a5c;
-}
-
-.eq-public[data-accent="rose"] {
-  --eq-accent: #af5570;
-  --eq-accent-strong: #93485e;
-  --eq-accent-soft: #fbebf0;
-  --eq-accent-text: #af5570;
-}
-
-.eq-public[data-accent="ameixa"] {
-  --eq-accent: #7c5a8e;
-  --eq-accent-strong: #684b78;
-  --eq-accent-soft: #f2ebf5;
-  --eq-accent-text: #7c5a8e;
-}
-
-.eq-public[data-accent="azul"] {
-  --eq-accent: #3f6a8c;
-  --eq-accent-strong: #355a76;
-  --eq-accent-soft: #eaf0f6;
-  --eq-accent-text: #3f6a8c;
-}
-
-.eq-public[data-accent="bronze"] {
-  --eq-accent: #876738;
-  --eq-accent-strong: #71562f;
-  --eq-accent-soft: #f7efe2;
-  --eq-accent-text: #876738;
-}
+/* Sem blocos de cor personalizável: o cartão tem UMA identidade fixa (os tokens
+   `--eq-accent*` do bloco `.eq-public` acima). Não reintroduza aqui seletores
+   como `.eq-public[data-accent="..."]` — a escolha de cor foi removida do
+   produto e a página pública não recebe mais o atributo `data-accent`. */
 
 /* TEMA DO CARTÃO: o cartão público é SEMPRE claro. Não existe media query de
    modo escuro para ele, de propósito: é a página que a cliente final abre no
@@ -228,8 +187,8 @@ body:has(main.eq-public) {
    com o sistema escuro. */
 
 /* Foco de teclado dentro do cartão: o anel global do app é verde-escuro; aqui ele
-   passa a usar a cor de destaque escolhida (contraste ≥ 4,8:1 sobre o fundo
-   claro), mantendo o indicador visível sobre cartões e sobre a tinta suave. */
+   usa a identidade fixa do cartão (contraste ≥ 4,8:1 sobre o fundo claro),
+   mantendo o indicador visível sobre as caixas e sobre a tinta suave. */
 .eq-public :where(a, button, input, select, textarea):focus-visible {
   outline-color: var(--eq-accent);
 }
@@ -293,13 +252,13 @@ body:has(main.eq-public) {
 }
 
 /* Foto da profissional no agendamento público. A área da foto tem superfície
-   PRÓPRIA e sólida — o salmão claro da caixa em que ela vive: nenhuma outra cor
+   PRÓPRIA e sólida — o verde claro da caixa em que ela vive: nenhuma outra cor
    aparece através do círculo, nem enquanto a foto carrega, nem atrás de um
    recorte com transparência. Sem foto, a inicial do fallback aparece sobre essa
-   mesma superfície sólida, em vez de um disco tingido pela cor de destaque. A
-   logo do negócio continua com a tinta suave da paleta. */
+   mesma superfície sólida, em vez de um disco tingido pela identidade do cartão.
+   A logo do negócio continua com a tinta suave da paleta. */
 .eq-avatar--photo {
-  background: var(--eq-card, #fff6f1);
+  background: var(--eq-card, #e6f1e2);
 }
 
 /* Logo/identidade do cartão: um degrau acima das fotos de profissional, para dar
@@ -335,13 +294,13 @@ body:has(main.eq-public) {
 }
 
 .eq-avatar--ring {
-  box-shadow: 0 0 0 4px var(--eq-card, #fff6f1);
+  box-shadow: 0 0 0 4px var(--eq-card, #e6f1e2);
 }
 
 /* Botão de contato do cartão (WhatsApp, Instagram, telefone, e-mail e demais
-   ações): superfície de GELO, nunca o salmão das caixas de conteúdo. O contorno
+   ações): superfície de GELO, nunca o verde das caixas de conteúdo. O contorno
    é o mesmo de campo (o 3:1 dos formulários), para o botão continuar visível
-   sobre o salmão, e o hover desce um degrau no gelo. */
+   sobre o verde, e o hover desce um degrau no gelo. */
 .eq-contact-link {
   display: inline-flex;
   align-items: center;
@@ -363,7 +322,7 @@ body:has(main.eq-public) {
 
 /* Elevação discreta dos cartões (cabeçalho, serviços, equipe) e o degrau maior
    do botão principal. A sombra vem de `--eq-shadow` (tinta neutra), então se
-   mantém elegante nas seis cores de destaque. */
+   mantém elegante sobre o gelo e sobre o verde das caixas. */
 .eq-elevation {
   box-shadow: 0 1px 2px var(--eq-shadow, rgba(63, 52, 57, 0.06));
 }

@@ -31,8 +31,8 @@ function whatsappDigits(phone: string | null): string | null {
 
 // Ícones oficiais dos contatos (SVG inline, sem dependência externa). São
 // decorativos; o rótulo acessível fica no <a> que os envolve. A cor vem do
-// próprio link (`currentColor`), então o mesmo ícone continua legível nas seis
-// cores de destaque — nenhum verde/rosa/vermelho fixo disputando com a paleta.
+// próprio link (`currentColor`), então o mesmo ícone acompanha a tinta de texto
+// do botão — nenhum verde/rosa/vermelho fixo disputando com a paleta.
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -168,11 +168,10 @@ export default async function PublicBookingPage({
   return (
     <main
       className="eq-public min-h-screen bg-[var(--eq-page)] px-4 pb-12 pt-6 text-[var(--eq-ink)] sm:px-6 sm:pb-12 sm:pt-10"
-      data-accent={organization.accent}
     >
       <div className="mx-auto flex w-full max-w-[480px] flex-col">
         <header className="overflow-hidden rounded-[1.75rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] eq-elevation">
-          {/* Capa: opcional. Sem capa cadastrada, a faixa usa o salmão claro da
+          {/* Capa: opcional. Sem capa cadastrada, a faixa usa o verde claro da
               capa (`--eq-cover`) — nunca uma imagem quebrada nem uma cor que
               fuja da paleta do cartão. */}
           {organization.hasCover ? (
@@ -236,8 +235,8 @@ export default async function PublicBookingPage({
               ação; os demais são links diretos, sem telas intermediárias.
               Só aparece um botão quando existe um destino real cadastrado.
               Todos os botões têm superfície de GELO: a ação principal se
-              distingue pelo contorno e pelo texto na cor de destaque, sem
-              pintar o botão de salmão (o salmão é das caixas de conteúdo). */}
+              distingue pelo contorno e pelo texto na identidade do cartão, sem
+              pintar o botão de verde (o verde é das caixas de conteúdo). */}
           <div className="mt-6 flex flex-col gap-3">
             {procedures.length > 0 ? (
               <a

@@ -4,10 +4,6 @@ import { isUniqueViolation } from "@/lib/db/pg-errors";
 import { requireCurrentUser } from "@/lib/auth/require-current-user";
 import { hasPermission } from "@/lib/auth/authorization";
 import { isValidPublicSlug, normalizeSlug } from "@/lib/public/slug";
-import {
-  PUBLIC_ACCENT_KEYS,
-  resolvePublicAccent,
-} from "@/lib/public/accent";
 import { readPublicCardSupport } from "@/lib/public/profile";
 import {
   googleMapsUrl,
@@ -31,9 +27,6 @@ const updateSchema = z.object({
   instagram: z.string().trim().max(120).optional().or(z.literal("")),
   whatsapp: z.string().trim().max(30).optional().or(z.literal("")),
   mapsUrl: z.string().trim().max(500).optional().or(z.literal("")),
-  // Cor de destaque: SOMENTE as chaves da paleta fechada. Qualquer outro valor é
-  // rejeitado (nunca vira CSS aplicado na página pública).
-  accent: z.enum(PUBLIC_ACCENT_KEYS).optional(),
 });
 
 type PublicCardRow = {
@@ -45,7 +38,6 @@ type PublicCardRow = {
   public_instagram: string | null;
   public_whatsapp: string | null;
   public_maps_url: string | null;
-  public_accent: string | null;
   has_logo: boolean;
   logo_updated_at: string | null;
   has_cover?: boolean;
@@ -64,8 +56,6 @@ function toConfig(row: PublicCardRow) {
     instagram: row.public_instagram,
     whatsapp: row.public_whatsapp,
     mapsUrl: row.public_maps_url,
-    // Chave validada: valor ausente/inválido cai no padrão do aplicativo.
-    accent: resolvePublicAccent(row.public_accent),
     hasLogo: Boolean(row.has_logo),
     logoVersion: row.logo_updated_at
       ? new Date(row.logo_updated_at).getTime()
@@ -84,9 +74,9 @@ export async function GET() {
       return Response.json({ error: "Sem permissão." }, { status: 403 });
     }
 
-    // A cor de destaque e a capa dependem da migration 038. Sem ela, o cartão
-    // segue funcionando com os valores padrão e a tela administrativa informa o
-    // que falta aplicar.
+    // A capa depende da migration 038. Sem ela, o cartão segue publicando
+    // normalmente, apenas sem capa, e a tela administrativa informa o que falta
+    // aplicar.
     const support = await readPublicCardSupport();
     const organizationId = currentUser.organization.id;
 
@@ -102,7 +92,6 @@ export async function GET() {
         public_maps_url,
         (logo_image IS NOT NULL) AS has_logo,
         logo_updated_at
-        ${support.accent ? sql`, public_accent` : sql`, NULL::varchar(20) AS public_accent`}
         ${support.cover ? sql`, (public_cover_image IS NOT NULL) AS has_cover, public_cover_updated_at` : sql`, FALSE AS has_cover, NULL::timestamptz AS public_cover_updated_at`}
       FROM organizations
       WHERE id = ${organizationId}
@@ -115,7 +104,6 @@ export async function GET() {
 
     return Response.json({
       ...toConfig(rows[0] as PublicCardRow),
-      accentSupported: support.accent,
       coverSupported: support.cover,
     });
   } catch (error) {
@@ -147,11 +135,10 @@ export async function PUT(request: Request) {
     }
 
     const { published } = parsed.data;
-    const nextAccent = parsed.data.accent ?? null;
     const slug = normalizeSlug(parsed.data.slug || "");
     const organizationId = currentUser.organization.id;
-    // Estrutura da migration 038 (cor de destaque/capa). Quando ela não está
-    // aplicada, o campo é simplesmente ignorado e a resposta avisa a interface.
+    // Estrutura de capa da migration 038. Quando ela não está aplicada, a capa é
+    // simplesmente ignorada e a resposta avisa a interface.
     const support = await readPublicCardSupport();
 
     // Para publicar é obrigatório um endereço válido e único.
@@ -232,7 +219,6 @@ export async function PUT(request: Request) {
           public_instagram = ${published ? nextInstagram : null},
           public_whatsapp = ${published ? nextWhatsapp : null},
           public_maps_url = ${published ? nextMapsUrl : null},
-          ${support.accent ? sql`public_accent = COALESCE(${nextAccent}, public_accent),` : sql``}
           updated_at = NOW()
         WHERE id = ${organizationId}
         RETURNING
@@ -246,7 +232,6 @@ export async function PUT(request: Request) {
           public_maps_url,
           (logo_image IS NOT NULL) AS has_logo,
           logo_updated_at
-          ${support.accent ? sql`, public_accent` : sql`, NULL::varchar(20) AS public_accent`}
           ${support.cover ? sql`, (public_cover_image IS NOT NULL) AS has_cover, public_cover_updated_at` : sql`, FALSE AS has_cover, NULL::timestamptz AS public_cover_updated_at`}
       `;
     }
@@ -270,7 +255,6 @@ export async function PUT(request: Request) {
 
     return Response.json({
       ...toConfig(result[0] as PublicCardRow),
-      accentSupported: support.accent,
       coverSupported: support.cover,
     });
   } catch (error) {

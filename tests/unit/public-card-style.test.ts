@@ -1,13 +1,12 @@
 // Testes unitários RÁPIDOS da IDENTIDADE VISUAL do cartão digital público.
 //
-// Por que um teste de CSS: a cor que a profissional escolhe viaja pelo banco
-// apenas como uma CHAVE (`data-accent`), mas as cores que o visitante realmente
-// vê vivem em src/app/globals.css. Se alguém ajustar a paleta em
-// src/lib/public/accent.ts e esquecer o CSS (ou o contrário), o cartão passa a
-// divergir do que a interface administrativa mostra. Este arquivo lê o CSS de
-// verdade e verifica três coisas que sustentam o produto:
+// Por que um teste de CSS: as cores que o visitante realmente vê vivem em
+// src/app/globals.css — o cartão não recebe cor do banco nem do navegador. Este
+// arquivo lê o CSS de verdade e verifica três coisas que sustentam o produto:
 //
-// 1. as seis cores do CSS são exatamente as seis do TypeScript;
+// 1. a paleta é FIXA (gelo no fundo e nos botões, verde claro nas caixas de
+//    conteúdo) e não existe nenhum seletor de cor personalizável: a escolha de
+//    cor foi removida do produto e não pode voltar por engano;
 // 2. o contraste de cada texto do cartão é MEDIDO com a fórmula da WCAG 2.1
 //    (>= 4,5:1 para texto e >= 3:1 para borda de campo / indicador de foco);
 // 3. o avatar é um círculo por construção (aspect-ratio + overflow + raio), com a
@@ -20,11 +19,6 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
-import {
-  DEFAULT_PUBLIC_ACCENT,
-  PUBLIC_ACCENT_KEYS,
-  PUBLIC_ACCENT_SWATCHES,
-} from "../../src/lib/public/accent.ts";
 import { contrast, ratioLabel } from "./helpers/wcag-contrast.ts";
 
 const CARD_CSS = readFileSync(
@@ -34,7 +28,7 @@ const CARD_CSS = readFileSync(
 
 // As TELAS do cartão. Declarar o token certo no CSS não basta: o requisito é que
 // as superfícies realmente pintadas usem essa paleta (gelo no fundo e nos botões,
-// salmão claro nas caixas e na capa sem foto). Foi exatamente aqui que o cartão
+// verde claro nas caixas e na capa sem foto). Foi exatamente aqui que o cartão
 // ficou errado antes — CSS novo, componentes com as cores antigas —, então o
 // teste lê os dois arquivos de tela e confere a cor de cada superfície.
 const CARD_PAGE = readFileSync(
@@ -214,10 +208,10 @@ function expectContrast(
   );
 }
 
-const ACCENT_BLOCK = /^\.eq-public\[data-accent="([a-z]+)"\]$/;
+const ACCENT_SELECTOR_MARKER = "[data-accent";
 
 describe("identidade visual do cartão público", () => {
-  it("usa o gelo no fundo e o salmão claro nas caixas de conteúdo", () => {
+  it("usa o gelo no fundo e o verde claro nas caixas de conteúdo", () => {
     const light = declarationsOf(".eq-public");
 
     // Gelo: fundo do documento e superfície de todos os botões.
@@ -225,12 +219,12 @@ describe("identidade visual do cartão público", () => {
     assert.equal(token(light, "--eq-soft"), "#e6eef1");
     assert.equal(token(light, "--eq-action-hover"), "#d9e6ea");
 
-    // Salmão claro: caixas de conteúdo (cabeçalho, serviços, equipe, agendamento,
+    // Verde claro: caixas de conteúdo (cabeçalho, serviços, equipe, agendamento,
     // calendário e confirmação) e a faixa de capa quando não há foto.
-    assert.equal(token(light, "--eq-card"), "#fff6f1");
-    assert.equal(token(light, "--eq-card-border"), "#f7d7c9");
-    assert.equal(token(light, "--eq-border"), "#f7d7c9");
-    assert.equal(token(light, "--eq-cover"), "#fbded1");
+    assert.equal(token(light, "--eq-card"), "#e6f1e2");
+    assert.equal(token(light, "--eq-card-border"), "#cfe3c9");
+    assert.equal(token(light, "--eq-border"), "#cfe3c9");
+    assert.equal(token(light, "--eq-cover"), "#d9ead3");
 
     assert.equal(token(light, "--eq-ink"), "#3f3439");
     assert.equal(token(light, "--eq-muted"), "#77676e");
@@ -239,13 +233,13 @@ describe("identidade visual do cartão público", () => {
     assert.equal(token(light, "--eq-accent-on"), "#ffffff");
   });
 
-  it("dá aos botões a superfície de gelo, nunca o salmão das caixas", () => {
+  it("dá aos botões a superfície de gelo, nunca o verde das caixas", () => {
     const light = declarationsOf(".eq-public");
     const link = declarationsOf(".eq-contact-link");
 
     // WhatsApp, Instagram, telefone, e-mail e "Como chegar" compartilham o mesmo
     // desenho: fundo gelo, contorno de campo e hover um degrau mais forte no gelo
-    // — nunca o salmão das caixas, que é o que dá relevo ao conteúdo.
+    // — nunca o verde das caixas, que é o que dá relevo ao conteúdo.
     assert.equal(token(link, "background"), "var(--eq-page, #e9f0f3)");
     assert.equal(
       token(link, "border"),
@@ -265,50 +259,44 @@ describe("identidade visual do cartão público", () => {
     );
   });
 
-  it("mantém o CSS com exatamente as seis cores da paleta do TypeScript", () => {
-    const cssKeys = RULES.map((rule) => ACCENT_BLOCK.exec(rule.selector)?.[1])
-      .filter((key): key is string => typeof key === "string")
-      .sort();
+  it("não expõe nenhuma cor personalizável no CSS nem nas telas", () => {
+    // A escolha de cor foi removida do produto: o cartão tem uma identidade
+    // fixa. Este teste existe para que um seletor de cor reintroduzido sem
+    // querer (como o antigo `.eq-public[data-accent="..."]`) não volte a tingir
+    // a página pública nem por configuração antiga.
+    const accentSelectors = RULES.map((rule) => rule.selector).filter((selector) =>
+      splitSelectorList(selector).some((part) =>
+        part.includes(ACCENT_SELECTOR_MARKER)
+      )
+    );
+    assert.deepEqual(
+      accentSelectors,
+      [],
+      "o CSS do cartão não pode ter seletor de cor personalizável"
+    );
 
-    assert.deepEqual(cssKeys, [...PUBLIC_ACCENT_KEYS].sort());
-
-    for (const swatch of PUBLIC_ACCENT_SWATCHES) {
-      const block = declarationsOf(`.eq-public[data-accent="${swatch.key}"]`);
+    for (const source of [CARD_PAGE, CARD_FORM]) {
       assert.ok(
-        Object.keys(block).length > 0,
-        `bloco de cor ausente no CSS para ${swatch.key}`
-      );
-
-      assert.equal(
-        token(block, "--eq-accent"),
-        swatch.base,
-        `--eq-accent de ${swatch.key}`
-      );
-      assert.equal(
-        token(block, "--eq-accent-strong"),
-        swatch.strong,
-        `--eq-accent-strong de ${swatch.key}`
-      );
-      assert.equal(
-        token(block, "--eq-accent-text"),
-        swatch.base,
-        `--eq-accent-text de ${swatch.key}`
-      );
-      assert.match(
-        token(block, "--eq-accent-soft"),
-        /^#[0-9a-f]{6}$/i,
-        `--eq-accent-soft de ${swatch.key} precisa ser hexadecimal`
+        !source.includes(ACCENT_SELECTOR_MARKER),
+        "as telas do cartão não podem aplicar cor por atributo"
       );
     }
 
-    // O bloco base do CSS precisa ser o padrão do aplicativo.
-    const fallback = declarationsOf(".eq-public");
-    const defaultSwatch = PUBLIC_ACCENT_SWATCHES.find(
-      (swatch) => swatch.key === DEFAULT_PUBLIC_ACCENT
-    );
-    assert.ok(defaultSwatch, "amostra padrão ausente");
-    assert.equal(token(fallback, "--eq-accent"), defaultSwatch.base);
-    assert.equal(token(fallback, "--eq-accent-strong"), defaultSwatch.strong);
+    // A identidade do cartão continua definida em tokens fixos e válidos.
+    const light = declarationsOf(".eq-public");
+    for (const name of [
+      "--eq-accent",
+      "--eq-accent-strong",
+      "--eq-accent-soft",
+      "--eq-accent-text",
+      "--eq-accent-on",
+    ]) {
+      assert.match(
+        token(light, name),
+        /^#[0-9a-f]{6}$/i,
+        `${name} precisa ser uma cor hexadecimal fixa`
+      );
+    }
   });
 });
 
@@ -343,38 +331,35 @@ describe("contraste do cartão público (WCAG 2.1)", () => {
       4.5
     );
 
-    // Texto branco sobre a cor de destaque (botão e dia selecionado), a cor de
-    // destaque sobre branco (preços/links) e o texto do avatar sobre a tinta suave.
-    for (const swatch of PUBLIC_ACCENT_SWATCHES) {
-      const block = declarationsOf(`.eq-public[data-accent="${swatch.key}"]`);
-
-      expectContrast(
-        `--eq-accent-on sobre ${swatch.key}`,
-        token(light, "--eq-accent-on"),
-        token(block, "--eq-accent"),
-        4.5
-      );
-      expectContrast(
-        `--eq-accent-on sobre ${swatch.key} (interação)`,
-        token(light, "--eq-accent-on"),
-        token(block, "--eq-accent-strong"),
-        4.5
-      );
-      expectContrast(
-        `--eq-accent-text de ${swatch.key} sobre o cartão`,
-        token(block, "--eq-accent-text"),
-        token(light, "--eq-card"),
-        4.5
-      );
-      // A tinta suave carrega texto GRANDE (iniciais do avatar em negrito com pelo
-      // menos 24px), portanto 3:1 já atende à WCAG.
-      expectContrast(
-        `--eq-accent-text de ${swatch.key} sobre a tinta suave`,
-        token(block, "--eq-accent-text"),
-        token(block, "--eq-accent-soft"),
-        3
-      );
-    }
+    // Texto branco sobre a identidade do cartão (dia selecionado), a identidade
+    // como texto sobre as caixas de verde claro e o texto do avatar sobre a tinta
+    // suave. A identidade é fixa, então basta medir uma vez.
+    expectContrast(
+      "--eq-accent-on sobre --eq-accent",
+      token(light, "--eq-accent-on"),
+      token(light, "--eq-accent"),
+      4.5
+    );
+    expectContrast(
+      "--eq-accent-on sobre --eq-accent-strong (interação)",
+      token(light, "--eq-accent-on"),
+      token(light, "--eq-accent-strong"),
+      4.5
+    );
+    expectContrast(
+      "--eq-accent-text sobre --eq-card (verde claro)",
+      token(light, "--eq-accent-text"),
+      token(light, "--eq-card"),
+      4.5
+    );
+    // A tinta suave carrega texto GRANDE (iniciais do avatar em negrito com pelo
+    // menos 24px), portanto 3:1 já atende à WCAG.
+    expectContrast(
+      "--eq-accent-text sobre --eq-accent-soft",
+      token(light, "--eq-accent-text"),
+      token(light, "--eq-accent-soft"),
+      3
+    );
   });
 
   it("mantém o cartão claro mesmo com o sistema em modo escuro", () => {
@@ -441,7 +426,7 @@ describe("controles e foco do cartão público", () => {
     assert.equal(
       token(focusRule, "outline-color"),
       "var(--eq-accent)",
-      "o anel de foco do cartão precisa usar a cor de destaque escolhida"
+      "o anel de foco do cartão precisa usar a identidade fixa do cartão"
     );
   });
 });
@@ -482,11 +467,11 @@ describe("avatar do cartão público", () => {
 
   it("dá à foto da profissional uma superfície sólida própria, igual à caixa", () => {
     // Nenhum tom de fora da caixa pode aparecer através do círculo da foto: a
-    // área tem fundo sólido próprio (o salmão claro da caixa) e nada deixa a
+    // área tem fundo sólido próprio (o verde claro da caixa) e nada deixa a
     // imagem translúcida.
     assert.equal(
       token(declarationsOf(".eq-avatar--photo"), "background"),
-      "var(--eq-card, #fff6f1)"
+      "var(--eq-card, #e6f1e2)"
     );
 
     for (const selector of [".eq-avatar", ".eq-avatar > img"]) {
@@ -496,7 +481,7 @@ describe("avatar do cartão público", () => {
         assert.equal(
           declarations[forbidden],
           undefined,
-          `${selector} não pode declarar ${forbidden} (deixaria o salmão da caixa aparecer na foto)`
+          `${selector} não pode declarar ${forbidden} (deixaria o verde da caixa aparecer na foto)`
         );
       }
     }
@@ -529,14 +514,14 @@ describe("avatar do cartão público", () => {
 });
 
 describe("paleta aplicada nas telas do cartão público", () => {
-  it("usa o gelo no fundo e o salmão claro na capa sem foto", () => {
+  it("usa o gelo no fundo e o verde claro na capa sem foto", () => {
     // Fundo geral em gelo; nada de branco puro na página nem no formulário.
     assert.match(CARD_PAGE, /<main[^>]*bg-\[var\(--eq-page\)\]/);
     assert.equal(countOf(CARD_PAGE, "bg-white"), 0);
     assert.equal(countOf(CARD_FORM, "bg-white"), 0);
 
     // Capa: com foto continua sendo a imagem cadastrada; sem foto, a faixa é o
-    // salmão claro do cartão — nunca transparente, branca ou fora da paleta.
+    // verde claro do cartão — nunca transparente, branca ou fora da paleta.
     assert.ok(
       CARD_PAGE.includes("organization.hasCover ?"),
       "a capa com foto precisa continuar sendo exibida"
@@ -549,19 +534,19 @@ describe("paleta aplicada nas telas do cartão público", () => {
     );
   });
 
-  it("pinta com o salmão claro todas as caixas de conteúdo", () => {
+  it("pinta com o verde claro todas as caixas de conteúdo", () => {
     // Cabeçalho (perfil), procedimentos, equipe e estado vazio na página;
     // confirmação, área fechada e formulário no formulário de agendamento.
     assert.ok(countOf(CARD_PAGE, "bg-[var(--eq-card)]") >= 4);
     assert.ok(countOf(CARD_FORM, "bg-[var(--eq-card)]") >= 3);
 
-    // Nenhum botão (pill arredondado) pode herdar o salmão das caixas.
+    // Nenhum botão (pill arredondado) pode herdar o verde das caixas.
     for (const source of [CARD_PAGE, CARD_FORM]) {
       for (const line of source.split("\n")) {
         if (!line.includes("bg-[var(--eq-card)]")) continue;
         assert.ok(
           !line.includes("rounded-full"),
-          `botão pintado com o salmão das caixas: ${line.trim()}`
+          `botão pintado com o verde das caixas: ${line.trim()}`
         );
       }
     }

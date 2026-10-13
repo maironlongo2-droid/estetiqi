@@ -5,11 +5,6 @@ import { useUser } from "@clerk/nextjs";
 import { useToast } from "../toast";
 import { prepareCoverImage, prepareImage } from "@/lib/images/downscale";
 import {
-  DEFAULT_PUBLIC_ACCENT,
-  PUBLIC_ACCENT_SWATCHES,
-  resolvePublicAccent,
-} from "@/lib/public/accent";
-import {
   googleMapsUrl,
   instagramUrl,
   normalizeWhatsapp,
@@ -48,8 +43,6 @@ export default function ConfiguracoesPage() {
   const [cardHasLogo, setCardHasLogo] = useState(false);
   const [cardLogoVersion, setCardLogoVersion] = useState<number | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [cardAccent, setCardAccent] = useState(DEFAULT_PUBLIC_ACCENT);
-  const [cardAccentSupported, setCardAccentSupported] = useState(true);
   const [cardCoverSupported, setCardCoverSupported] = useState(true);
   const [cardHasCover, setCardHasCover] = useState(false);
   const [cardCoverVersion, setCardCoverVersion] = useState<number | null>(null);
@@ -129,8 +122,6 @@ export default function ConfiguracoesPage() {
         setCardLogoVersion(
           typeof card.logoVersion === "number" ? card.logoVersion : null
         );
-        setCardAccent(resolvePublicAccent(card.accent));
-        setCardAccentSupported(card.accentSupported !== false);
         setCardCoverSupported(card.coverSupported !== false);
         setCardHasCover(Boolean(card.hasCover));
         setCardCoverVersion(
@@ -448,7 +439,6 @@ export default function ConfiguracoesPage() {
           instagram: cardInstagram,
           whatsapp: cardWhatsapp,
           mapsUrl: cardMapsUrl,
-          accent: cardAccent,
         }),
       });
 
@@ -471,8 +461,6 @@ export default function ConfiguracoesPage() {
       );
       setCardWhatsapp(typeof data?.whatsapp === "string" ? data.whatsapp : "");
       setCardMapsUrl(typeof data?.mapsUrl === "string" ? data.mapsUrl : "");
-      setCardAccent(resolvePublicAccent(data?.accent));
-      setCardAccentSupported(data?.accentSupported !== false);
       setCardCoverSupported(data?.coverSupported !== false);
 
       notifySuccess(
@@ -677,49 +665,6 @@ export default function ConfiguracoesPage() {
                 </span>
               </div>
 
-              <fieldset disabled={!canEditOrganization}>
-                <legend className="mb-2 block text-sm font-medium text-[#405149]">
-                  Cor de destaque do cartão
-                </legend>
-                <div className="flex flex-wrap gap-2">
-                  {PUBLIC_ACCENT_SWATCHES.map((swatch) => (
-                    <label
-                      key={swatch.key}
-                      className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm ${
-                        cardAccent === swatch.key
-                          ? "border-[#7a9f8d] bg-[#f4f8f6]"
-                          : "border-[#dfe9e3] bg-white"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="cardAccent"
-                        value={swatch.key}
-                        checked={cardAccent === swatch.key}
-                        onChange={() => setCardAccent(swatch.key)}
-                        className="h-4 w-4"
-                      />
-                      <span
-                        aria-hidden="true"
-                        className="h-5 w-5 rounded-full border border-black/10"
-                        style={{ backgroundColor: swatch.base }}
-                      />
-                      <span>{swatch.label}</span>
-                    </label>
-                  ))}
-                </div>
-                <span className="mt-1 block text-xs text-[#8a9891]">
-                  A tipografia, o layout e os componentes do cartão são fixos.
-                  Você escolhe apenas uma das seis cores de destaque.
-                </span>
-                {!cardAccentSupported ? (
-                  <span className="mt-1 block text-xs text-amber-700">
-                    A cor escolhida passa a valer quando a migration
-                    038_public_card_accent.sql for aplicada neste ambiente.
-                  </span>
-                ) : null}
-              </fieldset>
-
               <div>
                 <span className="mb-2 block text-sm font-medium text-[#405149]">
                   Foto de capa (opcional)
@@ -781,8 +726,8 @@ export default function ConfiguracoesPage() {
                 </div>
                 <span className="mt-2 block text-xs text-[#8a9891]">
                   JPG, PNG ou WebP, até 4 MB. A imagem é recortada em 16:9 e
-                  usada como fundo do cartão. Sem capa, o cartão usa um fundo
-                  gerado a partir da cor de destaque.
+                  usada no topo do cartão. Sem capa, o cartão usa uma faixa de
+                  verde claro. As cores e o layout do cartão são fixos.
                 </span>
                 {!cardCoverSupported ? (
                   <span className="mt-1 block text-xs text-amber-700">

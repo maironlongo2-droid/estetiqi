@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PublicAvatar } from "@/app/public-avatar";
 import { getProcedureLabels } from "@/lib/business/procedure-labels";
+import {
+  formatBrlPrice,
+  formatDurationMinutes,
+} from "@/lib/public/format";
 
 export type PublicProcedureOption = {
   id: string;
@@ -57,14 +61,6 @@ function formatDateLong(date: string): string {
     day: "2-digit",
     month: "long",
   }).format(new Date(`${date}T12:00:00Z`));
-}
-
-function formatPrice(value: number | null): string | null {
-  if (value === null) return null;
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value);
 }
 
 // Rótulos do calendário (semana começando no domingo, como no Brasil).
@@ -420,7 +416,7 @@ export function PublicBookingForm({
             <div className="flex justify-between gap-4">
               <dt className="text-[var(--eq-muted)]">Valor</dt>
               <dd className="font-medium text-[var(--eq-ink)]">
-                {formatPrice(confirmation.price)}
+                {formatBrlPrice(confirmation.price)}
               </dd>
             </div>
           ) : null}
@@ -466,7 +462,7 @@ export function PublicBookingForm({
         <div className="mt-4 space-y-3">
           {procedures.map((procedure) => {
             const checked = selected.includes(procedure.id);
-            const price = formatPrice(procedure.price);
+            const price = formatBrlPrice(procedure.price);
             return (
               <label
                 key={procedure.id}
@@ -489,9 +485,8 @@ export function PublicBookingForm({
                     </span>
                     <span className="text-sm text-[var(--eq-muted)]">
                       {price ? `${price} · ` : ""}
-                      {procedure.durationMinutes
-                        ? `${procedure.durationMinutes} min`
-                        : "duração a combinar"}
+                      {formatDurationMinutes(procedure.durationMinutes) ??
+                        "duração a combinar"}
                     </span>
                   </span>
                   {procedure.description ? (
@@ -736,14 +731,12 @@ export function PublicBookingForm({
             {selected.length === 0
               ? `Selecione ao menos um ${labels.singularLower}`
               : `${selected.length} ${labels.singularLower}(s) · ${
-                  totalDuration > 0
-                    ? `${totalDuration} min`
-                    : "duração a combinar"
+                  formatDurationMinutes(totalDuration) ?? "duração a combinar"
                 }`}
           </span>
           {totalPrice !== null ? (
             <span className="font-semibold text-[var(--eq-ink)]">
-              {formatPrice(totalPrice)}
+              {formatBrlPrice(totalPrice)}
             </span>
           ) : null}
         </div>

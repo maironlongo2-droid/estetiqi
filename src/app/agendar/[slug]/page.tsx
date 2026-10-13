@@ -14,6 +14,7 @@ import {
   instagramUrl,
   whatsappUrl,
 } from "@/lib/public/contact-links";
+import { formatBrlPrice, formatDurationMinutes } from "@/lib/public/format";
 import {
   PublicBookingForm,
   type PublicProcedureOption,
@@ -145,6 +146,14 @@ export default async function PublicBookingPage({
     getPublicProfessionals(organization.id),
   ]);
 
+  // Equipe exibida no cartão: somente profissionais que realizam ao menos um
+  // serviço ativo — exatamente os mesmos que podem ser escolhidos no agendamento
+  // logo abaixo. Quem não realiza nada não é anunciado, e nenhum dado é
+  // presumido: a lista vem da mesma consulta já usada pelo formulário.
+  const team = professionals.filter(
+    (professional) => professional.procedureIds.length > 0
+  );
+
   const address = [organization.city, organization.state]
     .filter(Boolean)
     .join(", ");
@@ -267,8 +276,118 @@ export default async function PublicBookingPage({
               </a>
             ) : null}
           </div>
+
+          {/* Endereço do negócio: linha discreta, exibida apenas quando já
+              informado (cidade/estado do cadastro). Aponta para o mesmo mapa do
+              botão acima; nenhum endereço é inventado. */}
+          {address ? (
+            <p className="mt-4 text-xs text-[var(--eq-muted)]">
+              {mapsHref ? (
+                <a
+                  href={mapsHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline-offset-2 transition hover:underline"
+                >
+                  {address}
+                </a>
+              ) : (
+                address
+              )}
+            </p>
+          ) : null}
           </div>
         </header>
+
+        {/* Catálogo público de serviços: exatamente os mesmos que o formulário
+            abaixo oferece (serviço ativo e com profissional ativo que o
+            realiza), com preço e duração quando cadastrados. Ajuda a cliente a
+            saber o que pode agendar antes de abrir o formulário — e nunca
+            anuncia algo que ela não consiga agendar. */}
+        {procedures.length > 0 ? (
+          <section id="servicos" className="mt-6 scroll-mt-6">
+            <h2 className="px-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--eq-muted)]">
+              {labels.plural}
+            </h2>
+            <ul className="mt-3 space-y-3">
+              {procedures.map((procedure) => {
+                const price = formatBrlPrice(procedure.price);
+                const duration = formatDurationMinutes(
+                  procedure.durationMinutes
+                );
+                return (
+                  <li
+                    key={procedure.id}
+                    className="rounded-[1.5rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] p-4"
+                  >
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                      <span className="font-medium text-[var(--eq-ink)]">
+                        {procedure.name}
+                      </span>
+                      <span className="text-sm text-[var(--eq-muted)]">
+                        {price ? `${price} · ` : ""}
+                        {duration ?? "duração a combinar"}
+                      </span>
+                    </div>
+                    {procedure.description ? (
+                      <p className="mt-1 text-sm leading-6 text-[var(--eq-muted)]">
+                        {procedure.description}
+                      </p>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ) : null}
+
+        {/* Equipe: quem pode realmente atender pelo link. A foto reusa o mesmo
+            avatar do formulário (círculo por construção, sem moldura própria) e
+            a lista já chega filtrada, então nenhum profissional sem serviço
+            ativo é anunciado no cartão. */}
+        {team.length > 0 ? (
+          <section id="equipe" className="mt-6 scroll-mt-6">
+            <h2 className="px-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--eq-muted)]">
+              Profissionais
+            </h2>
+            <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {team.map((professional) => (
+                <li
+                  key={professional.id}
+                  className="flex flex-col items-center gap-3 rounded-[1.5rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] p-4 text-center"
+                >
+                  <PublicAvatar
+                    src={
+                      professional.hasPhoto
+                        ? `/api/public/${encodeURIComponent(
+                            organization.slug
+                          )}/professionals/${professional.id}/photo${
+                            professional.photoVersion
+                              ? `?v=${professional.photoVersion}`
+                              : ""
+                          }`
+                        : null
+                    }
+                    alt={`Foto de ${professional.name}`}
+                    name={professional.name}
+                    size="lg"
+                    className="eq-avatar--photo"
+                  />
+                  <span className="flex flex-col items-center leading-tight">
+                    <span className="text-sm font-semibold text-[var(--eq-ink)]">
+                      {professional.name}
+                    </span>
+                    {professional.specialty ? (
+                      <span className="mt-0.5 text-xs font-normal text-[var(--eq-muted)]">
+                        {professional.specialty}
+                      </span>
+                    ) : null}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
         {/* Seção de agendamento: fica na mesma página e é o destino do botão
             "Agendar online". O id é a âncora usada para a rolagem suave. */}

@@ -131,6 +131,46 @@ export function PublicBookingForm({
   const [error, setError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
 
+  // O formulário começa fechado: o calendário e os campos só aparecem depois do
+  // toque em "Agendar horário". Sem isso o cartão abria com a área mais alta da
+  // página à vista e empurrava o conteúdo para baixo.
+  const [bookingOpen, setBookingOpen] = useState(false);
+
+  // O botão principal do cartão aponta para a âncora #agendamento. Chegar nessa
+  // âncora (clique ou link direto) abre a área; ao fechar, a âncora é limpa para
+  // que o mesmo clique continue funcionando na próxima vez.
+  useEffect(() => {
+    const openFromHash = () => {
+      if (window.location.hash === "#agendamento") {
+        setBookingOpen(true);
+      }
+    };
+
+    window.addEventListener("hashchange", openFromHash);
+
+    // Link direto com a âncora já na URL: o navegador não dispara "hashchange"
+    // na carga, então a checagem é agendada para depois da montagem — fora do
+    // corpo do efeito, sem setState síncrono.
+    const timer = window.setTimeout(openFromHash, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("hashchange", openFromHash);
+    };
+  }, []);
+
+  const closeBooking = useCallback(() => {
+    setBookingOpen(false);
+
+    if (window.location.hash === "#agendamento") {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}`
+      );
+    }
+  }, []);
+
   const selectedProcedures = useMemo(
     () => procedures.filter((procedure) => selected.includes(procedure.id)),
     [procedures, selected]
@@ -450,11 +490,42 @@ export function PublicBookingForm({
     );
   }
 
+  // Área fechada: só o botão destacado. As escolhas já feitas continuam no
+  // estado do componente, então reabrir não perde nada.
+  if (!bookingOpen) {
+    return (
+      <div className="rounded-[1.75rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] p-5 sm:p-6">
+        <button
+          type="button"
+          onClick={() => setBookingOpen(true)}
+          aria-controls="agendamento"
+          className="eq-elevation-action inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--eq-accent)] px-6 text-sm font-semibold text-[var(--eq-accent-on)] transition hover:bg-[var(--eq-accent-strong)]"
+        >
+          <span>Agendar horário</span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <form
       onSubmit={handleSubmit}
       className="space-y-8 rounded-[1.75rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] p-6 sm:p-8"
     >
+      {/* Cabeçalho da área aberta: repete o nome da ação e dá uma saída clara,
+          sem depender do botão de voltar do navegador. */}
+      <div className="flex items-center justify-between gap-4 border-b border-[var(--eq-card-border)] pb-4">
+        <h2 className="text-lg font-semibold text-[var(--eq-ink)]">
+          Agendar horário
+        </h2>
+        <button
+          type="button"
+          onClick={closeBooking}
+          className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--eq-field-border)] px-4 text-sm font-semibold text-[var(--eq-ink)] transition hover:bg-[var(--eq-soft)]"
+        >
+          Fechar
+        </button>
+      </div>
       <fieldset>
         <legend className="text-lg font-semibold text-[var(--eq-ink)]">
           1. Escolha os {labels.pluralLower}

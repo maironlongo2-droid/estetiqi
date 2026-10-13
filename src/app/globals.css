@@ -130,19 +130,29 @@ body {
   --eq-border: #f0dde2;
   /* Borda de CAMPO de formulário: precisa de 3:1 contra o branco (WCAG 1.4.11),
      por isso é mais escura que as bordas decorativas acima. */
-  --eq-field-border: #a1858f;
+  /* Cinza quente um degrau mais escuro: 3,75:1 contra o cartão e 3,52:1 contra o
+     fundo. O roxo acinzentado anterior competia com o rosa do cartão e deixava o
+     formulário mais pesado que o resto da página. */
+  --eq-field-border: #8f8085;
   --eq-ink: #3f3439;
   --eq-muted: #77676e;
   --eq-soft: #fceef1;
   --eq-danger-bg: #f7e8ec;
   --eq-danger-text: #8a4356;
+  /* Elevação NEUTRA, derivada da tinta do cartão. A única sombra colorida do
+     cartão vivia nos botões (um verde fixo) e ficava esverdeada quando a clínica
+     escolhia rosé, ameixa, azul ou bronze. */
+  --eq-shadow: rgba(63, 52, 57, 0.06);
+  --eq-shadow-strong: rgba(63, 52, 57, 0.2);
   color-scheme: light;
 }
 
-/* Fundo EXTERNO do cartão público: rosa muito claro (#fff5f8) com textura de
-   papel fino — véus amplos e discretos em #fff0f5 e #fceaf1 e fibras de
-   contraste quase imperceptível. O `background-color` vem de `--eq-page`
-   (o token é único, então qualquer ajuste vale para o cartão e para o canvas).
+/* Fundo EXTERNO do cartão público: o rosa muito claro de `--eq-page` (#fff5f8)
+   com UM único véu branco, suave e aberto no topo, que dá profundidade sem
+   introduzir uma segunda cor. As fibras de papel e os dois véus rosados que
+   existiam antes deixavam a superfície ocupada e disputavam atenção com a cor de
+   destaque escolhida pela clínica (a padrão, esmeralda, caía sobre rosa); agora o
+   fundo lê como um branco quente e todo o contraste fica por conta do conteúdo.
 
    Por que também <html>/<body>: o rosa não aparecia antes porque o canvas do
    documento seguia a cor creme global (#fbfaf8) em tudo o que fica fora do
@@ -151,27 +161,11 @@ body {
    tela é afetada. Cartões, capa, logo e botões continuam como estão. */
 .eq-public {
   background-color: var(--eq-page);
-  background-image:
-    repeating-linear-gradient(
-      115deg,
-      rgba(255, 255, 255, 0.32) 0 1px,
-      rgba(255, 255, 255, 0) 1px 3px
-    ),
-    radial-gradient(
-      130% 58% at 8% -10%,
-      rgba(252, 234, 241, 0.95) 0%,
-      rgba(252, 234, 241, 0) 62%
-    ),
-    radial-gradient(
-      120% 54% at 102% 2%,
-      rgba(255, 240, 245, 0.9) 0%,
-      rgba(255, 240, 245, 0) 58%
-    ),
-    linear-gradient(
-      180deg,
-      rgba(255, 240, 245, 0.75) 0%,
-      rgba(255, 245, 248, 0) 40%
-    );
+  background-image: radial-gradient(
+    130% 52% at 50% -14%,
+    rgba(255, 255, 255, 0.9) 0%,
+    rgba(255, 255, 255, 0) 64%
+  );
   background-repeat: no-repeat;
 }
 
@@ -361,6 +355,17 @@ body:has(main.eq-public) {
 
 .eq-contact-link:hover {
   background: var(--eq-soft);
+}
+
+/* Elevação discreta dos cartões (cabeçalho, serviços, equipe) e o degrau maior
+   do botão principal. A sombra vem de `--eq-shadow` (tinta neutra), então se
+   mantém elegante nas seis cores de destaque. */
+.eq-elevation {
+  box-shadow: 0 1px 2px var(--eq-shadow, rgba(63, 52, 57, 0.06));
+}
+
+.eq-elevation-action {
+  box-shadow: 0 6px 16px -8px var(--eq-shadow-strong, rgba(63, 52, 57, 0.2));
 }
 
 /* Altura mínima do shell do app compatível com a viewport dinâmica do mobile.

@@ -30,13 +30,15 @@ function whatsappDigits(phone: string | null): string | null {
 }
 
 // Ícones oficiais dos contatos (SVG inline, sem dependência externa). São
-// decorativos; o rótulo acessível fica no <a> que os envolve.
+// decorativos; o rótulo acessível fica no <a> que os envolve. A cor vem do
+// próprio link (`currentColor`), então o mesmo ícone continua legível nas seis
+// cores de destaque — nenhum verde/rosa/vermelho fixo disputando com a paleta.
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
       className={className}
-      fill="#25D366"
+      fill="currentColor"
       aria-hidden="true"
       focusable="false"
     >
@@ -50,7 +52,7 @@ function InstagramIcon({ className }: { className?: string }) {
     <svg
       viewBox="0 0 24 24"
       className={className}
-      fill="#E1306C"
+      fill="currentColor"
       aria-hidden="true"
       focusable="false"
     >
@@ -64,7 +66,7 @@ function MapsIcon({ className }: { className?: string }) {
     <svg
       viewBox="0 0 24 24"
       className={className}
-      fill="#EA4335"
+      fill="currentColor"
       aria-hidden="true"
       focusable="false"
     >
@@ -165,11 +167,11 @@ export default async function PublicBookingPage({
 
   return (
     <main
-      className="eq-public min-h-screen bg-[var(--eq-page)] px-4 pb-28 pt-6 text-[var(--eq-ink)] sm:px-6 sm:pb-12 sm:pt-10"
+      className="eq-public min-h-screen bg-[var(--eq-page)] px-4 pb-12 pt-6 text-[var(--eq-ink)] sm:px-6 sm:pb-12 sm:pt-10"
       data-accent={organization.accent}
     >
       <div className="mx-auto flex w-full max-w-[480px] flex-col">
-        <header className="overflow-hidden rounded-[1.75rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] shadow-[0_1px_2px_rgba(47,58,52,0.04)]">
+        <header className="overflow-hidden rounded-[1.75rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] eq-elevation">
           {/* Capa: opcional. Sem capa cadastrada, o fundo é gerado a partir da
               cor de destaque — nunca uma imagem quebrada. */}
           {organization.hasCover ? (
@@ -236,7 +238,7 @@ export default async function PublicBookingPage({
             {procedures.length > 0 ? (
               <a
                 href="#agendamento"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[var(--eq-accent)] px-6 py-3.5 text-sm font-semibold text-[var(--eq-accent-on)] shadow-[0_1px_2px_rgba(15,118,110,0.25)] transition hover:bg-[var(--eq-accent-strong)]"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[var(--eq-accent)] px-6 py-3.5 text-sm font-semibold text-[var(--eq-accent-on)] eq-elevation-action transition hover:bg-[var(--eq-accent-strong)]"
               >
                 <CalendarIcon className="h-5 w-5" />
                 <span>Agendar online</span>
@@ -276,26 +278,6 @@ export default async function PublicBookingPage({
               </a>
             ) : null}
           </div>
-
-          {/* Endereço do negócio: linha discreta, exibida apenas quando já
-              informado (cidade/estado do cadastro). Aponta para o mesmo mapa do
-              botão acima; nenhum endereço é inventado. */}
-          {address ? (
-            <p className="mt-4 text-xs text-[var(--eq-muted)]">
-              {mapsHref ? (
-                <a
-                  href={mapsHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline-offset-2 transition hover:underline"
-                >
-                  {address}
-                </a>
-              ) : (
-                address
-              )}
-            </p>
-          ) : null}
           </div>
         </header>
 
@@ -306,7 +288,7 @@ export default async function PublicBookingPage({
             anuncia algo que ela não consiga agendar. */}
         {procedures.length > 0 ? (
           <section id="servicos" className="mt-6 scroll-mt-6">
-            <h2 className="px-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--eq-muted)]">
+            <h2 className="px-1 text-sm font-semibold uppercase tracking-[0.12em] text-[var(--eq-ink)]">
               {labels.plural}
             </h2>
             <ul className="mt-3 space-y-3">
@@ -318,7 +300,7 @@ export default async function PublicBookingPage({
                 return (
                   <li
                     key={procedure.id}
-                    className="rounded-[1.5rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] p-4"
+                    className="rounded-[1.5rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] p-4 eq-elevation"
                   >
                     <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                       <span className="font-medium text-[var(--eq-ink)]">
@@ -347,14 +329,14 @@ export default async function PublicBookingPage({
             ativo é anunciado no cartão. */}
         {team.length > 0 ? (
           <section id="equipe" className="mt-6 scroll-mt-6">
-            <h2 className="px-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--eq-muted)]">
+            <h2 className="px-1 text-sm font-semibold uppercase tracking-[0.12em] text-[var(--eq-ink)]">
               Profissionais
             </h2>
             <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
               {team.map((professional) => (
                 <li
                   key={professional.id}
-                  className="flex flex-col items-center gap-3 rounded-[1.5rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] p-4 text-center"
+                  className="flex flex-col items-center gap-3 rounded-[1.5rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] p-4 text-center eq-elevation"
                 >
                   <PublicAvatar
                     src={
@@ -437,20 +419,6 @@ export default async function PublicBookingPage({
             </Link>
           </p>
         </footer>
-
-        {/* Ação fixa no rodapé do celular. O conteúdo acima reserva espaço
-            (pb-28) para que o botão nunca encubra informações. */}
-        {procedures.length > 0 ? (
-          <div className="fixed inset-x-0 bottom-0 z-10 border-t border-[var(--eq-card-border)] bg-[var(--eq-card)] px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 sm:hidden">
-            <a
-              href="#agendamento"
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--eq-accent)] px-6 text-sm font-semibold text-[var(--eq-accent-on)]"
-            >
-              <CalendarIcon className="h-5 w-5" />
-              Agendar horário
-            </a>
-          </div>
-        ) : null}
       </div>
     </main>
   );

@@ -467,7 +467,7 @@ export function PublicBookingForm({
               href={whatsappLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center rounded-full bg-[var(--eq-accent)] px-6 py-3 text-sm font-semibold text-[var(--eq-accent-on)] transition hover:bg-[var(--eq-accent-strong)]"
+              className="inline-flex items-center justify-center rounded-full border-2 border-[var(--eq-accent)] bg-[var(--eq-page)] px-6 py-3 text-sm font-semibold text-[var(--eq-accent-strong)] transition hover:bg-[var(--eq-action-hover)]"
             >
               Falar no WhatsApp
             </a>
@@ -481,7 +481,7 @@ export function PublicBookingForm({
               setName("");
               setPhone("");
             }}
-            className="inline-flex items-center justify-center rounded-full border border-[var(--eq-field-border)] px-6 py-3 text-sm font-semibold text-[var(--eq-ink)] transition hover:bg-[var(--eq-soft)]"
+            className="inline-flex items-center justify-center rounded-full border border-[var(--eq-field-border)] bg-[var(--eq-page)] px-6 py-3 text-sm font-semibold text-[var(--eq-ink)] transition hover:bg-[var(--eq-action-hover)]"
           >
             Fazer outro agendamento
           </button>
@@ -499,7 +499,7 @@ export function PublicBookingForm({
           type="button"
           onClick={() => setBookingOpen(true)}
           aria-controls="agendamento"
-          className="eq-elevation-action inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--eq-accent)] px-6 text-sm font-semibold text-[var(--eq-accent-on)] transition hover:bg-[var(--eq-accent-strong)]"
+          className="eq-elevation-action inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border-2 border-[var(--eq-accent)] bg-[var(--eq-page)] px-6 text-sm font-semibold text-[var(--eq-accent-strong)] transition hover:bg-[var(--eq-action-hover)]"
         >
           <span>Agendar horário</span>
         </button>
@@ -521,7 +521,7 @@ export function PublicBookingForm({
         <button
           type="button"
           onClick={closeBooking}
-          className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--eq-field-border)] px-4 text-sm font-semibold text-[var(--eq-ink)] transition hover:bg-[var(--eq-soft)]"
+          className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--eq-field-border)] bg-[var(--eq-page)] px-4 text-sm font-semibold text-[var(--eq-ink)] transition hover:bg-[var(--eq-action-hover)]"
         >
           Fechar
         </button>
@@ -540,7 +540,7 @@ export function PublicBookingForm({
                 className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition ${
                   checked
                     ? "border-[var(--eq-accent)] bg-[var(--eq-soft)]"
-                    : "border-[var(--eq-field-border)] hover:border-[var(--eq-accent)]"
+                    : "border-[var(--eq-field-border)] bg-[var(--eq-page)] hover:border-[var(--eq-accent)]"
                 }`}
               >
                 <input
@@ -595,7 +595,7 @@ export function PublicBookingForm({
                     className={`flex flex-col items-center gap-3 rounded-[1.5rem] p-4 text-center transition ${
                       active
                         ? "bg-[var(--eq-accent-soft)]"
-                        : "bg-[var(--eq-soft)] hover:bg-[var(--eq-card)]"
+                        : "bg-[var(--eq-soft)] hover:bg-[var(--eq-action-hover)]"
                     }`}
                   >
                     {/* A foto fica limpa: nenhuma borda, anel, sombra ou
@@ -649,7 +649,7 @@ export function PublicBookingForm({
                 onClick={() => setMonth((current) => addMonths(current, -1))}
                 disabled={month <= currentMonth}
                 aria-label="Mês anterior"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--eq-field-border)] text-lg leading-none text-[var(--eq-ink)] transition hover:bg-[var(--eq-soft)] disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--eq-field-border)] bg-[var(--eq-page)] text-lg leading-none text-[var(--eq-ink)] transition hover:bg-[var(--eq-action-hover)] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 ‹
               </button>
@@ -660,7 +660,7 @@ export function PublicBookingForm({
                 type="button"
                 onClick={() => setMonth((current) => addMonths(current, 1))}
                 aria-label="Próximo mês"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--eq-field-border)] text-lg leading-none text-[var(--eq-ink)] transition hover:bg-[var(--eq-soft)]"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--eq-field-border)] bg-[var(--eq-page)] text-lg leading-none text-[var(--eq-ink)] transition hover:bg-[var(--eq-action-hover)]"
               >
                 ›
               </button>
@@ -706,7 +706,7 @@ export function PublicBookingForm({
                           ? "bg-[var(--eq-accent)] font-semibold text-[var(--eq-accent-on)]"
                           : disabled
                             ? "cursor-not-allowed bg-[var(--eq-soft)] text-[var(--eq-muted)]"
-                            : "font-medium text-[var(--eq-ink)] hover:bg-[var(--eq-soft)]"
+                            : "bg-[var(--eq-page)] font-medium text-[var(--eq-ink)] hover:bg-[var(--eq-action-hover)]"
                       }`}
                     >
                       {Number(cell.slice(8, 10))}
@@ -741,7 +741,7 @@ export function PublicBookingForm({
                       className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
                         active
                           ? "border-[var(--eq-accent)] bg-[var(--eq-accent)] text-[var(--eq-accent-on)]"
-                          : "border-[var(--eq-field-border)] text-[var(--eq-ink)] hover:bg-[var(--eq-soft)]"
+                          : "border-[var(--eq-field-border)] bg-[var(--eq-page)] text-[var(--eq-ink)] hover:bg-[var(--eq-action-hover)]"
                       }`}
                     >
                       {formatTime(item.startsAt)}
@@ -768,7 +768,7 @@ export function PublicBookingForm({
                 onChange={(event) => setName(event.target.value)}
                 autoComplete="name"
                 required
-                className="rounded-2xl border border-[var(--eq-field-border)] bg-[var(--eq-card)] px-4 py-3 text-[var(--eq-ink)]"
+                className="rounded-2xl border border-[var(--eq-field-border)] bg-[var(--eq-page)] px-4 py-3 text-[var(--eq-ink)]"
               />
             </label>
             <label className="flex flex-col gap-1 text-sm">
@@ -780,7 +780,7 @@ export function PublicBookingForm({
                 autoComplete="tel"
                 placeholder="(11) 99999-9999"
                 required
-                className="rounded-2xl border border-[var(--eq-field-border)] bg-[var(--eq-card)] px-4 py-3 text-[var(--eq-ink)]"
+                className="rounded-2xl border border-[var(--eq-field-border)] bg-[var(--eq-page)] px-4 py-3 text-[var(--eq-ink)]"
               />
             </label>
           </div>
@@ -814,7 +814,7 @@ export function PublicBookingForm({
         <button
           type="submit"
           disabled={submitting || !selectedSlot}
-          className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-[var(--eq-accent)] px-6 py-3 text-sm font-semibold text-[var(--eq-accent-on)] transition hover:bg-[var(--eq-accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-4 inline-flex w-full items-center justify-center rounded-full border-2 border-[var(--eq-accent)] bg-[var(--eq-page)] px-6 py-3 text-sm font-semibold text-[var(--eq-accent-strong)] transition hover:bg-[var(--eq-action-hover)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitting ? "Agendando…" : "Confirmar agendamento"}
         </button>

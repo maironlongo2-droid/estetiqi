@@ -32,6 +32,24 @@ const CARD_CSS = readFileSync(
   "utf8"
 );
 
+// As TELAS do cartão. Declarar o token certo no CSS não basta: o requisito é que
+// as superfícies realmente pintadas usem essa paleta (gelo no fundo e nos botões,
+// salmão claro nas caixas e na capa sem foto). Foi exatamente aqui que o cartão
+// ficou errado antes — CSS novo, componentes com as cores antigas —, então o
+// teste lê os dois arquivos de tela e confere a cor de cada superfície.
+const CARD_PAGE = readFileSync(
+  new URL("../../src/app/agendar/[slug]/page.tsx", import.meta.url),
+  "utf8"
+);
+const CARD_FORM = readFileSync(
+  new URL("../../src/app/agendar/[slug]/booking-form.tsx", import.meta.url),
+  "utf8"
+);
+
+function countOf(source: string, needle: string): number {
+  return source.split(needle).length - 1;
+}
+
 type Rule = {
   context: string[];
   selector: string;
@@ -199,19 +217,52 @@ function expectContrast(
 const ACCENT_BLOCK = /^\.eq-public\[data-accent="([a-z]+)"\]$/;
 
 describe("identidade visual do cartão público", () => {
-  it("usa o fundo claro documentado (rosa suave) com cartões brancos", () => {
+  it("usa o gelo no fundo e o salmão claro nas caixas de conteúdo", () => {
     const light = declarationsOf(".eq-public");
 
-    assert.equal(token(light, "--eq-page"), "#fff5f8");
-    assert.equal(token(light, "--eq-soft"), "#fceef1");
-    assert.equal(token(light, "--eq-card"), "#ffffff");
-    assert.equal(token(light, "--eq-card-border"), "#f0dde2");
-    assert.equal(token(light, "--eq-border"), "#f0dde2");
+    // Gelo: fundo do documento e superfície de todos os botões.
+    assert.equal(token(light, "--eq-page"), "#e9f0f3");
+    assert.equal(token(light, "--eq-soft"), "#e6eef1");
+    assert.equal(token(light, "--eq-action-hover"), "#d9e6ea");
+
+    // Salmão claro: caixas de conteúdo (cabeçalho, serviços, equipe, agendamento,
+    // calendário e confirmação) e a faixa de capa quando não há foto.
+    assert.equal(token(light, "--eq-card"), "#fff6f1");
+    assert.equal(token(light, "--eq-card-border"), "#f7d7c9");
+    assert.equal(token(light, "--eq-border"), "#f7d7c9");
+    assert.equal(token(light, "--eq-cover"), "#fbded1");
+
     assert.equal(token(light, "--eq-ink"), "#3f3439");
     assert.equal(token(light, "--eq-muted"), "#77676e");
 
     // Texto sobre a cor de destaque é sempre branco, como a paleta assume.
     assert.equal(token(light, "--eq-accent-on"), "#ffffff");
+  });
+
+  it("dá aos botões a superfície de gelo, nunca o salmão das caixas", () => {
+    const light = declarationsOf(".eq-public");
+    const link = declarationsOf(".eq-contact-link");
+
+    // WhatsApp, Instagram, telefone, e-mail e "Como chegar" compartilham o mesmo
+    // desenho: fundo gelo, contorno de campo e hover um degrau mais forte no gelo
+    // — nunca o salmão das caixas, que é o que dá relevo ao conteúdo.
+    assert.equal(token(link, "background"), "var(--eq-page, #e9f0f3)");
+    assert.equal(
+      token(link, "border"),
+      "1px solid var(--eq-field-border, #8f8085)"
+    );
+    assert.equal(
+      token(declarationsOf(".eq-contact-link:hover"), "background"),
+      "var(--eq-action-hover, #d9e6ea)"
+    );
+
+    // O rótulo do botão continua legível sobre o gelo.
+    expectContrast(
+      "--eq-ink sobre o gelo dos botões",
+      token(light, "--eq-ink"),
+      token(light, "--eq-page"),
+      4.5
+    );
   });
 
   it("mantém o CSS com exatamente as seis cores da paleta do TypeScript", () => {
@@ -328,7 +379,7 @@ describe("contraste do cartão público (WCAG 2.1)", () => {
 
   it("mantém o cartão claro mesmo com o sistema em modo escuro", () => {
     // Regressão real: com o sistema em modo escuro o cartão público ficava quase
-    // preto (--eq-page #171214), contrariando o requisito de fundo rosa claro em
+    // preto (--eq-page #171214), contrariando o requisito de fundo gelo claro em
     // qualquer aparelho. Logo, nenhuma regra do cartão pode depender do tema.
     const darkRules = RULES.filter(
       (rule) =>
@@ -353,12 +404,12 @@ describe("contraste do cartão público (WCAG 2.1)", () => {
     );
 
     // O fundo externo (html/body) é o canvas que aparece na rolagem elástica do
-    // celular: precisa ser rosa em qualquer tema, sem alternância.
+    // celular: precisa ser o gelo do cartão em qualquer tema, sem alternância.
     for (const outer of ["html:has(main.eq-public)", "body:has(main.eq-public)"]) {
       assert.equal(
         declarationsOf(outer).background,
-        "#fff5f8",
-        `${outer} precisa manter o rosa do cartão em qualquer tema`
+        "#e9f0f3",
+        `${outer} precisa manter o gelo do cartão em qualquer tema`
       );
     }
   });
@@ -429,12 +480,13 @@ describe("avatar do cartão público", () => {
     assert.equal(token(image, "object-position"), "center");
   });
 
-  it("dá à foto da profissional uma superfície sólida própria, sem o rosa do cartão", () => {
-    // O rosa do cartão não pode aparecer através do círculo da foto: a área tem
-    // fundo sólido próprio (o branco do cartão) e nada deixa a imagem translúcida.
+  it("dá à foto da profissional uma superfície sólida própria, igual à caixa", () => {
+    // Nenhum tom de fora da caixa pode aparecer através do círculo da foto: a
+    // área tem fundo sólido próprio (o salmão claro da caixa) e nada deixa a
+    // imagem translúcida.
     assert.equal(
       token(declarationsOf(".eq-avatar--photo"), "background"),
-      "var(--eq-card, #ffffff)"
+      "var(--eq-card, #fff6f1)"
     );
 
     for (const selector of [".eq-avatar", ".eq-avatar > img"]) {
@@ -444,7 +496,7 @@ describe("avatar do cartão público", () => {
         assert.equal(
           declarations[forbidden],
           undefined,
-          `${selector} não pode declarar ${forbidden} (deixaria o rosa do cartão aparecer na foto)`
+          `${selector} não pode declarar ${forbidden} (deixaria o salmão da caixa aparecer na foto)`
         );
       }
     }
@@ -473,6 +525,69 @@ describe("avatar do cartão público", () => {
       token(declarationsOf(".eq-avatar--contain > img"), "object-fit"),
       "contain"
     );
+  });
+});
+
+describe("paleta aplicada nas telas do cartão público", () => {
+  it("usa o gelo no fundo e o salmão claro na capa sem foto", () => {
+    // Fundo geral em gelo; nada de branco puro na página nem no formulário.
+    assert.match(CARD_PAGE, /<main[^>]*bg-\[var\(--eq-page\)\]/);
+    assert.equal(countOf(CARD_PAGE, "bg-white"), 0);
+    assert.equal(countOf(CARD_FORM, "bg-white"), 0);
+
+    // Capa: com foto continua sendo a imagem cadastrada; sem foto, a faixa é o
+    // salmão claro do cartão — nunca transparente, branca ou fora da paleta.
+    assert.ok(
+      CARD_PAGE.includes("organization.hasCover ?"),
+      "a capa com foto precisa continuar sendo exibida"
+    );
+    assert.match(CARD_PAGE, /className="h-32 w-full bg-\[var\(--eq-cover\)\]/);
+    assert.equal(
+      countOf(CARD_PAGE, "linear-gradient"),
+      0,
+      "a capa sem foto não pode voltar a usar gradiente"
+    );
+  });
+
+  it("pinta com o salmão claro todas as caixas de conteúdo", () => {
+    // Cabeçalho (perfil), procedimentos, equipe e estado vazio na página;
+    // confirmação, área fechada e formulário no formulário de agendamento.
+    assert.ok(countOf(CARD_PAGE, "bg-[var(--eq-card)]") >= 4);
+    assert.ok(countOf(CARD_FORM, "bg-[var(--eq-card)]") >= 3);
+
+    // Nenhum botão (pill arredondado) pode herdar o salmão das caixas.
+    for (const source of [CARD_PAGE, CARD_FORM]) {
+      for (const line of source.split("\n")) {
+        if (!line.includes("bg-[var(--eq-card)]")) continue;
+        assert.ok(
+          !line.includes("rounded-full"),
+          `botão pintado com o salmão das caixas: ${line.trim()}`
+        );
+      }
+    }
+  });
+
+  it("dá aos botões e ações a superfície de gelo", () => {
+    // Ação principal do cartão (agendar) em gelo, com o destaque no contorno.
+    assert.match(CARD_PAGE, /eq-elevation-action[^>]*bg-\[var\(--eq-page\)\]/);
+
+    // Contatos (WhatsApp, Instagram, "Como chegar") usam a classe do CSS, que
+    // também tem fundo de gelo.
+    assert.ok(
+      countOf(CARD_PAGE, "eq-contact-link") >= 3,
+      "os botões de contato do cartão precisam continuar existindo"
+    );
+
+    // Ações do formulário: agendar/confirmar, falar no WhatsApp, fechar e voltar.
+    for (const action of [
+      "border-2 border-[var(--eq-accent)] bg-[var(--eq-page)]",
+      "border-[var(--eq-field-border)] bg-[var(--eq-page)]",
+    ]) {
+      assert.ok(
+        CARD_FORM.includes(action),
+        `botão de ação sem a superfície de gelo: ${action}`
+      );
+    }
   });
 });
 

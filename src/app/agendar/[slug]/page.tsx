@@ -172,8 +172,9 @@ export default async function PublicBookingPage({
     >
       <div className="mx-auto flex w-full max-w-[480px] flex-col">
         <header className="overflow-hidden rounded-[1.75rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] eq-elevation">
-          {/* Capa: opcional. Sem capa cadastrada, o fundo é gerado a partir da
-              cor de destaque — nunca uma imagem quebrada. */}
+          {/* Capa: opcional. Sem capa cadastrada, a faixa usa o salmão claro da
+              capa (`--eq-cover`) — nunca uma imagem quebrada nem uma cor que
+              fuja da paleta do cartão. */}
           {organization.hasCover ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -188,7 +189,7 @@ export default async function PublicBookingPage({
           ) : (
             <div
               aria-hidden="true"
-              className="h-32 w-full bg-[linear-gradient(135deg,var(--eq-accent)_0%,var(--eq-accent-strong)_100%)] sm:h-40"
+              className="h-32 w-full bg-[var(--eq-cover)] sm:h-40"
             />
           )}
 
@@ -233,12 +234,15 @@ export default async function PublicBookingPage({
 
           {/* Acesso rápido: o agendamento é sempre a primeira e principal
               ação; os demais são links diretos, sem telas intermediárias.
-              Só aparece um botão quando existe um destino real cadastrado. */}
+              Só aparece um botão quando existe um destino real cadastrado.
+              Todos os botões têm superfície de GELO: a ação principal se
+              distingue pelo contorno e pelo texto na cor de destaque, sem
+              pintar o botão de salmão (o salmão é das caixas de conteúdo). */}
           <div className="mt-6 flex flex-col gap-3">
             {procedures.length > 0 ? (
               <a
                 href="#agendamento"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[var(--eq-accent)] px-6 py-3.5 text-sm font-semibold text-[var(--eq-accent-on)] eq-elevation-action transition hover:bg-[var(--eq-accent-strong)]"
+                className="eq-elevation-action inline-flex w-full items-center justify-center gap-2 rounded-full border-2 border-[var(--eq-accent)] bg-[var(--eq-page)] px-6 py-3.5 text-sm font-semibold text-[var(--eq-accent-strong)] transition hover:bg-[var(--eq-action-hover)]"
               >
                 <CalendarIcon className="h-5 w-5" />
                 <span>Agendar online</span>

@@ -104,7 +104,7 @@ body {
    sombras e estrutura são fixos aqui. A clínica personaliza apenas os DADOS do
    cartão (nome, chamada, bio, contatos, logo e foto de capa) — nunca a cor.
 
-   A identidade usada nas interações (contorno da ação principal, dia
+   A identidade usada nas interações (preenchimento da ação principal, dia
    selecionado, anel de foco e avatar) vem dos tokens `--eq-accent*` abaixo,
    FIXOS no aplicativo. Nenhuma cor vem do banco nem do navegador, portanto
    nenhuma configuração antiga de cor consegue tingir a página pública.
@@ -112,55 +112,63 @@ body {
    TEMA: o cartão público é sempre claro e não possui bloco de modo escuro
    (ver o comentário abaixo, depois do bloco de tokens do avatar/foco). O
    visitante abre o cartão pelo celular, geralmente com o sistema em modo
-   escuro, e o requisito do produto é o fundo gelo em qualquer aparelho. O
+   escuro, e o requisito do produto é o fundo claro em qualquer aparelho. O
    contraste de cada texto segue medido em
    tests/unit/public-card-style.test.ts. */
 .eq-public {
-  --eq-accent: #2f6f68;
-  --eq-accent-strong: #275c56;
+  --eq-accent: #2f6a5e;
+  --eq-accent-strong: #265748;
   --eq-accent-on: #ffffff;
-  --eq-accent-soft: #e8f1f0;
-  --eq-accent-text: #2f6f68;
-  /* PALETA DO CARTÃO: gelo no fundo do documento e na superfície dos botões;
-     VERDE CLARO suave em TODAS as caixas de conteúdo (perfil, serviços, equipe,
-     agendamento, calendário e confirmação) e na capa sem foto. O contraste de
-     cada texto é medido no teste tests/unit/public-card-style.test.ts (todos
-     ≥ 4,5:1) — inclusive sobre o verde, que por isso é bem claro: o verde dá o
-     relevo das caixas sem escurecer a página nem competir com o texto. */
-  --eq-page: #e9f0f3;
-  --eq-card: #e6f1e2;
-  --eq-card-border: #cfe3c9;
-  --eq-border: #cfe3c9;
+  --eq-accent-soft: #e6efe9;
+  --eq-accent-text: #2c6153;
+  /* PALETA DO CARTÃO: CREME no fundo do documento, BRANCO em TODAS as caixas de
+     conteúdo (perfil, serviços, equipe, localização, agendamento, calendário e
+     confirmação) e creme suave nos controles. É a mesma família de cor do
+     restante do EstetiQI, e por isso o cartão parece parte do produto em vez de
+     um site à parte. O contraste de cada texto é medido no teste
+     tests/unit/public-card-style.test.ts (todos ≥ 4,5:1) — inclusive sobre o
+     branco das caixas e sobre o creme suave dos controles. */
+  --eq-page: #f6f4ef;
+  --eq-card: #ffffff;
+  --eq-card-border: #e6e2da;
+  --eq-border: #e6e2da;
   /* Borda de CAMPO de formulário: precisa de 3:1 contra a caixa (WCAG 1.4.11),
      por isso é mais escura que as bordas decorativas acima. */
-  /* Cinza quente um degrau mais escuro: 3,22:1 contra a caixa de verde claro e
-     3,26:1 contra o gelo do fundo. Também é o contorno dos botões, para a página
-     manter uma única linguagem de controle. */
-  --eq-field-border: #8f8085;
-  --eq-ink: #3f3439;
-  --eq-muted: #77676e;
-  --eq-soft: #e6eef1;
-  /* Degrau mais forte do gelo: retorno de interação (hover) dos botões, enquanto
-     `--eq-soft` é a tinta de repouso dos controles desativados. */
-  --eq-action-hover: #d9e6ea;
-  /* Capa sem imagem: verde claro um degrau mais forte que a caixa, para a faixa
-     da capa continuar presente mesmo sem foto cadastrada. */
-  --eq-cover: #d9ead3;
+  /* Verde acinzentado: 3,61:1 contra a caixa branca e 3,28:1 contra o creme do
+     fundo. Também é o contorno dos controles, para a página manter uma única
+     linguagem de borda. */
+  --eq-field-border: #7c8a83;
+  --eq-ink: #22312b;
+  --eq-muted: #596860;
+  --eq-soft: #efece5;
+  /* Degrau mais forte do creme suave: retorno de interação (hover) dos controles,
+     enquanto `--eq-soft` é a tinta de repouso dos controles desativados e a
+     superfície dos botões secundários. */
+  --eq-action-hover: #eae6de;
+  /* Capa sem imagem: verde acinzentado claro, um degrau acima do creme, para a
+     faixa da capa continuar presente mesmo sem foto cadastrada. */
+  --eq-cover: #e4eae3;
   --eq-danger-bg: #f7e8ec;
   --eq-danger-text: #8a4356;
   /* Elevação NEUTRA, derivada da tinta do cartão. A única sombra colorida do
-     cartão vivia nos botões (um verde fixo) e destoava da paleta gelo/verde. */
-  --eq-shadow: rgba(63, 52, 57, 0.06);
-  --eq-shadow-strong: rgba(63, 52, 57, 0.2);
+     cartão vivia nos botões (um verde fixo) e destoava da paleta creme/branco. */
+  --eq-shadow: rgba(34, 49, 43, 0.08);
+  --eq-shadow-strong: rgba(34, 49, 43, 0.22);
   color-scheme: light;
 }
 
-/* Fundo EXTERNO do cartão público: o gelo plano de `--eq-page` (#e9f0f3), sem
+/* Fundo EXTERNO do cartão público: o creme plano de `--eq-page` (#f6f4ef), sem
    véu branco no topo — o fundo nunca pode tender ao branco puro nem introduzir
-   uma segunda cor. Todo o relevo fica por conta das caixas de verde claro e dos
-   botões de gelo, que é o que organiza a leitura da página.
+   uma segunda cor. Todo o relevo fica por conta das caixas brancas e dos
+   controles de creme suave, que é o que organiza a leitura da página.
 
-   Por que também <html>/<body>: o gelo não aparecia antes porque o canvas do
+   O fundo externo é escrito como HEXADECIMAL, não como `var(--eq-page)`: os
+   tokens vivem em `.eq-public`, um descendente, e nenhuma propriedade
+   personalizada sobe para o <html>. Se os dois valores divergirem, o canvas da
+   rolagem volta ao creme do restante do app — e é justamente essa comparação
+   que o teste do cartão faz.
+
+   Por que também <html>/<body>: o fundo não aparecia antes porque o canvas do
    documento seguia a cor creme global (#fbfaf8) em tudo o que fica fora do
    <main> — rolagem elástica do celular, bordas e overscroll. Com `:has()` o
    fundo fica restrito às páginas que têm o cartão público; nenhuma outra tela é
@@ -171,7 +179,7 @@ body {
 
 html:has(main.eq-public),
 body:has(main.eq-public) {
-  background: #e9f0f3;
+  background: #f6f4ef;
 }
 
 /* Sem blocos de cor personalizável: o cartão tem UMA identidade fixa (os tokens
@@ -182,7 +190,7 @@ body:has(main.eq-public) {
 /* TEMA DO CARTÃO: o cartão público é SEMPRE claro. Não existe media query de
    modo escuro para ele, de propósito: é a página que a cliente final abre no
    celular — quase sempre com o sistema em modo escuro — e o requisito do produto
-   é o fundo gelo (#e9f0f3) em qualquer aparelho. O `color-scheme: light` do
+   é o fundo claro (#f6f4ef) em qualquer aparelho. O `color-scheme: light` do
    bloco `.eq-public` mantém campos, seletores e barras de rolagem claros mesmo
    com o sistema escuro. */
 
@@ -222,8 +230,8 @@ body:has(main.eq-public) {
   aspect-ratio: 1 / 1;
   border: 0;
   border-radius: 9999px;
-  background: var(--eq-accent-soft, #e8f1f0);
-  color: var(--eq-accent-text, #2f6f68);
+  background: var(--eq-accent-soft, #e6efe9);
+  color: var(--eq-accent-text, #2c6153);
   font-weight: 600;
   line-height: 1;
 }
@@ -252,13 +260,13 @@ body:has(main.eq-public) {
 }
 
 /* Foto da profissional no agendamento público. A área da foto tem superfície
-   PRÓPRIA e sólida — o verde claro da caixa em que ela vive: nenhuma outra cor
+   PRÓPRIA e sólida — o branco da caixa em que ela vive: nenhuma outra cor
    aparece através do círculo, nem enquanto a foto carrega, nem atrás de um
    recorte com transparência. Sem foto, a inicial do fallback aparece sobre essa
    mesma superfície sólida, em vez de um disco tingido pela identidade do cartão.
    A logo do negócio continua com a tinta suave da paleta. */
 .eq-avatar--photo {
-  background: var(--eq-card, #e6f1e2);
+  background: var(--eq-card, #ffffff);
 }
 
 /* Logo/identidade do cartão: um degrau acima das fotos de profissional, para dar
@@ -294,22 +302,26 @@ body:has(main.eq-public) {
 }
 
 .eq-avatar--ring {
-  box-shadow: 0 0 0 4px var(--eq-card, #e6f1e2);
+  box-shadow: 0 0 0 4px var(--eq-card, #ffffff);
 }
 
 /* Botão de contato do cartão (WhatsApp, Instagram, telefone, e-mail e demais
-   ações): superfície de GELO, nunca o verde das caixas de conteúdo. O contorno
-   é o mesmo de campo (o 3:1 dos formulários), para o botão continuar visível
-   sobre o verde, e o hover desce um degrau no gelo. */
+   ações): superfície de CREME SUAVE, nunca o preenchimento da identidade — só a
+   ação principal de agendamento é preenchida, o que deixa a hierarquia da
+   página óbvia. O contorno é o mesmo de campo (o 3:1 dos formulários), para o
+   controle continuar visível sobre o branco da caixa e sobre o creme do fundo, e
+   o hover desce um degrau. A altura mínima de 48px é o alvo de toque
+   confortável no celular. */
 .eq-contact-link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  min-height: 44px;
+  min-height: 48px;
+  padding-inline: 1.25rem;
   border-radius: 9999px;
-  border: 1px solid var(--eq-field-border, #8f8085);
-  background: var(--eq-page, #e9f0f3);
+  border: 1px solid var(--eq-field-border, #7c8a83);
+  background: var(--eq-soft, #efece5);
   color: var(--eq-ink);
   font-size: 0.875rem;
   font-weight: 600;
@@ -317,12 +329,12 @@ body:has(main.eq-public) {
 }
 
 .eq-contact-link:hover {
-  background: var(--eq-action-hover, #d9e6ea);
+  background: var(--eq-action-hover, #eae6de);
 }
 
-/* Elevação discreta dos cartões (cabeçalho, serviços, equipe) e o degrau maior
-   do botão principal. A sombra vem de `--eq-shadow` (tinta neutra), então se
-   mantém elegante sobre o gelo e sobre o verde das caixas. */
+/* Elevação discreta dos cartões (cabeçalho, serviços, equipe e localização) e o
+   degrau da ação principal. A sombra vem de `--eq-shadow` (tinta neutra), então
+   se mantém elegante sobre o creme da página e sobre o branco das caixas. */
 .eq-elevation {
   box-shadow: 0 1px 2px var(--eq-shadow, rgba(63, 52, 57, 0.06));
 }

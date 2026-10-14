@@ -4,9 +4,9 @@
 // src/app/globals.css — o cartão não recebe cor do banco nem do navegador. Este
 // arquivo lê o CSS de verdade e verifica três coisas que sustentam o produto:
 //
-// 1. a paleta é FIXA (gelo no fundo e nos botões, verde claro nas caixas de
-//    conteúdo) e não existe nenhum seletor de cor personalizável: a escolha de
-//    cor foi removida do produto e não pode voltar por engano;
+// 1. a paleta é FIXA (creme no fundo, branco nas caixas de conteúdo e creme
+//    suave nos controles) e não existe nenhum seletor de cor personalizável: a
+//    escolha de cor foi removida do produto e não pode voltar por engano;
 // 2. o contraste de cada texto do cartão é MEDIDO com a fórmula da WCAG 2.1
 //    (>= 4,5:1 para texto e >= 3:1 para borda de campo / indicador de foco);
 // 3. o avatar é um círculo por construção (aspect-ratio + overflow + raio), com a
@@ -27,10 +27,11 @@ const CARD_CSS = readFileSync(
 );
 
 // As TELAS do cartão. Declarar o token certo no CSS não basta: o requisito é que
-// as superfícies realmente pintadas usem essa paleta (gelo no fundo e nos botões,
-// verde claro nas caixas e na capa sem foto). Foi exatamente aqui que o cartão
-// ficou errado antes — CSS novo, componentes com as cores antigas —, então o
-// teste lê os dois arquivos de tela e confere a cor de cada superfície.
+// as superfícies realmente pintadas usem essa paleta (creme no fundo, branco nas
+// caixas, creme suave nos controles e a identidade só na ação principal). Foi
+// exatamente aqui que o cartão ficou errado antes — CSS novo, componentes com as
+// cores antigas —, então o teste lê os dois arquivos de tela e confere a cor de
+// cada superfície.
 const CARD_PAGE = readFileSync(
   new URL("../../src/app/agendar/[slug]/page.tsx", import.meta.url),
   "utf8"
@@ -211,50 +212,60 @@ function expectContrast(
 const ACCENT_SELECTOR_MARKER = "[data-accent";
 
 describe("identidade visual do cartão público", () => {
-  it("usa o gelo no fundo e o verde claro nas caixas de conteúdo", () => {
+  it("usa o creme no fundo e o branco nas caixas de conteúdo", () => {
     const light = declarationsOf(".eq-public");
 
-    // Gelo: fundo do documento e superfície de todos os botões.
-    assert.equal(token(light, "--eq-page"), "#e9f0f3");
-    assert.equal(token(light, "--eq-soft"), "#e6eef1");
-    assert.equal(token(light, "--eq-action-hover"), "#d9e6ea");
+    // Creme: fundo do documento.
+    assert.equal(token(light, "--eq-page"), "#f6f4ef");
+    // Creme suave: superfície dos controles (botões secundários, controles
+    // desativados) e hover um degrau mais forte.
+    assert.equal(token(light, "--eq-soft"), "#efece5");
+    assert.equal(token(light, "--eq-action-hover"), "#eae6de");
 
-    // Verde claro: caixas de conteúdo (cabeçalho, serviços, equipe, agendamento,
-    // calendário e confirmação) e a faixa de capa quando não há foto.
-    assert.equal(token(light, "--eq-card"), "#e6f1e2");
-    assert.equal(token(light, "--eq-card-border"), "#cfe3c9");
-    assert.equal(token(light, "--eq-border"), "#cfe3c9");
-    assert.equal(token(light, "--eq-cover"), "#d9ead3");
+    // Branco: caixas de conteúdo (cabeçalho, serviços, equipe, localização,
+    // agendamento, calendário e confirmação) e a faixa de capa quando não há foto.
+    assert.equal(token(light, "--eq-card"), "#ffffff");
+    assert.equal(token(light, "--eq-card-border"), "#e6e2da");
+    assert.equal(token(light, "--eq-border"), "#e6e2da");
+    assert.equal(token(light, "--eq-cover"), "#e4eae3");
 
-    assert.equal(token(light, "--eq-ink"), "#3f3439");
-    assert.equal(token(light, "--eq-muted"), "#77676e");
+    assert.equal(token(light, "--eq-ink"), "#22312b");
+    assert.equal(token(light, "--eq-muted"), "#596860");
 
-    // Texto sobre a cor de destaque é sempre branco, como a paleta assume.
+    // A borda dos campos é a mais escura da paleta de propósito: é ela que
+    // precisa alcançar 3:1 contra o branco da caixa (medido mais abaixo).
+    assert.equal(token(light, "--eq-field-border"), "#7c8a83");
+
+    // Texto sobre a ação principal é sempre branco, como a paleta assume.
     assert.equal(token(light, "--eq-accent-on"), "#ffffff");
   });
 
-  it("dá aos botões a superfície de gelo, nunca o verde das caixas", () => {
+  it("dá aos controles a superfície de creme suave, nunca o preenchimento da ação principal", () => {
     const light = declarationsOf(".eq-public");
     const link = declarationsOf(".eq-contact-link");
 
     // WhatsApp, Instagram, telefone, e-mail e "Como chegar" compartilham o mesmo
-    // desenho: fundo gelo, contorno de campo e hover um degrau mais forte no gelo
-    // — nunca o verde das caixas, que é o que dá relevo ao conteúdo.
-    assert.equal(token(link, "background"), "var(--eq-page, #e9f0f3)");
+    // desenho: creme suave, contorno de campo e hover um degrau mais forte. O
+    // preenchimento da identidade fica reservado para a ação de agendamento, que
+    // é o que dá hierarquia à página.
+    assert.equal(token(link, "background"), "var(--eq-soft, #efece5)");
     assert.equal(
       token(link, "border"),
-      "1px solid var(--eq-field-border, #8f8085)"
+      "1px solid var(--eq-field-border, #7c8a83)"
     );
     assert.equal(
       token(declarationsOf(".eq-contact-link:hover"), "background"),
-      "var(--eq-action-hover, #d9e6ea)"
+      "var(--eq-action-hover, #eae6de)"
     );
 
-    // O rótulo do botão continua legível sobre o gelo.
+    // 48px é o alvo de toque confortável no celular — o mesmo da ação principal.
+    assert.equal(token(link, "min-height"), "48px");
+
+    // O rótulo do botão continua legível sobre a superfície em que ele vive.
     expectContrast(
-      "--eq-ink sobre o gelo dos botões",
+      "--eq-ink sobre o creme suave dos controles",
       token(light, "--eq-ink"),
-      token(light, "--eq-page"),
+      token(light, "--eq-soft"),
       4.5
     );
   });
@@ -331,9 +342,9 @@ describe("contraste do cartão público (WCAG 2.1)", () => {
       4.5
     );
 
-    // Texto branco sobre a identidade do cartão (dia selecionado), a identidade
-    // como texto sobre as caixas de verde claro e o texto do avatar sobre a tinta
-    // suave. A identidade é fixa, então basta medir uma vez.
+    // Texto branco sobre a identidade do cartão (ação principal preenchida e dia
+    // selecionado), a identidade como texto sobre as caixas brancas e o texto do
+    // avatar sobre a tinta suave. A identidade é fixa, então basta medir uma vez.
     expectContrast(
       "--eq-accent-on sobre --eq-accent",
       token(light, "--eq-accent-on"),
@@ -347,7 +358,7 @@ describe("contraste do cartão público (WCAG 2.1)", () => {
       4.5
     );
     expectContrast(
-      "--eq-accent-text sobre --eq-card (verde claro)",
+      "--eq-accent-text sobre --eq-card (branco da caixa)",
       token(light, "--eq-accent-text"),
       token(light, "--eq-card"),
       4.5
@@ -389,12 +400,22 @@ describe("contraste do cartão público (WCAG 2.1)", () => {
     );
 
     // O fundo externo (html/body) é o canvas que aparece na rolagem elástica do
-    // celular: precisa ser o gelo do cartão em qualquer tema, sem alternância.
+    // celular: precisa ser o creme do cartão em qualquer tema, sem alternância.
+    // Ele é escrito em hexadecimal porque os tokens vivem em `.eq-public` — um
+    // descendente — e não chegam ao <html>; comparar com `--eq-page` impede que
+    // os dois divirjam e o canvas volte ao creme do resto do app.
+    const outerPage = token(declarationsOf(".eq-public"), "--eq-page");
     for (const outer of ["html:has(main.eq-public)", "body:has(main.eq-public)"]) {
+      const background = declarationsOf(outer).background;
       assert.equal(
-        declarationsOf(outer).background,
-        "#e9f0f3",
-        `${outer} precisa manter o gelo do cartão em qualquer tema`
+        background,
+        "#f6f4ef",
+        `${outer} precisa manter o creme do cartão em qualquer tema`
+      );
+      assert.equal(
+        background,
+        outerPage,
+        `${outer} não pode divergir de --eq-page`
       );
     }
   });
@@ -467,11 +488,11 @@ describe("avatar do cartão público", () => {
 
   it("dá à foto da profissional uma superfície sólida própria, igual à caixa", () => {
     // Nenhum tom de fora da caixa pode aparecer através do círculo da foto: a
-    // área tem fundo sólido próprio (o verde claro da caixa) e nada deixa a
-    // imagem translúcida.
+    // área tem fundo sólido próprio (o branco da caixa) e nada deixa a imagem
+    // translúcida.
     assert.equal(
       token(declarationsOf(".eq-avatar--photo"), "background"),
-      "var(--eq-card, #e6f1e2)"
+      "var(--eq-card, #ffffff)"
     );
 
     for (const selector of [".eq-avatar", ".eq-avatar > img"]) {
@@ -514,14 +535,15 @@ describe("avatar do cartão público", () => {
 });
 
 describe("paleta aplicada nas telas do cartão público", () => {
-  it("usa o gelo no fundo e o verde claro na capa sem foto", () => {
-    // Fundo geral em gelo; nada de branco puro na página nem no formulário.
+  it("usa o creme no fundo e o verde da capa sem foto", () => {
+    // Fundo geral em creme; a superfície branca do cartão vem SEMPRE do token,
+    // nunca de uma classe de branco solta na tela (que escaparia da paleta).
     assert.match(CARD_PAGE, /<main[^>]*bg-\[var\(--eq-page\)\]/);
     assert.equal(countOf(CARD_PAGE, "bg-white"), 0);
     assert.equal(countOf(CARD_FORM, "bg-white"), 0);
 
     // Capa: com foto continua sendo a imagem cadastrada; sem foto, a faixa é o
-    // verde claro do cartão — nunca transparente, branca ou fora da paleta.
+    // verde do cartão — nunca transparente, branca ou fora da paleta.
     assert.ok(
       CARD_PAGE.includes("organization.hasCover ?"),
       "a capa com foto precisa continuar sendo exibida"
@@ -534,30 +556,42 @@ describe("paleta aplicada nas telas do cartão público", () => {
     );
   });
 
-  it("pinta com o verde claro todas as caixas de conteúdo", () => {
-    // Cabeçalho (perfil), procedimentos, equipe e estado vazio na página;
-    // confirmação, área fechada e formulário no formulário de agendamento.
-    assert.ok(countOf(CARD_PAGE, "bg-[var(--eq-card)]") >= 4);
+  it("pinta com o branco da caixa todas as superfícies de conteúdo", () => {
+    // Cabeçalho (perfil), procedimentos, equipe, localização e estado vazio na
+    // página; confirmação, área fechada e formulário no formulário de agendamento.
+    assert.ok(countOf(CARD_PAGE, "bg-[var(--eq-card)]") >= 5);
     assert.ok(countOf(CARD_FORM, "bg-[var(--eq-card)]") >= 3);
 
-    // Nenhum botão (pill arredondado) pode herdar o verde das caixas.
+    // Nenhum botão (pill arredondado) pode herdar o branco da caixa.
     for (const source of [CARD_PAGE, CARD_FORM]) {
       for (const line of source.split("\n")) {
         if (!line.includes("bg-[var(--eq-card)]")) continue;
         assert.ok(
           !line.includes("rounded-full"),
-          `botão pintado com o verde das caixas: ${line.trim()}`
+          `botão pintado com a cor das caixas: ${line.trim()}`
         );
       }
     }
   });
 
-  it("dá aos botões e ações a superfície de gelo", () => {
-    // Ação principal do cartão (agendar) em gelo, com o destaque no contorno.
-    assert.match(CARD_PAGE, /eq-elevation-action[^>]*bg-\[var\(--eq-page\)\]/);
+  it("reserva o preenchimento da identidade para a ação de agendamento", () => {
+    // Ação principal do cartão (agendar): preenchida com a identidade e com o
+    // texto branco cujo contraste é medido no bloco de contraste.
+    assert.match(
+      CARD_PAGE,
+      /eq-elevation-action[^>]*bg-\[var\(--eq-accent\)\][^>]*text-\[var\(--eq-accent-on\)\]/
+    );
+
+    // É a ÚNICA superfície preenchida com a identidade na página: os demais
+    // botões são controles de creme suave e não competem com o agendamento.
+    assert.equal(
+      countOf(CARD_PAGE, "bg-[var(--eq-accent)]"),
+      1,
+      "somente a ação de agendamento pode ser preenchida com a identidade"
+    );
 
     // Contatos (WhatsApp, Instagram, "Como chegar") usam a classe do CSS, que
-    // também tem fundo de gelo.
+    // também tem a superfície de creme suave.
     assert.ok(
       countOf(CARD_PAGE, "eq-contact-link") >= 3,
       "os botões de contato do cartão precisam continuar existindo"
@@ -570,7 +604,7 @@ describe("paleta aplicada nas telas do cartão público", () => {
     ]) {
       assert.ok(
         CARD_FORM.includes(action),
-        `botão de ação sem a superfície de gelo: ${action}`
+        `botão de ação sem a superfície clara: ${action}`
       );
     }
   });

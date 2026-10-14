@@ -169,10 +169,10 @@ export default async function PublicBookingPage({
     <main
       className="eq-public min-h-screen bg-[var(--eq-page)] px-4 pb-12 pt-6 text-[var(--eq-ink)] sm:px-6 sm:pb-12 sm:pt-10"
     >
-      <div className="mx-auto flex w-full max-w-[480px] flex-col">
+      <div className="mx-auto flex w-full max-w-[480px] flex-col gap-6">
         <header className="overflow-hidden rounded-[1.75rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] eq-elevation">
-          {/* Capa: opcional. Sem capa cadastrada, a faixa usa o verde claro da
-              capa (`--eq-cover`) — nunca uma imagem quebrada nem uma cor que
+          {/* Capa: opcional. Sem capa cadastrada, a faixa usa o verde acinzentado
+              da capa (`--eq-cover`) — nunca uma imagem quebrada nem uma cor que
               fuja da paleta do cartão. */}
           {organization.hasCover ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -193,9 +193,9 @@ export default async function PublicBookingPage({
           )}
 
           <div className="px-6 pb-6 text-center sm:px-8 sm:pb-8">
-            {/* Logo maior, avançando sobre a capa. O anel usa a cor do cartão e
-                acompanha o raio do avatar, portanto continua sendo um contorno
-                circular — nunca uma moldura quadrada. */}
+            {/* Logo maior, avançando sobre a capa. O anel usa o branco da caixa
+                do cartão e acompanha o raio do avatar, portanto continua sendo um
+                contorno circular — nunca uma moldura quadrada. */}
             <div className="-mt-12 flex justify-center sm:-mt-14">
               <PublicAvatar
                 src={
@@ -231,17 +231,18 @@ export default async function PublicBookingPage({
             </p>
           ) : null}
 
-          {/* Acesso rápido: o agendamento é sempre a primeira e principal
-              ação; os demais são links diretos, sem telas intermediárias.
-              Só aparece um botão quando existe um destino real cadastrado.
-              Todos os botões têm superfície de GELO: a ação principal se
-              distingue pelo contorno e pelo texto na identidade do cartão, sem
-              pintar o botão de verde (o verde é das caixas de conteúdo). */}
+          {/* Ações rápidas: o agendamento é sempre a PRIMEIRA — e a única —
+              ação PREENCHIDA do cartão (texto branco sobre a identidade do
+              EstetiQI). Os contatos vêm depois, com a superfície de creme suave
+              e o contorno de campo, então a hierarquia da página se lê de
+              relance. Só aparece um botão quando existe um destino real
+              cadastrado: nada de link fictício nem de controle que não salva.
+              Todos têm pelo menos 48px de altura, o mesmo alvo de toque. */}
           <div className="mt-6 flex flex-col gap-3">
             {procedures.length > 0 ? (
               <a
                 href="#agendamento"
-                className="eq-elevation-action inline-flex w-full items-center justify-center gap-2 rounded-full border-2 border-[var(--eq-accent)] bg-[var(--eq-page)] px-6 py-3.5 text-sm font-semibold text-[var(--eq-accent-strong)] transition hover:bg-[var(--eq-action-hover)]"
+                className="eq-elevation-action inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--eq-accent)] px-6 text-sm font-semibold text-[var(--eq-accent-on)] transition hover:bg-[var(--eq-accent-strong)]"
               >
                 <CalendarIcon className="h-5 w-5" />
                 <span>Agendar online</span>
@@ -269,17 +270,6 @@ export default async function PublicBookingPage({
                 <span>Instagram</span>
               </a>
             ) : null}
-            {mapsHref ? (
-              <a
-                href={mapsHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="eq-contact-link w-full"
-              >
-                <MapsIcon className="h-5 w-5" />
-                <span>Como chegar</span>
-              </a>
-            ) : null}
           </div>
           </div>
         </header>
@@ -290,7 +280,7 @@ export default async function PublicBookingPage({
             saber o que pode agendar antes de abrir o formulário — e nunca
             anuncia algo que ela não consiga agendar. */}
         {procedures.length > 0 ? (
-          <section id="servicos" className="mt-6 scroll-mt-6">
+          <section id="servicos" className="scroll-mt-6">
             <h2 className="px-1 text-sm font-semibold uppercase tracking-[0.12em] text-[var(--eq-ink)]">
               {labels.plural}
             </h2>
@@ -331,7 +321,7 @@ export default async function PublicBookingPage({
             a lista já chega filtrada, então nenhum profissional sem serviço
             ativo é anunciado no cartão. */}
         {team.length > 0 ? (
-          <section id="equipe" className="mt-6 scroll-mt-6">
+          <section id="equipe" className="scroll-mt-6">
             <h2 className="px-1 text-sm font-semibold uppercase tracking-[0.12em] text-[var(--eq-ink)]">
               Profissionais
             </h2>
@@ -374,9 +364,39 @@ export default async function PublicBookingPage({
           </section>
         ) : null}
 
+        {/* Localização: seção própria, com o dado real cadastrado (cidade/UF) e
+            o botão que abre a rota no mapa do aparelho. Nenhum endereço é
+            presumido: sem cidade/UF e sem link do Google Maps, a seção inteira
+            não aparece — em vez de um bloco vazio ou de um texto inventado. */}
+        {address || mapsHref ? (
+          <section id="localizacao" className="scroll-mt-6">
+            <h2 className="px-1 text-sm font-semibold uppercase tracking-[0.12em] text-[var(--eq-ink)]">
+              Localização
+            </h2>
+            <div className="mt-3 rounded-[1.5rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] p-5 eq-elevation">
+              {address ? (
+                <p className="flex items-center justify-center gap-2 text-center text-sm font-medium text-[var(--eq-ink)]">
+                  <MapsIcon className="h-5 w-5 shrink-0 text-[var(--eq-muted)]" />
+                  <span>{address}</span>
+                </p>
+              ) : null}
+              {mapsHref ? (
+                <a
+                  href={mapsHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="eq-contact-link mt-4 w-full"
+                >
+                  <span>Como chegar</span>
+                </a>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
+
         {/* Seção de agendamento: fica na mesma página e é o destino do botão
             "Agendar online". O id é a âncora usada para a rolagem suave. */}
-        <section id="agendamento" className="mt-6 scroll-mt-6">
+        <section id="agendamento" className="scroll-mt-6">
           {procedures.length === 0 ? (
             <p className="rounded-[1.75rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] p-6 text-sm text-[var(--eq-muted)]">
               Este cartão ainda não tem {labels.pluralLower} disponíveis para
@@ -393,7 +413,7 @@ export default async function PublicBookingPage({
           )}
         </section>
 
-        <footer className="mx-auto mt-10 text-center">
+        <footer className="mx-auto text-center">
           <div className="mx-auto h-px w-10 bg-[var(--eq-card-border)]" />
           <p className="mt-4 text-[11px] uppercase tracking-[0.2em] text-[var(--eq-muted)]">
             Agendamento por EstetiQI

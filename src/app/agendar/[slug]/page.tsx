@@ -386,22 +386,9 @@ export default async function PublicBookingPage({
           </section>
         ) : null}
 
-        {/* Localização: só a informação curta do endereço real (cidade/UF). Sem
-            cidade/UF a seção não aparece — nada de bloco vazio nem de texto
-            inventado. O botão "Como chegar" vive na lista de links, logo acima
-            (prioridade 4 da coluna), e por isso não é duplicado aqui: dois
-            controles idênticos na mesma tela só disputam a atenção. */}
-        {address ? (
-          <section id="localizacao" className="scroll-mt-6">
-            <h2 className="px-1 text-sm font-semibold uppercase tracking-[0.12em] text-[var(--eq-ink)]">
-              Localização
-            </h2>
-            <p className="mt-3 flex items-center justify-center gap-2 rounded-[1.5rem] bg-[var(--eq-card)] px-5 py-3 text-center text-sm font-medium text-[var(--eq-ink)]">
-              <MapsIcon className="h-5 w-5 shrink-0 text-[var(--eq-muted)]" />
-              <span>{address}</span>
-            </p>
-          </section>
-        ) : null}
+        {/* Localização: o endereço NÃO é exibido como texto no cartão. O acesso ao
+            mapa continua no botão "Como chegar", na lista de links acima, que só
+            aparece quando existe um destino real cadastrado. */}
 
         {/* Seção de agendamento: fica na mesma página e é o destino do botão
             "Agendar online". O id é a âncora usada para a rolagem suave. */}

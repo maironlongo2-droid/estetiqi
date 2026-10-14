@@ -542,13 +542,16 @@ describe("paleta aplicada nas telas do cartão público", () => {
     assert.equal(countOf(CARD_PAGE, "bg-white"), 0);
     assert.equal(countOf(CARD_FORM, "bg-white"), 0);
 
-    // Capa: com foto continua sendo a imagem cadastrada; sem foto, a faixa é o
-    // verde do cartão — nunca transparente, branca ou fora da paleta.
+    // Capa: com foto continua sendo a imagem cadastrada; sem foto, o detalhe é o
+    // verde do cartão — nunca transparente, branco ou fora da paleta. A ALTURA da
+    // capa é decisão de composição (ela virou um detalhe discreto atrás do logo,
+    // não a faixa que abria a página), então o teste cobra a cor e a ausência de
+    // gradiente, e não os pixels da faixa antiga de 128px.
     assert.ok(
       CARD_PAGE.includes("organization.hasCover ?"),
       "a capa com foto precisa continuar sendo exibida"
     );
-    assert.match(CARD_PAGE, /className="h-32 w-full bg-\[var\(--eq-cover\)\]/);
+    assert.match(CARD_PAGE, /bg-\[var\(--eq-cover\)\]/);
     assert.equal(
       countOf(CARD_PAGE, "linear-gradient"),
       0,
@@ -556,11 +559,22 @@ describe("paleta aplicada nas telas do cartão público", () => {
     );
   });
 
-  it("pinta com o branco da caixa todas as superfícies de conteúdo", () => {
-    // Cabeçalho (perfil), procedimentos, equipe, localização e estado vazio na
-    // página; confirmação, área fechada e formulário no formulário de agendamento.
-    assert.ok(countOf(CARD_PAGE, "bg-[var(--eq-card)]") >= 5);
+  it("pinta com o branco da caixa as seções secundárias do cartão", () => {
+    // A composição minimalista tem MENOS caixas que a anterior: o perfil e a
+    // lista de links não vivem mais dentro de um cartão branco. As seções
+    // secundárias (serviços, profissionais, localização) e o estado vazio sem
+    // serviços continuam sobre a superfície branca do token; no formulário, a
+    // confirmação, a área fechada e o formulário aberto.
+    assert.ok(countOf(CARD_PAGE, "bg-[var(--eq-card)]") >= 3);
     assert.ok(countOf(CARD_FORM, "bg-[var(--eq-card)]") >= 3);
+
+    // O perfil é um bloco solto na página, não um painel: o <header> não pode
+    // voltar a ter superfície branca nem sombra.
+    assert.doesNotMatch(
+      CARD_PAGE,
+      /<header className="[^"]*bg-\[var\(--eq-card\)\]/
+    );
+    assert.doesNotMatch(CARD_PAGE, /<header className="[^"]*eq-elevation/);
 
     // Nenhum botão (pill arredondado) pode herdar o branco da caixa.
     for (const source of [CARD_PAGE, CARD_FORM]) {
@@ -607,6 +621,36 @@ describe("paleta aplicada nas telas do cartão público", () => {
         `botão de ação sem a superfície clara: ${action}`
       );
     }
+  });
+});
+
+// Composição do cartão: o requisito de produto é um cartão de apresentação
+// minimalista (perfil centralizado e lista de links empilhados), não um dashboard
+// de caixas com a paleta nova. Este bloco existe para que a volta da capa alta e
+// dos links dentro do cabeçalho não passe batido em uma próxima mudança de cor.
+describe("composição do cartão público", () => {
+  it("mantém o perfil compacto e a lista de links como elemento central", () => {
+    assert.match(CARD_PAGE, /<nav\s+aria-label="Agendamento e contatos"/);
+    assert.match(CARD_PAGE, /href="#agendamento"/);
+    assert.match(CARD_PAGE, /<span>Como chegar<\/span>/);
+
+    // Largura da coluna central: 480px no celular e um degrau a mais no desktop.
+    assert.match(CARD_PAGE, /max-w-\[480px\][^"]*md:max-w-\[560px\]/);
+
+    // A capa é um detalhe baixo atrás do logo, não a faixa que abria a página.
+    assert.match(CARD_PAGE, /className="relative h-20 w-full sm:h-24"/);
+    assert.match(
+      CARD_PAGE,
+      /className="h-full w-full rounded-\[1\.5rem\] bg-\[var\(--eq-cover\)\]"/
+    );
+    assert.equal(countOf(CARD_PAGE, "h-32 "), 0);
+
+    // Serviços e profissionais são DUAS listas, cada uma em uma única
+    // superfície com divisórias — nunca uma caixa por item.
+    assert.equal(
+      countOf(CARD_PAGE, "divide-y divide-[var(--eq-card-border)]"),
+      2
+    );
   });
 });
 

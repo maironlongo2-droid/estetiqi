@@ -167,36 +167,43 @@ export default async function PublicBookingPage({
 
   return (
     <main
-      className="eq-public min-h-screen bg-[var(--eq-page)] px-4 pb-12 pt-6 text-[var(--eq-ink)] sm:px-6 sm:pb-12 sm:pt-10"
+      className="eq-public min-h-screen bg-[var(--eq-page)] px-4 pb-16 pt-8 text-[var(--eq-ink)] sm:px-6 sm:pt-10"
     >
-      <div className="mx-auto flex w-full max-w-[480px] flex-col gap-6">
-        <header className="overflow-hidden rounded-[1.75rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] eq-elevation">
-          {/* Capa: opcional. Sem capa cadastrada, a faixa usa o verde acinzentado
-              da capa (`--eq-cover`) — nunca uma imagem quebrada nem uma cor que
-              fuja da paleta do cartão. */}
-          {organization.hasCover ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={`/api/public/${organization.slug}/cover${
-                organization.coverVersion
-                  ? `?v=${organization.coverVersion}`
-                  : ""
-              }`}
-              alt={`Capa de ${organization.name}`}
-              className="h-32 w-full object-cover sm:h-40"
-            />
-          ) : (
-            <div
-              aria-hidden="true"
-              className="h-32 w-full bg-[var(--eq-cover)] sm:h-40"
-            />
-          )}
+      {/* Coluna central do cartão: 480px no celular (limite confortável numa tela
+          de 375–390px) e um degrau a mais em telas maiores, para o perfil e a
+          lista de links ficarem centralizados sem esticar demais as laterais. */}
+      <div className="mx-auto flex w-full max-w-[480px] flex-col gap-8 sm:gap-10 md:max-w-[560px]">
+        <header className="flex flex-col items-center text-center">
+          {/* Capa: opcional e DISCRETA. Ela deixou de ser uma faixa de 128–160px
+              no topo de um cartão branco (que ocupava a primeira tela) e virou um
+              detalhe baixo atrás do logo — a foto/identidade é o elemento visual
+              principal do perfil. Sem capa cadastrada, o detalhe usa o verde
+              acinzentado da capa (`--eq-cover`): nunca uma imagem quebrada nem
+              uma cor fora da paleta. */}
+          <div className="relative h-20 w-full sm:h-24">
+            {organization.hasCover ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`/api/public/${organization.slug}/cover${
+                  organization.coverVersion
+                    ? `?v=${organization.coverVersion}`
+                    : ""
+                }`}
+                alt={`Capa de ${organization.name}`}
+                className="h-full w-full rounded-[1.5rem] object-cover"
+              />
+            ) : (
+              <div
+                aria-hidden="true"
+                className="h-full w-full rounded-[1.5rem] bg-[var(--eq-cover)]"
+              />
+            )}
 
-          <div className="px-6 pb-6 text-center sm:px-8 sm:pb-8">
-            {/* Logo maior, avançando sobre a capa. O anel usa o branco da caixa
-                do cartão e acompanha o raio do avatar, portanto continua sendo um
-                contorno circular — nunca uma moldura quadrada. */}
-            <div className="-mt-12 flex justify-center sm:-mt-14">
+            {/* Logo centralizado entre a capa e o resto do perfil: metade sobre a
+                capa, metade abaixo dela. O anel usa o branco da caixa do cartão e
+                acompanha o raio do avatar, portanto continua sendo um contorno
+                circular — nunca uma moldura quadrada. */}
+            <div className="absolute inset-x-0 -bottom-10 flex justify-center sm:-bottom-12">
               <PublicAvatar
                 src={
                   organization.hasLogo
@@ -209,18 +216,19 @@ export default async function PublicBookingPage({
                 }
                 alt={`Logo de ${organization.name}`}
                 name={organization.name}
-                size="xl"
+                size="lg"
                 fit="contain"
                 className="eq-avatar--ring"
               />
             </div>
+          </div>
 
-          <h1 className="mt-4 text-2xl font-semibold leading-tight tracking-tight text-[var(--eq-ink)] sm:text-[1.75rem]">
+          <h1 className="mt-12 text-[1.75rem] font-semibold leading-tight tracking-tight text-[var(--eq-ink)] sm:mt-14 sm:text-3xl">
             {organization.name}
           </h1>
 
           {organization.headline ? (
-            <p className="mt-3 text-[17px] leading-6 text-[var(--eq-muted)]">
+            <p className="mt-2 text-[17px] leading-6 text-[var(--eq-muted)]">
               {organization.headline}
             </p>
           ) : null}
@@ -231,48 +239,64 @@ export default async function PublicBookingPage({
             </p>
           ) : null}
 
-          {/* Ações rápidas: o agendamento é sempre a PRIMEIRA — e a única —
-              ação PREENCHIDA do cartão (texto branco sobre a identidade do
-              EstetiQI). Os contatos vêm depois, com a superfície de creme suave
-              e o contorno de campo, então a hierarquia da página se lê de
-              relance. Só aparece um botão quando existe um destino real
-              cadastrado: nada de link fictício nem de controle que não salva.
-              Todos têm pelo menos 48px de altura, o mesmo alvo de toque. */}
-          <div className="mt-6 flex flex-col gap-3">
-            {procedures.length > 0 ? (
-              <a
-                href="#agendamento"
-                className="eq-elevation-action inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--eq-accent)] px-6 text-sm font-semibold text-[var(--eq-accent-on)] transition hover:bg-[var(--eq-accent-strong)]"
-              >
-                <CalendarIcon className="h-5 w-5" />
-                <span>Agendar online</span>
-              </a>
-            ) : null}
-            {whatsappHref ? (
-              <a
-                href={whatsappHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="eq-contact-link w-full"
-              >
-                <WhatsAppIcon className="h-5 w-5" />
-                <span>WhatsApp</span>
-              </a>
-            ) : null}
-            {instagramHref ? (
-              <a
-                href={instagramHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="eq-contact-link w-full"
-              >
-                <InstagramIcon className="h-5 w-5" />
-                <span>Instagram</span>
-              </a>
-            ) : null}
-          </div>
-          </div>
         </header>
+
+        {/* LISTA DE LINKS — o centro do cartão. Ela saiu de dentro do cabeçalho:
+            agora é uma coluna própria, logo abaixo do perfil, com botões grandes
+            de pílula empilhados na largura da coluna central. O agendamento é a
+            PRIMEIRA e a única ação PREENCHIDA do cartão (texto branco sobre a
+            identidade do EstetiQI); os contatos vêm depois, com a superfície de
+            creme suave e o contorno de campo, então a hierarquia se lê de
+            relance. Só aparece um botão quando existe um destino real cadastrado:
+            nada de link fictício nem de controle que não salva. Todos têm pelo
+            menos 48px de altura, o mesmo alvo de toque. */}
+        <nav
+          aria-label="Agendamento e contatos"
+          className="flex flex-col gap-3"
+        >
+          {procedures.length > 0 ? (
+            <a
+              href="#agendamento"
+              className="eq-elevation-action inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--eq-accent)] px-6 text-sm font-semibold text-[var(--eq-accent-on)] transition hover:bg-[var(--eq-accent-strong)]"
+            >
+              <CalendarIcon className="h-5 w-5" />
+              <span>Agendar online</span>
+            </a>
+          ) : null}
+          {whatsappHref ? (
+            <a
+              href={whatsappHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="eq-contact-link w-full"
+            >
+              <WhatsAppIcon className="h-5 w-5" />
+              <span>WhatsApp</span>
+            </a>
+          ) : null}
+          {instagramHref ? (
+            <a
+              href={instagramHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="eq-contact-link w-full"
+            >
+              <InstagramIcon className="h-5 w-5" />
+              <span>Instagram</span>
+            </a>
+          ) : null}
+          {mapsHref ? (
+            <a
+              href={mapsHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="eq-contact-link w-full"
+            >
+              <MapsIcon className="h-5 w-5" />
+              <span>Como chegar</span>
+            </a>
+          ) : null}
+        </nav>
 
         {/* Catálogo público de serviços: exatamente os mesmos que o formulário
             abaixo oferece (serviço ativo e com profissional ativo que o
@@ -284,18 +308,15 @@ export default async function PublicBookingPage({
             <h2 className="px-1 text-sm font-semibold uppercase tracking-[0.12em] text-[var(--eq-ink)]">
               {labels.plural}
             </h2>
-            <ul className="mt-3 space-y-3">
+            <ul className="mt-3 divide-y divide-[var(--eq-card-border)] overflow-hidden rounded-[1.5rem] bg-[var(--eq-card)]">
               {procedures.map((procedure) => {
                 const price = formatBrlPrice(procedure.price);
                 const duration = formatDurationMinutes(
                   procedure.durationMinutes
                 );
                 return (
-                  <li
-                    key={procedure.id}
-                    className="rounded-[1.5rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] p-4 eq-elevation"
-                  >
-                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                  <li key={procedure.id} className="px-5 py-3.5">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
                       <span className="font-medium text-[var(--eq-ink)]">
                         {procedure.name}
                       </span>
@@ -316,20 +337,21 @@ export default async function PublicBookingPage({
           </section>
         ) : null}
 
-        {/* Equipe: quem pode realmente atender pelo link. A foto reusa o mesmo
-            avatar do formulário (círculo por construção, sem moldura própria) e
-            a lista já chega filtrada, então nenhum profissional sem serviço
-            ativo é anunciado no cartão. */}
+        {/* Equipe: quem pode realmente atender pelo link. Uma linha por
+            profissional, com a foto menor (48px) e o nome ao lado — mesma
+            informação, sem a grade de caixas que pesava a página. A lista já
+            chega filtrada, então nenhum profissional sem serviço ativo é
+            anunciado no cartão. */}
         {team.length > 0 ? (
           <section id="equipe" className="scroll-mt-6">
             <h2 className="px-1 text-sm font-semibold uppercase tracking-[0.12em] text-[var(--eq-ink)]">
               Profissionais
             </h2>
-            <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <ul className="mt-3 divide-y divide-[var(--eq-card-border)] overflow-hidden rounded-[1.5rem] bg-[var(--eq-card)]">
               {team.map((professional) => (
                 <li
                   key={professional.id}
-                  className="flex flex-col items-center gap-3 rounded-[1.5rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] p-4 text-center eq-elevation"
+                  className="flex items-center gap-3 px-5 py-3"
                 >
                   <PublicAvatar
                     src={
@@ -345,15 +367,15 @@ export default async function PublicBookingPage({
                     }
                     alt={`Foto de ${professional.name}`}
                     name={professional.name}
-                    size="lg"
+                    size="sm"
                     className="eq-avatar--photo"
                   />
-                  <span className="flex flex-col items-center leading-tight">
-                    <span className="text-sm font-semibold text-[var(--eq-ink)]">
+                  <span className="flex min-w-0 flex-col leading-tight">
+                    <span className="truncate text-sm font-semibold text-[var(--eq-ink)]">
                       {professional.name}
                     </span>
                     {professional.specialty ? (
-                      <span className="mt-0.5 text-xs font-normal text-[var(--eq-muted)]">
+                      <span className="text-xs text-[var(--eq-muted)]">
                         {professional.specialty}
                       </span>
                     ) : null}
@@ -364,33 +386,20 @@ export default async function PublicBookingPage({
           </section>
         ) : null}
 
-        {/* Localização: seção própria, com o dado real cadastrado (cidade/UF) e
-            o botão que abre a rota no mapa do aparelho. Nenhum endereço é
-            presumido: sem cidade/UF e sem link do Google Maps, a seção inteira
-            não aparece — em vez de um bloco vazio ou de um texto inventado. */}
-        {address || mapsHref ? (
+        {/* Localização: só a informação curta do endereço real (cidade/UF). Sem
+            cidade/UF a seção não aparece — nada de bloco vazio nem de texto
+            inventado. O botão "Como chegar" vive na lista de links, logo acima
+            (prioridade 4 da coluna), e por isso não é duplicado aqui: dois
+            controles idênticos na mesma tela só disputam a atenção. */}
+        {address ? (
           <section id="localizacao" className="scroll-mt-6">
             <h2 className="px-1 text-sm font-semibold uppercase tracking-[0.12em] text-[var(--eq-ink)]">
               Localização
             </h2>
-            <div className="mt-3 rounded-[1.5rem] border border-[var(--eq-card-border)] bg-[var(--eq-card)] p-5 eq-elevation">
-              {address ? (
-                <p className="flex items-center justify-center gap-2 text-center text-sm font-medium text-[var(--eq-ink)]">
-                  <MapsIcon className="h-5 w-5 shrink-0 text-[var(--eq-muted)]" />
-                  <span>{address}</span>
-                </p>
-              ) : null}
-              {mapsHref ? (
-                <a
-                  href={mapsHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="eq-contact-link mt-4 w-full"
-                >
-                  <span>Como chegar</span>
-                </a>
-              ) : null}
-            </div>
+            <p className="mt-3 flex items-center justify-center gap-2 rounded-[1.5rem] bg-[var(--eq-card)] px-5 py-3 text-center text-sm font-medium text-[var(--eq-ink)]">
+              <MapsIcon className="h-5 w-5 shrink-0 text-[var(--eq-muted)]" />
+              <span>{address}</span>
+            </p>
           </section>
         ) : null}
 
